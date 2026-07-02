@@ -12,9 +12,11 @@
 ///        └─ label (frame in panel coords, draws at its own 0,0)
 /// ```
 ///
-/// Subclasses override `draw(_:)` to paint their content. Interaction,
-/// focus, and layout arrive in later phases; this class deliberately owns
-/// only geometry, hierarchy, drawing, and dirty tracking.
+/// Subclasses override `draw(_:)` to paint their content, and the responder
+/// methods (`keyDown(_:)`, `mouseEvent(_:)`, hot/cold key hooks) to handle
+/// input. A view receives input only through the typed responder surface —
+/// raw terminal bytes never reach the view layer. Focus itself is owned by
+/// the view's `Window` (the focus scope), not by individual views.
 @MainActor
 open class View {
     /// The parent view, when attached.
@@ -110,6 +112,147 @@ open class View {
     /// Whether this view or anything beneath it needs redrawing.
     public var needsDisplayInTree: Bool {
         needsDisplay || subtreeNeedsDisplay
+    }
+
+    // MARK: - Responder Surface
+
+    /// Whether the view can hold keyboard focus.
+    ///
+    /// Focusable controls override this to return `true`. Focus itself is
+    /// granted and revoked by the view's `Window` through
+    /// `makeFirstResponder(_:)`.
+    open var acceptsFirstResponder: Bool {
+        false
+    }
+
+    /// Whether the view currently holds keyboard focus.
+    ///
+    /// Managed by the owning `Window`; views only read it (typically to draw
+    /// a focus indicator).
+    public internal(set) var isFirstResponder = false {
+        didSet {
+            if isFirstResponder != oldValue {
+                setNeedsDisplay()
+            }
+        }
+    }
+
+    /// Called after the view gains keyboard focus.
+    open func didBecomeFirstResponder() {}
+
+    /// Called after the view loses keyboard focus.
+    open func didResignFirstResponder() {}
+
+    /// Handles a key while the view is (or contains) the first responder.
+    ///
+    /// Unhandled keys bubble up the superview chain, then fall through to
+    /// focus traversal (Tab / Shift+Tab) and finally the cold-key pass.
+    ///
+    /// - Parameter key: Decoded key input.
+    /// - Returns: `true` when the view consumed the key.
+    open func keyDown(_ key: KeyInput) -> Bool {
+        false
+    }
+
+    /// Offers a key to the view before focus routing (accelerators).
+    ///
+    /// The window walks the tree depth-first; the first view returning
+    /// `true` consumes the key.
+    ///
+    /// - Parameter key: Decoded key input.
+    /// - Returns: `true` when the view consumed the key.
+    open func handleHotKey(_ key: KeyInput) -> Bool {
+        false
+    }
+
+    /// Offers a key nothing else consumed (fallback shortcuts).
+    ///
+    /// - Parameter key: Decoded key input.
+    /// - Returns: `true` when the view consumed the key.
+    open func handleColdKey(_ key: KeyInput) -> Bool {
+        false
+    }
+
+    /// Handles a mouse event delivered in the view's local coordinates.
+    ///
+    /// Unhandled events bubble up the superview chain.
+    ///
+    /// - Parameter mouse: Decoded mouse event, position in local coordinates.
+    /// - Returns: `true` when the view consumed the event.
+    open func mouseEvent(_ mouse: MouseInput) -> Bool {
+        false
+    }
+
+    // MARK: - Hit Testing and Traversal
+
+    /// Finds the deepest visible view containing a point.
+    ///
+    /// - Parameter point: Position in this view's local coordinates.
+    /// - Returns: The deepest hit view and the point translated into its
+    ///   local coordinates, or `nil` when the point is outside this view.
+    public func hitTest(_ point: Point) -> (view: View, local: Point)? {
+        guard !isHidden, bounds.contains(point) else {
+            return nil
+        }
+
+        for subview in subviews.reversed() {
+            if let hit = subview.hitTest(point - subview.frame.origin) {
+                return hit
+            }
+        }
+
+        return (self, point)
+    }
+
+    // Visits the visible tree depth-first (self, then children in order)
+    // until the body returns true. Returns whether any visit returned true.
+    @discardableResult
+    func traverseVisible(_ body: (View) -> Bool) -> Bool {
+        guard !isHidden else {
+            return false
+        }
+
+        if body(self) {
+            return true
+        }
+
+        for subview in subviews {
+            if subview.traverseVisible(body) {
+                return true
+            }
+        }
+
+        return false
+    }
+
+    // Collects visible views depth-first that satisfy the predicate.
+    func collectVisible(where predicate: (View) -> Bool) -> [View] {
+        var result: [View] = []
+
+        traverseVisible { view in
+            if predicate(view) {
+                result.append(view)
+            }
+
+            return false
+        }
+
+        return result
+    }
+
+    // Whether this view is the given view or one of its descendants.
+    func isDescendant(of ancestor: View) -> Bool {
+        var current: View? = self
+
+        while let view = current {
+            if view === ancestor {
+                return true
+            }
+
+            current = view.superview
+        }
+
+        return false
     }
 
     // Draws this view and its subtree, clearing dirty flags.

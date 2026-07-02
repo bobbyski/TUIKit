@@ -18,59 +18,71 @@ if CommandLine.arguments.contains("--interactive") {
     runStaticGallery()
 }
 
-/// Full-screen event viewer proving the ANSI driver end to end: raw mode,
-/// alternate screen, async input, decoding, resize, and clean restore.
+/// Full-screen event viewer, now built the way real TUIKit apps are: a
+/// `Window` subclass on an `App` run loop. Proves driver, decoder, view
+/// system, responder routing, resize handling, and graceful stop together.
+@MainActor
+final class EventLogWindow: Window {
+    var onQuit: () -> Void = {}
+
+    private var events: [String] = []
+
+    override func draw(_ painter: Painter) {
+        let title = CellStyle(foreground: .named(.brightWhite), background: .named(.blue), flags: .bold)
+
+        painter.fill(bounds, with: .blank)
+        painter.fill(Rect(x: 0, y: 0, width: bounds.size.width, height: 1), with: TerminalCell(character: " ", style: title))
+        painter.write(" TUIKit interactive demo — press q to quit ", at: .zero, style: title)
+        painter.write(
+            "window \(bounds.size.width)x\(bounds.size.height) — type, use arrows, click, scroll, resize",
+            at: Point(x: 1, y: 2),
+            style: CellStyle(foreground: .named(.brightBlack))
+        )
+
+        let visible = events.suffix(max(0, bounds.size.height - 5))
+
+        for (index, line) in visible.enumerated() {
+            painter.write(line, at: Point(x: 1, y: 4 + index))
+        }
+    }
+
+    override func keyDown(_ key: KeyInput) -> Bool {
+        if key.key == .character("q"), key.modifiers.isEmpty {
+            onQuit()
+            return true
+        }
+
+        log("key: \(key)")
+        return true
+    }
+
+    override func mouseEvent(_ mouse: MouseInput) -> Bool {
+        log("mouse: \(mouse)")
+        return true
+    }
+
+    private func log(_ line: String) {
+        events.append("\(events.count + 1). \(line)")
+        setNeedsDisplay()
+    }
+}
+
+/// Runs the interactive event viewer on the real terminal.
+@MainActor
 func runInteractiveDemo() async throws {
-    let driver = ANSIDriver()
+    let app = App(driver: ANSIDriver())
+    let window = EventLogWindow()
+
+    window.onQuit = { app.stop() }
 
     do {
-        try await driver.begin()
+        try await app.run(window)
     } catch {
         print("Interactive mode needs a real terminal (\(error)).")
         return
     }
 
-    func render(_ events: [String], size: Size) async {
-        var buffer = CellBuffer(size: size)
-        let title = CellStyle(foreground: .named(.brightWhite), background: .named(.blue), flags: .bold)
-
-        buffer.fill(Rect(x: 0, y: 0, width: size.width, height: 1), with: TerminalCell(character: " ", style: title))
-        buffer.write(" TUIKit interactive demo — press q to quit ", at: .zero, style: title)
-        buffer.write(
-            "terminal \(size.width)x\(size.height) — type, use arrows, click, scroll, resize",
-            at: Point(x: 1, y: 2),
-            style: CellStyle(foreground: .named(.brightBlack))
-        )
-
-        let visible = events.suffix(max(0, size.height - 5))
-
-        for (index, line) in visible.enumerated() {
-            buffer.write(line, at: Point(x: 1, y: 4 + index))
-        }
-
-        await driver.present(buffer)
-    }
-
-    var events: [String] = []
-    var size = await driver.size
-
-    await render(events, size: size)
-
-    for await input in await driver.inputStream() {
-        if case .resize(let newSize) = input {
-            size = newSize
-        }
-
-        events.append("\(events.count + 1). \(input)")
-        await render(events, size: size)
-
-        if case .key(let key) = input, key.key == .character("q"), key.modifiers.isEmpty {
-            break
-        }
-    }
-
-    await driver.end()
-    print("Restored terminal. \(events.count) events observed.")
+    print("Restored terminal.")
 }
 
 /// Bordered, titled panel used by the gallery's view-tree section.

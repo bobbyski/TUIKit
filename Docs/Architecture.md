@@ -63,9 +63,14 @@ Phases 1–3 are in place: geometry (`Point`/`Size`/`Rect`), the cell model
 `TerminalDriver` with both `ANSIDriver` (raw mode, SGR mouse, async input)
 and `HeadlessDriver`, the pure `ANSIInputDecoder` and `ANSIEncoder`, and the
 view system — `View`, `Painter` (mechanical clipping + local coordinates),
-and `SceneRenderer` (dirty-gated frames). The demo gallery
-(`swift run TUIKitDemo`, `--interactive` for the live driver) shows all of
-it. Next: the run loop and responder chain (Phase 4).
+and `SceneRenderer` (dirty-gated frames). Phase 4 added the interaction
+layer: the `View` responder surface (typed key/mouse handlers, focus hooks),
+`Window` as the focus scope (first responder, Tab order, hot → focused →
+Tab → cold key routing, hit-tested mouse delivery in local coordinates), and
+`App` — the window stack and the pure-suspension run loop with graceful
+`stop()`. The interactive demo is now a real TUIKit app
+(`swift run TUIKitDemo --interactive`). Next: layout (Phase 5), then
+controls (Phase 6).
 
 ## RichSwift
 

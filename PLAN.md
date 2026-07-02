@@ -20,12 +20,12 @@ testable, demos read as tutorials).
 ## Dashboard
 
 ```
-Overall Progress  ██████████░░░░░░░░░░░░░░░░░░░░░░  30%   (15 / 50 items)
+Overall Progress  █████████████░░░░░░░░░░░░░░░░░░░  40%   (20 / 50 items)
 
 Phase 1 · Package Scaffold & Docs     ██████████████████████████  100%  ✅ Complete
 Phase 2 · Terminal Drivers            ██████████████████████████  100%  ✅ Complete (44 tests green 2026-07-01; interactive demo check pending)
 Phase 3 · View System & Rendering     ██████████████████████████  100%  🔄 Code complete, unverified
-Phase 4 · Run Loop & Responder Chain  ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending
+Phase 4 · Run Loop & Responder Chain  ██████████████████████████  100%  🔄 Code complete, unverified
 Phase 5 · Layout                      ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending
 Phase 6 · Controls v1                 ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending
 Phase 7 · Styling & Theming           ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending
@@ -115,15 +115,15 @@ Layout per the AICoding rules framework structure.
 | 3.4 | Dirty tracking & compose | ✅ Done | setNeedsDisplay with ancestor propagation; SceneRenderer.renderIfNeeded gates frames (v1 = full redraw per dirty frame; damage regions later); deterministic parent-then-children order. |
 | 3.5 | Render snapshot testing | ✅ Done | 14 view-system tests assert on rendered textLines(). |
 
-## Phase 4 — Run Loop & Responder Chain ⏳ 0%
+## Phase 4 — Run Loop & Responder Chain 🔄 100% (code complete, unverified)
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 4.1 | `App`/run loop on `MainActor` | ⏳ Pending | Async input intake; graceful stop returns control to caller. |
-| 4.2 | Responder chain | ⏳ Pending | firstResponder, becomeFirst/resign, key routing hot → focused → cold. |
-| 4.3 | Focus scopes | ⏳ Pending | Windows/dialogs/composites own tab order; expose outcomes only. |
-| 4.4 | Semantic event surface | ⏳ Pending | Typed callbacks per control; raw input never crosses the framework edge. |
-| 4.5 | Window stack | ⏳ Pending | Toplevel/modal presentation, z-order, per-window focus. |
+| 4.1 | `App`/run loop on `MainActor` | ✅ Done | for-await over driver input (pure suspension); stop() returns control to caller with terminal restored; Ctrl+C default (opt-out); dirty-gated presents. |
+| 4.2 | Responder chain | ✅ Done | View responder surface (keyDown/hot/cold/mouse + focus hooks); routing hot → focused chain (bubbling) → Tab traversal → cold. |
+| 4.3 | Focus scopes | ✅ Done | Window owns firstResponder + depth-first tab order with wraparound; hidden views skipped; composite-scope nesting later with composites. |
+| 4.4 | Semantic event surface | ✅ Done | Views receive typed KeyInput/MouseInput in local coords only; per-control typed callbacks (onActivate etc.) land with each Phase 6 control. |
+| 4.5 | Window stack | ✅ Done | App present/dismiss stack; top window is key (modal input rule); z-order via subview compositing; fillsScreen windows follow resize. |
 
 ## Phase 5 — Layout ⏳ 0%
 
