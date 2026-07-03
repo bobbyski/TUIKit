@@ -106,8 +106,21 @@ func runFormDemo() async throws {
         status.text = "modal dialog open — Esc cancels, Return confirms"
     }
 
+    let open = Button("Open…") {
+        let dialog = FileDialog(mode: .open, root: FileManager.default.currentDirectoryPath)
+        dialog.onConfirm = { status.text = "chose: \($0)" }
+        dialog.onDismiss = { [weak dialog] in
+            if let dialog {
+                app.dismiss(dialog)
+            }
+        }
+        dialog.sizeToFit(in: window.frame.size)
+        app.present(dialog)
+    }
+
     let buttons = HStack(spacing: 2)
     buttons.addSubview(summary)
+    buttons.addSubview(open)
     buttons.addSubview(quit)
     buttons.addSubview(View())   // flexible spacer keeps buttons leading
 
@@ -225,11 +238,22 @@ func runFormDemo() async throws {
     }
     tree.onActivate = { status.text = "OPENED \($0.title)" }
 
+    let tableSection = VStack(spacing: 1)
+    tableSection.addSubview(Label("Table (click headers to sort):", style: CellStyle(flags: .bold)))
+    tableSection.addSubview(table)
+
+    let treeSection = VStack(spacing: 1)
+    treeSection.addSubview(Label("Tree (←/→ disclose, lazy Sources):", style: CellStyle(flags: .bold)))
+    treeSection.addSubview(tree)
+
+    let dataSplit = SplitView(axis: .vertical, first: tableSection, second: treeSection)
+    dataSplit.minimumFirstLength = 4
+    dataSplit.minimumSecondLength = 4
+    dataSplit.onDividerMoved = { status.text = "split divider at row \($0)" }
+
     let dataTab = VStack(spacing: 1, insets: EdgeInsets(all: 1))
-    dataTab.addSubview(Label("Table (click headers to sort):", style: CellStyle(flags: .bold)))
-    dataTab.addSubview(table)
-    dataTab.addSubview(Label("Tree (←/→ disclose, lazy Sources):", style: CellStyle(flags: .bold)))
-    dataTab.addSubview(tree)
+    dataTab.addSubview(Label("SplitView: drag the ─ divider, or focus it and use ↑/↓", style: CellStyle(flags: .bold)))
+    dataTab.addSubview(dataSplit)
 
     let tabs = TabView()
     tabs.addTab("Form", content: formTab)
@@ -652,8 +676,8 @@ print("(present with app.present — the window stack makes it modal)")
 heading("Coming soon")
 
 print("""
-Remaining controls arrive through Phase 6: MenuBar, SplitView, color
-picker, file dialogs, RichText (RichSwift), and SyntaxTextView.
+Remaining controls arrive through Phase 6: MenuBar, color picker,
+RichText (RichSwift), and SyntaxTextView.
 
 Live demos:  swift run TUIKitDemo --interactive   (tabbed control form)
              swift run TUIKitDemo --events        (driver event viewer)

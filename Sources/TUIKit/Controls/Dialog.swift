@@ -20,9 +20,15 @@
 /// focus is on a control that consumes Return (a text field, a list), the
 /// default button still answers Return through the cold-key pass.
 @MainActor
-public final class Dialog: Window {
+public class Dialog: Window {
     /// Called after any button's action; wire this to dismissal.
     public var onDismiss: () -> Void = {}
+
+    /// Flexible region between the message and the buttons.
+    ///
+    /// Empty in a plain alert; dialog subclasses (like `FileDialog`) put
+    /// their content here.
+    public let body = View()
 
     /// Buttons in the order added (rendered left to right).
     public private(set) var buttons: [Button] = []
@@ -60,7 +66,7 @@ public final class Dialog: Window {
             stack.addSubview(Label(String(line)))
         }
 
-        stack.addSubview(View())   // flexible gap pushes buttons to the bottom
+        stack.addSubview(body)   // flexible: absorbs extra height between message and buttons
         buttonRow.addSubview(View())   // flexible spacer right-aligns buttons
         stack.addSubview(buttonRow)
 

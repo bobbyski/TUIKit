@@ -23,14 +23,14 @@ Docs: `Docs/Architecture.md` (layers/ownership), `Docs/ControlsUML.md`
 ## Dashboard
 
 ```
-Overall Progress  ██████████████████░░░░░░░░░░░░░░  57%   (39 / 68 items)
+Overall Progress  ███████████████████░░░░░░░░░░░░░  60%   (41 / 68 items)
 
 Phase 1 · Package Scaffold & Docs     ██████████████████████████  100%  ✅ Complete
 Phase 2 · Terminal Drivers            ██████████████████████████  100%  ✅ Complete (44 tests green 2026-07-01; interactive demo check pending)
 Phase 3 · View System & Rendering     ██████████████████████████  100%  🔄 Code complete, unverified
 Phase 4 · Run Loop & Responder Chain  ██████████████████████████  100%  🔄 Code complete, unverified
 Phase 5 · Layout                      ██████████████████████████  100%  🔄 Code complete, unverified
-Phase 6 · Controls v1                 ████████████████████░░░░░░   75%  🔄 In Progress (15 of 20 controls)
+Phase 6 · Controls v1                 ██████████████████████░░░░   85%  🔄 In Progress (17 of 20 controls)
 Phase 7 · Styling & Theming           ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending
 Phase 8 · Demo & Polish               ███░░░░░░░░░░░░░░░░░░░░░░░   12%  🔄 Demo gallery started early
 Phase 9 · Tutorial                    ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending
@@ -161,9 +161,9 @@ Each control owns its interaction state, keyboard model, and mouse behavior.
 | 6.10 | `TableView` | ✅ Done | The multi-column consumer of `RowNavigationState`, as designed in 6.5: identical keyboard model to ListView below a fixed bold+underline header; `TableColumn` fixed/flexible(weight) widths (stack-style deterministic remainders, 1-cell separators); selection inverts the full row; header click emits `onSortRequested(column)` — the app owns data and sort order; `onSelectionChanged`/`onActivate`, silent `select`. |
 | 6.11 | `TreeView` | ✅ Done | `TreeNode` model (parent links, `representedValue`, `childProvider` loads lazily exactly once on first expansion); expanded nodes flatten onto `RowNavigationState`, so navigation is ListView's; `→` expands then steps into children, `←` collapses then steps to the parent; disclosure-triangle clicks toggle; selection survives rebuilds by node identity; `onSelectionChanged`/`onActivate`, silent `select`. |
 | 6.11b | `DirectoryTree` | ✅ Done | File-system outline composed over `TreeView` behind the `FileSystemProvider` protocol (AICoding rule 30; `LocalFileSystem` for the real disk, fake providers in tests — no test touches the disk). Lazy per-directory listing on first expansion, directories-first case-insensitive sort, `showsFiles` filter, `setRoot`/`reload`/`expandRoot`; path-typed events (`onSelectionChanged(String?)`, `onActivate(String)`). Standalone control now; becomes the tree half of 6.14. |
-| 6.12 | `SplitView` | ⏳ Pending | H/V panes, keyboard- and mouse-draggable divider, min sizes, collapse. |
+| 6.12 | `SplitView` | ✅ Done | H/V panes around a one-cell divider; divider drags with the mouse (grabbed via window capture, so the drag survives leaving the divider cell), arrows move it while focused, Home/End snap against the pane minimums; `minimumFirst/SecondLength` clamp every path; silent `setDividerPosition`, `onDividerMoved`. Collapse = a zero minimum + Home/End. |
 | 6.13 | `Stepper` | ✅ Done | `[-] 42 [+]`: Up/`+` and Down/`-` step (clamped to `range`, custom `step`), Home/End jump to bounds, clicking a bracket steps; field width sized to the range's widest value; silent `setValue`, `onValueChanged`; steps at a bound emit nothing. |
-| 6.14 | Open/Save dialog | ⏳ Pending | File and directory choosing (open/save/select-folder modes); reuses `FileSystemProvider` and `DirectoryTree` (6.11b) so tests use a fake file system; builds on DirectoryTree + TextField + Dialog. |
+| 6.14 | Open/Save dialog | ✅ Done | `FileDialog(mode:root:fileSystem:)` — open / save / selectFolder — composed from `Dialog` (modality, default/cancel buttons, new `body` slot) + `DirectoryTree` + `TextField`. Save mode joins the current directory with the name field (file selection prefills the name, folder selection retargets); footer always shows the path confirm would return; Return confirms from tree, name field, or button; tested entirely against a fake `FileSystemProvider`. |
 | 6.15 | Color picker | ⏳ Pending | Named/palette/RGB selection matching `TerminalColor`; preview swatches; typed color events. |
 | 6.16 | `SyntaxTextView` | ⏳ Pending | Editable text view with syntax highlighting rendered through RichSwift `Syntax` (see RichSwift Integration); line numbers, scroll; builds on TextField/ScrollView internals. |
 

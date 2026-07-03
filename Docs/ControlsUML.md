@@ -157,6 +157,7 @@ classDiagram
         +rootPath : String
         +showsFiles : Bool
         +selectedPath : String?
+        +selectedPathIsDirectory : Bool?
         +onSelectionChanged : (String?) -> Void
         +onActivate : (String) -> Void
         +setRoot(String)
@@ -172,6 +173,7 @@ classDiagram
     }
 
     class Dialog {
+        +body : View
         +buttons : [Button]
         +defaultButton : Button?
         +cancelButton : Button?
@@ -179,6 +181,24 @@ classDiagram
         +preferredSize : Size
         +addButton(title, isDefault, isCancel, action) Button
         +sizeToFit(in : Size)
+    }
+
+    class FileDialog {
+        +mode : Mode (open/save/selectFolder)
+        +chosenPath : String
+        +suggestedName : String
+        +onConfirm : (String) -> Void
+    }
+
+    class SplitView {
+        +axis : StackView.Axis
+        +first : View
+        +second : View
+        +currentDividerPosition : Int
+        +minimumFirstLength : Int
+        +minimumSecondLength : Int
+        +onDividerMoved : (Int) -> Void
+        +setDividerPosition(Int, notify)
     }
 
     class TreeView {
@@ -243,6 +263,8 @@ classDiagram
     View <|-- DirectoryTree
     View <|-- Panel
     Window <|-- Dialog
+    Dialog <|-- FileDialog
+    View <|-- SplitView
     View <|-- StackView
     View <|-- GridView
     View <|-- Window
@@ -260,6 +282,8 @@ classDiagram
     Panel o-- View : content
     Dialog *-- Panel : chrome
     Dialog o-- Button : actions
+    FileDialog *-- DirectoryTree : browses
+    SplitView o-- View : first/second
     TabView o-- View : content per tab
     ScrollView o-- View : documentView
 
@@ -276,12 +300,7 @@ classDiagram
 
     class View
     class ScrollView
-    class TableView
 
-    class SplitView {
-        +axis
-        +dividerPosition : Int
-    }
     class MenuBar
     class ColorPicker {
         +color : TerminalColor
@@ -295,7 +314,6 @@ classDiagram
         +language : String
     }
 
-    View <|-- SplitView
     View <|-- MenuBar
     View <|-- ColorPicker
     View <|-- RichText

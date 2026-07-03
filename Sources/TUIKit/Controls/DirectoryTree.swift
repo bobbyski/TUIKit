@@ -102,6 +102,9 @@ public final class DirectoryTree: View {
     // Directory listings come only from here.
     private let fileSystem: FileSystemProvider
 
+    // Paths known to be directories (recorded as nodes are built).
+    private var directoryPaths: Set<String> = []
+
     /// Creates a directory tree.
     ///
     /// - Parameters:
@@ -139,10 +142,22 @@ public final class DirectoryTree: View {
         tree.selectedNode.flatMap(Self.path(of:))
     }
 
+    /// Whether the selected path is a directory (`nil` when nothing is
+    /// selected).
+    public var selectedPathIsDirectory: Bool? {
+        selectedPath.map { directoryPaths.contains($0) }
+    }
+
+    // Whether a path shown by this tree is a directory.
+    func isDirectory(_ path: String) -> Bool {
+        directoryPaths.contains(path)
+    }
+
     /// Rebuilds the tree from the file system, collapsing everything.
     ///
     /// Call after external changes (files created, deleted, renamed).
     public func reload() {
+        directoryPaths = []
         tree.roots = [makeNode(path: rootPath, title: Self.lastComponent(of: rootPath))]
     }
 
@@ -203,6 +218,11 @@ public final class DirectoryTree: View {
         }
 
         node.representedValue = path
+
+        if isDirectory {
+            directoryPaths.insert(path)
+        }
+
         return node
     }
 
@@ -210,13 +230,26 @@ public final class DirectoryTree: View {
         node.representedValue as? String
     }
 
-    private static func join(_ path: String, _ name: String) -> String {
+    // MARK: - Path helpers (shared with FileDialog)
+
+    static func join(_ path: String, _ name: String) -> String {
         path.hasSuffix("/") ? path + name : path + "/" + name
     }
 
-    private static func lastComponent(of path: String) -> String {
+    static func lastComponent(of path: String) -> String {
         let trimmed = path.hasSuffix("/") && path.count > 1 ? String(path.dropLast()) : path
         let component = trimmed.split(separator: "/").last.map(String.init)
         return component ?? trimmed
+    }
+
+    static func parent(of path: String) -> String {
+        let trimmed = path.hasSuffix("/") && path.count > 1 ? String(path.dropLast()) : path
+
+        guard let slash = trimmed.lastIndex(of: "/") else {
+            return trimmed
+        }
+
+        let parent = String(trimmed[..<slash])
+        return parent.isEmpty ? "/" : parent
     }
 }
