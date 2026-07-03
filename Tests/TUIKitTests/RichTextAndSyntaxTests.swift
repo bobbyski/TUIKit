@@ -67,6 +67,68 @@ private func renderedBuffer(_ view: TUIKit.View, size: TUIKit.Size) -> CellBuffe
     #expect(number.foreground == .named(.cyan))
 }
 
+// MARK: - MarkdownView
+
+@Test @MainActor func markdownWrapBreaksAtWordBoundaries() {
+    let plain = CellStyle()
+    let wrapped = MarkdownView.wrap([StyledRun(text: "alpha beta gamma", style: plain)], width: 10)
+
+    #expect(wrapped.map { $0.map(\.text).joined() } == ["alpha beta", "gamma"])
+
+    let hard = MarkdownView.wrap([StyledRun(text: "abcdefghij", style: plain)], width: 4)
+    #expect(hard.map { $0.map(\.text).joined() } == ["abcd", "efgh", "ij"])
+
+    // Styles survive the wrap: bold word split from its plain neighbor.
+    let styled = MarkdownView.wrap(
+        [
+            StyledRun(text: "one ", style: plain),
+            StyledRun(text: "two", style: CellStyle(flags: .bold)),
+        ],
+        width: 5
+    )
+    #expect(styled.count == 2)
+    #expect(styled[1] == [StyledRun(text: "two", style: CellStyle(flags: .bold))])
+}
+
+@Test @MainActor func markdownViewRendersHeadingsListsAndInlineStyles() {
+    let view = MarkdownView(markdown: "# Title\n- item one\nplain **bold** end")
+    let buffer = renderedBuffer(view, size: TUIKit.Size(width: 30, height: 4))
+    let lines = buffer.textLines()
+
+    #expect(lines[0].hasPrefix("Title"))
+    #expect(lines[1].hasPrefix("• item one"))
+    #expect(lines[2].hasPrefix("plain bold end"))
+
+    let heading = buffer[TUIKit.Point(x: 0, y: 0)].style
+    #expect(heading.flags.contains(.bold))
+    #expect(heading.foreground == .named(.cyan))
+
+    let bold = buffer[TUIKit.Point(x: 6, y: 2)].style
+    #expect(bold.flags.contains(.bold))
+}
+
+@Test @MainActor func markdownViewScrollsAndShowsIndicator() {
+    let source = (1...20).map { "- line \($0)" }.joined(separator: "\n")
+    let view = MarkdownView(markdown: source)
+    view.frame = Rect(x: 0, y: 0, width: 20, height: 4)
+
+    let before = renderedBuffer(view, size: TUIKit.Size(width: 20, height: 4)).textLines()
+    #expect(before[0].hasPrefix("• line 1"))
+    #expect(before[0].hasSuffix("█"), "overflowing documents show the indicator")
+
+    _ = view.keyDown(KeyInput(key: .end))
+    #expect(view.scrollOffset == 16)
+
+    _ = view.keyDown(KeyInput(key: .down))
+    #expect(view.scrollOffset == 16, "clamped at the bottom")
+
+    let after = renderedBuffer(view, size: TUIKit.Size(width: 20, height: 4)).textLines()
+    #expect(after[3].hasPrefix("• line 20"))
+
+    _ = view.keyDown(KeyInput(key: .home))
+    #expect(view.scrollOffset == 0)
+}
+
 // MARK: - SyntaxTextView
 
 @Test @MainActor func syntaxEditorTypesSplitsAndJoins() {

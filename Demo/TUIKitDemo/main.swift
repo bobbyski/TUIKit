@@ -287,12 +287,38 @@ func runFormDemo() async throws {
     codeTab.addSubview(RichText(markup: "[bold]SyntaxTextView[/] — type away; [cyan]Tab[/] indents, [cyan]Return[/] splits"))
     codeTab.addSubview(editor)
 
+    // "Docs" tab content: a scrolling markdown reader.
+    let docsView = MarkdownView(markdown: """
+    # TUIKit
+
+    A terminal UI framework with **AppKit bones** and `RichSwift` blood. \
+    This paragraph is long on purpose so the view can show off soft \
+    word-wrapping at whatever width the terminal happens to be.
+
+    ## Controls
+    - Buttons, fields, checkboxes, radios, steppers
+    - Lists, tables, trees, a real directory browser
+    - Menus, dialogs, split views, color pickers
+
+    > Scroll me: arrows and PgUp/PgDn while focused, wheel anytime.
+
+    ```swift
+    let app = App(driver: ANSIDriver())
+    try await app.run(window)
+    ```
+    """)
+
+    let docsTab = VStack(spacing: 1, insets: EdgeInsets(all: 1))
+    docsTab.addSubview(Label("MarkdownView (read-only, wraps to width):", style: CellStyle(flags: .bold)))
+    docsTab.addSubview(docsView)
+
     let tabs = TabView()
     tabs.addTab("Form", content: formTab)
     tabs.addTab("Files", content: filesTab)
     tabs.addTab("Scroll", content: scrollTab)
     tabs.addTab("Data", content: dataTab)
     tabs.addTab("Code", content: codeTab)
+    tabs.addTab("Docs", content: docsTab)
     tabs.onSelectionChanged = { status.text = "tab: \(tabs.title(at: $0) ?? "?")" }
     // Fill the window, leaving the top row for Exit and the bottom for status.
     tabs.anchors = AnchorSet(leading: 1, trailing: 8, top: 1, bottom: 1)
@@ -312,7 +338,7 @@ func runFormDemo() async throws {
 
     let viewMenu = Menu("View")
 
-    for (index, name) in ["Form", "Files", "Scroll", "Data", "Code"].enumerated() {
+    for (index, name) in ["Form", "Files", "Scroll", "Data", "Code", "Docs"].enumerated() {
         viewMenu.addItem(name) {
             tabs.select(index, notify: true)
         }

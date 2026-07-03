@@ -246,6 +246,12 @@ classDiagram
         +setRenderable(RichRenderable)
     }
 
+    class MarkdownView {
+        +markdown : String
+        +scrollOffset : Int
+        +setMarkdown(String)
+    }
+
     class SyntaxTextView {
         +text : String
         +language : String
@@ -314,6 +320,7 @@ classDiagram
     View <|-- MenuBar
     View <|-- ColorPicker
     View <|-- RichText
+    View <|-- MarkdownView
     View <|-- SyntaxTextView
     View <|-- StackView
     View <|-- GridView

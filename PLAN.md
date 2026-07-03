@@ -23,14 +23,14 @@ Docs: `Docs/Architecture.md` (layers/ownership), `Docs/ControlsUML.md`
 ## Dashboard
 
 ```
-Overall Progress  █████████████████████░░░░░░░░░░░  66%   (45 / 68 items)
+Overall Progress  █████████████████████░░░░░░░░░░░  67%   (46 / 69 items)
 
 Phase 1 · Package Scaffold & Docs     ██████████████████████████  100%  ✅ Complete
 Phase 2 · Terminal Drivers            ██████████████████████████  100%  ✅ Complete (44 tests green 2026-07-01; interactive demo check pending)
 Phase 3 · View System & Rendering     ██████████████████████████  100%  🔄 Code complete, unverified
 Phase 4 · Run Loop & Responder Chain  ██████████████████████████  100%  🔄 Code complete, unverified
 Phase 5 · Layout                      ██████████████████████████  100%  🔄 Code complete, unverified
-Phase 6 · Controls v1                 ██████████████████████████  100%  🔄 Code complete (all 20 controls; full-suite verification pending)
+Phase 6 · Controls v1                 ██████████████████████████  100%  🔄 Code complete (all 21 controls; full-suite verification pending)
 Phase 7 · Styling & Theming           ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending
 Phase 8 · Demo & Polish               ███░░░░░░░░░░░░░░░░░░░░░░░   12%  🔄 Demo gallery started early
 Phase 9 · Tutorial                    ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending
@@ -152,6 +152,7 @@ Each control owns its interaction state, keyboard model, and mouse behavior.
 |---|------|--------|-------|
 | 6.1 | Label | ✅ Done | Alignment (leading/center/trailing), ellipsis truncation, intrinsic size. |
 | 6.1b | RichText view (RichSwift) | ✅ Done | Two paths: markup via `Markup.parse` (RichSwift `Style`/`Color` map directly onto `CellStyle` — no escapes involved), and any `RichRenderable` (tables/panels/markdown/syntax) rendered at view width then decoded by the internal `SGRDecoder` (the inverse of `ANSIEncoder`, scoped to the SGR subset RichSwift emits). Display-only; width-keyed render cache. RichSwift lands as the package's first (in-house) dependency. |
+| 6.1c | `MarkdownView` | ✅ Done | Scrolling markdown reader over RichSwift `Markdown` (headings, lists, quotes, inline bold/code, highlighted code fences): the view soft word-wraps the styled output to its width (RichSwift keeps one line per source line), scrolls with arrows/PgUp-PgDn/Home/End/wheel, and reserves the last column for the proportional ░/█ indicator. Read-only; `setMarkdown` resets to the top. |
 | 6.2 | Button | ✅ Done | Return/Space + press/release-inside activation with pressed feedback; focus inverts; `onActivate`. |
 | 6.3 | TextField | ✅ Done | Cursor movement/editing keys, horizontal scrolling, click-to-place-cursor, placeholder; `onChanged`/`onSubmit`. (Text selection deferred to SyntaxTextView work.) |
 | 6.4 | Checkbox / RadioGroup | ✅ Done | Toggle via Space/Return/click, arrows+click selection; silent programmatic setters, typed events; RadioGroup inverts the full current row when focused (visible focus even with no selection). |
