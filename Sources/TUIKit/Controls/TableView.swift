@@ -135,12 +135,16 @@ public final class TableView: View {
         }
 
         let widths = resolvedColumnWidths(total: width)
+        let theme = effectiveTheme
 
-        // Header: bold and underlined, never scrolls.
+        // Header: themed and underlined, never scrolls.
+        var headerStyle = theme.header
+        headerStyle.flags.insert(.underline)
+
         painter.write(
             composeLine(cells: columns.map(\.title), widths: widths, total: width),
             at: .zero,
-            style: CellStyle(flags: [.bold, .underline])
+            style: headerStyle
         )
 
         for viewportRow in 0..<rowViewportHeight {
@@ -153,7 +157,11 @@ public final class TableView: View {
             var style = CellStyle()
 
             if index == navigation.selectedIndex {
-                style.flags = isFirstResponder ? [.inverse, .bold] : .inverse
+                style = theme.selection
+
+                if isFirstResponder {
+                    style.flags.insert(.bold)
+                }
             }
 
             painter.write(

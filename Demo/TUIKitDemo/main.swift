@@ -344,9 +344,20 @@ func runFormDemo() async throws {
         }
     }
 
+    // Live theme switching across the whole window.
+    let themeMenu = Menu("Theme")
+
+    for (name, theme) in TUIKit.Theme.builtIn {   // qualified: RichSwift also has a Theme
+        themeMenu.addItem(name) {
+            window.theme = theme
+            status.text = "theme: \(name)"
+        }
+    }
+
     let menuBar = MenuBar()
     menuBar.addMenu(fileMenu)
     menuBar.addMenu(viewMenu)
+    menuBar.addMenu(themeMenu)
     menuBar.anchors = AnchorSet(leading: 0, top: 0, height: 1)
 
     window.addSubview(tabs)

@@ -122,23 +122,25 @@ public final class TabView: View {
 
     /// Draws the tab bar and separator.
     public override func draw(_ painter: Painter) {
+        let theme = effectiveTheme
         var x = 0
 
         for (index, tab) in tabs.enumerated() {
             let label = " \(tab.title) "
             let isSelected = index == selectedIndex
-            var flags: CellFlags = []
+            var style: CellStyle
 
             if isSelected {
-                flags.insert(.inverse)
+                style = theme.selection
+
                 if isFirstResponder {
-                    flags.insert(.bold)
+                    style.flags.insert(.bold)
                 }
             } else {
-                flags.insert(.dim)
+                style = theme.placeholder
             }
 
-            painter.write(label, at: Point(x: x, y: 0), style: CellStyle(flags: flags))
+            painter.write(label, at: Point(x: x, y: 0), style: style)
             x += label.count + 1
         }
 
@@ -146,7 +148,8 @@ public final class TabView: View {
         if bounds.size.height > 1, bounds.size.width > 0 {
             painter.write(
                 String(repeating: "─", count: bounds.size.width),
-                at: Point(x: 0, y: 1)
+                at: Point(x: 0, y: 1),
+                style: theme.border
             )
         }
     }

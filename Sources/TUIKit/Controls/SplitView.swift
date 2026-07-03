@@ -136,9 +136,14 @@ public final class SplitView: View {
         }
     }
 
-    /// Draws the divider line, bold while focused or dragging.
+    /// Draws the divider line, emphasized while focused or dragging.
     public override func draw(_ painter: Painter) {
-        let style = CellStyle(flags: isFirstResponder || isDraggingDivider ? [.bold, .inverse] : [])
+        var style = effectiveTheme.border
+
+        if isFirstResponder || isDraggingDivider {
+            style.flags.insert(.bold)
+            style.flags.insert(.inverse)
+        }
         let character: Character = axis == .horizontal ? "│" : "─"
 
         switch axis {

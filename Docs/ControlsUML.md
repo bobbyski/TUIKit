@@ -27,6 +27,8 @@ classDiagram
         +subviews : [View]
         +isHidden : Bool
         +anchors : AnchorSet?
+        +theme : Theme?
+        +effectiveTheme : Theme
         +intrinsicContentSize : Size?
         +minimumSize : Size
         +maximumSize : Size?

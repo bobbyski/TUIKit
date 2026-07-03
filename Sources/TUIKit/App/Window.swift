@@ -40,6 +40,14 @@ open class Window: View {
         super.init(frame: frame)
     }
 
+    /// Fills the window with the (theme-resolved) background.
+    ///
+    /// Subclasses that override `draw(_:)` and want the fill should call
+    /// `super.draw(painter)` first.
+    open override func draw(_ painter: Painter) {
+        painter.fill(bounds, with: .blank)
+    }
+
     // MARK: - Focus
 
     /// Moves keyboard focus to a view in this window's subtree.

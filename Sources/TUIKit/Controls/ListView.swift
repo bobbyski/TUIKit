@@ -183,7 +183,11 @@ public final class ListView: View {
             var style = CellStyle()
 
             if isSelected {
-                style.flags = isFirstResponder ? [.inverse, .bold] : .inverse
+                style = effectiveTheme.selection
+
+                if isFirstResponder {
+                    style.flags.insert(.bold)
+                }
             }
 
             let title = Label.truncated(items[index], width: width)

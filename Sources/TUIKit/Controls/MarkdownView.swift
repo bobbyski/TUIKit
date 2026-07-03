@@ -78,7 +78,11 @@ public final class MarkdownView: View {
             let maxThumbStart = height - thumbLength
             let maxOffset = lines.count - height
             let thumbStart = maxOffset > 0 ? min(maxThumbStart, scrollOffset * maxThumbStart / maxOffset) : 0
-            let style = CellStyle(flags: isFirstResponder ? .bold : [])
+            var style = effectiveTheme.border
+
+            if isFirstResponder {
+                style.flags.insert(.bold)
+            }
 
             for cell in 0..<height {
                 let inThumb = cell >= thumbStart && cell < thumbStart + thumbLength

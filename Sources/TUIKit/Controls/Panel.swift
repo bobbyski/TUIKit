@@ -62,19 +62,22 @@ public final class Panel: View {
         )
     }
 
-    /// Draws the border, title, and close button.
+    /// Draws the background, border, title, and close button.
     public override func draw(_ painter: Painter) {
-        painter.drawBox(bounds)
+        let theme = effectiveTheme
+
+        painter.fill(bounds, with: .blank)
+        painter.drawBox(bounds, style: theme.border)
 
         let width = bounds.size.width
 
         if !title.isEmpty, width > 6 {
             let text = " " + Label.truncated(title, width: width - 6) + " "
-            painter.write(text, at: Point(x: 2, y: 0), style: CellStyle(flags: .bold))
+            painter.write(text, at: Point(x: 2, y: 0), style: theme.header)
         }
 
         if showsCloseButton, width >= 7 {
-            painter.write("[x]", at: Point(x: closeButtonX, y: 0))
+            painter.write("[x]", at: Point(x: closeButtonX, y: 0), style: theme.border)
         }
     }
 

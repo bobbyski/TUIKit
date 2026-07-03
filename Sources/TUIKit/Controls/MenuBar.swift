@@ -143,15 +143,20 @@ public final class MenuBar: View {
         true
     }
 
-    /// Draws the titles; the highlighted one inverts while focused or open.
+    /// Draws the titles; the highlighted one lights up while focused or open.
     public override func draw(_ painter: Painter) {
+        let theme = effectiveTheme
         var x = 0
 
         for (index, menu) in menus.enumerated() {
             var style = CellStyle()
 
             if index == selectedMenuIndex, isFirstResponder || isMenuOpen {
-                style.flags = isMenuOpen ? [.inverse, .bold] : .inverse
+                style = theme.selection
+
+                if isMenuOpen {
+                    style.flags.insert(.bold)
+                }
             }
 
             painter.write(" \(menu.title) ", at: Point(x: x, y: 0), style: style)
@@ -352,8 +357,10 @@ final class MenuDropdown: View {
     }
 
     override func draw(_ painter: Painter) {
+        let theme = effectiveTheme
+
         painter.fill(bounds, with: .blank)
-        painter.drawBox(bounds)
+        painter.drawBox(bounds, style: theme.border)
 
         let innerWidth = max(0, bounds.size.width - 4)
 
@@ -361,16 +368,20 @@ final class MenuDropdown: View {
             let y = index + 1
 
             if item.isSeparator {
-                painter.write(String(repeating: "─", count: innerWidth + 2), at: Point(x: 1, y: y))
+                painter.write(
+                    String(repeating: "─", count: innerWidth + 2),
+                    at: Point(x: 1, y: y),
+                    style: theme.border
+                )
                 continue
             }
 
             var style = CellStyle()
 
             if !item.isEnabled {
-                style.flags = .dim
+                style = theme.placeholder
             } else if index == highlightedIndex {
-                style.flags = .inverse
+                style = theme.selection
             }
 
             let hint = Self.hint(for: item.keyEquivalent)

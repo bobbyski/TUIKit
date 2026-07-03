@@ -23,7 +23,7 @@ Docs: `Docs/Architecture.md` (layers/ownership), `Docs/ControlsUML.md`
 ## Dashboard
 
 ```
-Overall Progress  █████████████████████░░░░░░░░░░░  67%   (46 / 69 items)
+Overall Progress  ███████████████████████░░░░░░░░░  71%   (49 / 69 items)
 
 Phase 1 · Package Scaffold & Docs     ██████████████████████████  100%  ✅ Complete
 Phase 2 · Terminal Drivers            ██████████████████████████  100%  ✅ Complete (44 tests green 2026-07-01; interactive demo check pending)
@@ -31,7 +31,7 @@ Phase 3 · View System & Rendering     █████████████�
 Phase 4 · Run Loop & Responder Chain  ██████████████████████████  100%  🔄 Code complete, unverified
 Phase 5 · Layout                      ██████████████████████████  100%  🔄 Code complete, unverified
 Phase 6 · Controls v1                 ██████████████████████████  100%  🔄 Code complete (all 21 controls; full-suite verification pending)
-Phase 7 · Styling & Theming           ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending
+Phase 7 · Styling & Theming           ████████████████████░░░░░░   75%  🔄 In Progress (CSS-like layer 7.4 remains)
 Phase 8 · Demo & Polish               ███░░░░░░░░░░░░░░░░░░░░░░░   12%  🔄 Demo gallery started early
 Phase 9 · Tutorial                    ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending
 Phase 10 · VTG Vector Graphics        ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending (rev 2)
@@ -172,13 +172,13 @@ Each control owns its interaction state, keyboard model, and mouse behavior.
 | 6.15 | Color picker | ✅ Done | Composite of existing controls: `TabView` with Named (16-swatch grid, arrow/click selection), Palette (index stepper), and RGB (three steppers) tabs, plus an always-visible preview swatch with a readable description (`TerminalColor` is now `CustomStringConvertible`); one typed `onColorChanged(TerminalColor)`; silent `setColor` switches to the matching tab. |
 | 6.16 | `SyntaxTextView` | ✅ Done | Editable multi-line code view: line-oriented cursor editing (insert, Return splits, Backspace/Delete join, Tab indents — Shift+Tab still leaves), two-axis viewport that follows the cursor, click-to-place, wheel scroll, dim line-number gutter; per-line highlighting through RichSwift `Syntax` with a per-line cache (editing one line re-highlights one line); `onChanged`, silent `setText`. Text selection still deferred (noted at 6.3). |
 
-## Phase 7 — Styling & Theming ⏳ 0%
+## Phase 7 — Styling & Theming 🔄 75% (code complete except 7.4; verification pending)
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 7.1 | Style model | ⏳ Pending | Colors, emphasis, borders; per-control style points. |
-| 7.2 | Theme cascade | ⏳ Pending | Defaults → theme → per-view override; reset-safe switching. |
-| 7.3 | Built-in themes | ⏳ Pending | At least light/dark/mono. |
+| 7.1 | Style model | ✅ Done | Semantic `Theme` slots — `base`, `accent`, `selection`, `header`, `border`, `placeholder` — plus a three-color palette initializer that derives the rest; controls consult slots instead of hard-coding flags (selection in the row family/tabs/menus, headers, borders/bars/dividers, placeholders). |
+| 7.2 | Theme cascade | ✅ Done | `View.theme` override, nearest ancestor wins, root default `.standard` (exactly the pre-theme look, so it's behavior-preserving). Application is mechanical: the `Painter` carries a base style and substitutes theme colors wherever a drawn cell is `.standard` — the theme rides painter derivation like translation/clipping. `Window`/`Panel` fill their backgrounds. Reset-safe: every slot is a complete style; assigning `theme` repaints (test-proven via `renderIfNeeded`). |
+| 7.3 | Built-in themes | ✅ Done | `standard`, `mono`, `dark`, `light`, plus Terminal.app-profile homages: `homebrew`, `grass`, `ocean`, `redSands`, `manPage`, `novel`, `pro`, `silverAerogel`; `Theme.builtIn` name/theme registry drives the demo's Theme menu. |
 | 7.4 | CSS-like layer (future) | ⏳ Pending | The Textual-inspired layer from `TUI.md`; design doc first. |
 
 ## Phase 8 — Demo & Polish 🔄 12%

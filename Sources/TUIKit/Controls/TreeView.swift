@@ -215,7 +215,11 @@ public final class TreeView: View {
             var style = CellStyle()
 
             if index == navigation.selectedIndex {
-                style.flags = isFirstResponder ? [.inverse, .bold] : .inverse
+                style = effectiveTheme.selection
+
+                if isFirstResponder {
+                    style.flags.insert(.bold)
+                }
             }
 
             let disclosure = node.isExpandable ? (node.isExpanded ? "▾" : "▸") : " "

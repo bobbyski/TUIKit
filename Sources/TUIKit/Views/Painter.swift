@@ -43,16 +43,25 @@ public struct Painter {
     /// Writable region in buffer coordinates.
     public let clip: Rect
 
+    /// Theme base colors substituted for `.standard` in written cells.
+    ///
+    /// This is how a `Theme` cascades mechanically: views draw with
+    /// `.standard` colors as always, and the painter resolves them against
+    /// the active theme's palette. Explicit colors pass through untouched.
+    public let base: CellStyle
+
     /// Creates a painter.
     ///
     /// - Parameters:
     ///   - target: Frame render destination.
     ///   - origin: Translation from view-local to buffer coordinates.
     ///   - clip: Writable region in buffer coordinates.
-    init(target: RenderTarget, origin: Point, clip: Rect) {
+    ///   - base: Theme base colors for `.standard` substitution.
+    init(target: RenderTarget, origin: Point, clip: Rect, base: CellStyle = CellStyle()) {
         self.target = target
         self.origin = origin
         self.clip = clip
+        self.base = base
     }
 
     /// Writes one cell at a view-local point, subject to clipping.
@@ -67,7 +76,17 @@ public struct Painter {
             return
         }
 
-        target.buffer[destination] = cell
+        var resolved = cell
+
+        if resolved.style.foreground == .standard {
+            resolved.style.foreground = base.foreground
+        }
+
+        if resolved.style.background == .standard {
+            resolved.style.background = base.background
+        }
+
+        target.buffer[destination] = resolved
     }
 
     /// Writes text starting at a view-local point, subject to clipping.
@@ -146,7 +165,16 @@ public struct Painter {
         return Painter(
             target: target,
             origin: subviewOrigin,
-            clip: clip.intersection(frameInBuffer)
+            clip: clip.intersection(frameInBuffer),
+            base: base
         )
+    }
+
+    /// Derives a painter whose `.standard` colors resolve to a new base.
+    ///
+    /// - Parameter newBase: Theme base colors for the subtree.
+    /// - Returns: Painter with the same translation and clip.
+    func withBase(_ newBase: CellStyle) -> Painter {
+        Painter(target: target, origin: origin, clip: clip, base: newBase)
     }
 }

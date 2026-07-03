@@ -47,6 +47,33 @@ open class View {
         }
     }
 
+    /// Theme override for this view and its subtree.
+    ///
+    /// `nil` (the default) inherits the nearest ancestor's theme; the root
+    /// fallback is `Theme.standard`. Setting a theme repaints the subtree.
+    public var theme: Theme? {
+        didSet {
+            if theme != oldValue {
+                setNeedsDisplay()
+            }
+        }
+    }
+
+    /// The theme in effect for this view (nearest ancestor's, when unset).
+    public var effectiveTheme: Theme {
+        var current: View? = self
+
+        while let view = current {
+            if let theme = view.theme {
+                return theme
+            }
+
+            current = view.superview
+        }
+
+        return .standard
+    }
+
     /// Whether this view needs to be redrawn.
     public private(set) var needsDisplay = true
 
@@ -352,6 +379,9 @@ open class View {
             subtreeNeedsDisplay = false
             return
         }
+
+        // A theme override re-bases the painter for this whole subtree.
+        let painter = theme.map { painter.withBase($0.base) } ?? painter
 
         draw(painter)
 

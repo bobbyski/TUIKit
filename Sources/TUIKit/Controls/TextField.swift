@@ -74,8 +74,9 @@ public final class TextField: View {
         }
 
         if text.isEmpty, !placeholder.isEmpty, !isFirstResponder {
-            // Placeholder state: dim the whole line, not just the text.
-            let dim = CellStyle(flags: [.dim, .underline])
+            // Placeholder state: de-emphasize the whole line, not just the text.
+            var dim = effectiveTheme.placeholder
+            dim.flags.insert(.underline)
             painter.write(String(repeating: " ", count: width), at: .zero, style: dim)
             painter.write(Label.truncated(placeholder, width: width), at: .zero, style: dim)
             return

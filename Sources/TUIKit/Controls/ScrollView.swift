@@ -342,7 +342,11 @@ public final class ScrollView: View {
 
     // Draws one indicator bar: a track of ░ with a proportional █ thumb.
     private func drawBar(_ painter: Painter, _ bar: BarMetrics, at position: (Int) -> Point) {
-        let style = CellStyle(flags: isFirstResponder ? .bold : [])
+        var style = effectiveTheme.border
+
+        if isFirstResponder {
+            style.flags.insert(.bold)
+        }
 
         for cell in 0..<bar.length {
             let character: Character = bar.containsThumb(cell) ? "█" : "░"
