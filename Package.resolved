@@ -1,0 +1,15 @@
+{
+  "originHash" : "cbb8f6efbaed3f93cd8d5a639c204cc6d26a8b88ca4c52c20079e46a0d63e4b5",
+  "pins" : [
+    {
+      "identity" : "richswift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/bobbyski/RichSwift.git",
+      "state" : {
+        "revision" : "14142ead047b563f95e177bf524e061fd2c1276e",
+        "version" : "0.1.0"
+      }
+    }
+  ],
+  "version" : 3
+}

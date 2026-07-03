@@ -2,7 +2,7 @@ import Testing
 @testable import TUIKit
 
 @Test func frameworkReportsAVersion() {
-    #expect(!TUIKit.version.isEmpty)
+    #expect(!TUIKitInfo.version.isEmpty)
 }
 
 // MARK: - Geometry

@@ -19,7 +19,23 @@
 /// deterministic — the same state, style, and frame always produce the same
 /// cells — which is what makes the whole framework testable in CI through
 /// `HeadlessDriver`.
-public enum TUIKit {
+
+// RichSwift is part of TUIKit's public surface (`RichText`,
+// `SyntaxTextView`, and their renderable/markup types), so it is
+// re-exported: `import TUIKit` alone gives applications the full RichSwift
+// API (Markup, Table, Panel, Syntax, …) with no separate import or
+// dependency declaration. Note both modules export a few shared names
+// (`Panel`, `Table`, `Text`) — qualify with `TUIKit.` or `RichSwift.` where
+// the compiler asks.
+@_exported import RichSwift
+
+/// Framework metadata.
+///
+/// Named `TUIKitInfo` rather than `TUIKit` on purpose: a type with the
+/// module's own name shadows the module, breaking `TUIKit.Panel`-style
+/// qualification — which consumers need now that TUIKit re-exports
+/// RichSwift and the two modules share a few type names.
+public enum TUIKitInfo {
     /// Framework version string.
     ///
     /// Pre-release versions are `0.x` and make no API stability promises.

@@ -23,14 +23,14 @@ Docs: `Docs/Architecture.md` (layers/ownership), `Docs/ControlsUML.md`
 ## Dashboard
 
 ```
-Overall Progress  ████████████████████░░░░░░░░░░░░  63%   (43 / 68 items)
+Overall Progress  █████████████████████░░░░░░░░░░░  66%   (45 / 68 items)
 
 Phase 1 · Package Scaffold & Docs     ██████████████████████████  100%  ✅ Complete
 Phase 2 · Terminal Drivers            ██████████████████████████  100%  ✅ Complete (44 tests green 2026-07-01; interactive demo check pending)
 Phase 3 · View System & Rendering     ██████████████████████████  100%  🔄 Code complete, unverified
 Phase 4 · Run Loop & Responder Chain  ██████████████████████████  100%  🔄 Code complete, unverified
 Phase 5 · Layout                      ██████████████████████████  100%  🔄 Code complete, unverified
-Phase 6 · Controls v1                 █████████████████████████░   95%  🔄 In Progress (19 of 20 controls; RichText + SyntaxTextView remain)
+Phase 6 · Controls v1                 ██████████████████████████  100%  🔄 Code complete (all 20 controls; full-suite verification pending)
 Phase 7 · Styling & Theming           ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending
 Phase 8 · Demo & Polish               ███░░░░░░░░░░░░░░░░░░░░░░░   12%  🔄 Demo gallery started early
 Phase 9 · Tutorial                    ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending
@@ -87,6 +87,10 @@ Integration points:
 - **Dependency policy.** The "zero dependencies" claim becomes "no
   third-party dependencies" — in-house packages (RichSwift) are allowed.
   `CellBuffer` remains TUIKit's compositing currency either way.
+- **One import.** RichSwift is a dependency of the TUIKit library target
+  and is `@_exported` from it: depending on TUIKit pulls RichSwift in
+  automatically, and `import TUIKit` alone exposes the RichSwift API. The
+  few shared names (`Panel`, `Table`, `Text`) qualify with a module prefix.
 
 ## Phase 1 — Package Scaffold & Docs ✅ 100%
 
@@ -94,7 +98,7 @@ Layout per the AICoding rules framework structure.
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 1.1 | `Package.swift` (library `TUIKit`, macOS + Linux) | ✅ Done | Swift 6 language mode; zero dependencies. Includes TUIKitDemo executable (Demo/TUIKitDemo). |
+| 1.1 | `Package.swift` (library `TUIKit`, macOS + Linux) | ✅ Done | Swift 6 language mode; no third-party dependencies (RichSwift, in-house, added in Phase 6 per the dependency policy). Includes TUIKitDemo executable (Demo/TUIKitDemo). |
 | 1.2 | `Sources/TUIKit/TUIKit.swift` entry file | ✅ Done | Framework summary with layer diagram; version constant. |
 | 1.3 | `Docs/Architecture.md` | ✅ Done | Layer diagram + ownership rules; update as phases land. |
 | 1.4 | `NEEDS_HUMAN.md` | ✅ Done | Created; watchlist notes the future ANSI input decoder. |
@@ -140,14 +144,14 @@ Layout per the AICoding rules framework structure.
 | 5.4 | `Grid` | ✅ Done | GridView: fixed/fitContent/flexible(weight) tracks both axes, auto-growing rows, column+row spans, spacing/insets. |
 | 5.5 | Geometry-only layout tests | ✅ Done | 16 tests assert frames via layoutIfNeeded, no rendering; plus render-runs-layout integration checks. |
 
-## Phase 6 — Controls v1 🔄 42%
+## Phase 6 — Controls v1 🔄 100% (code complete; full-suite verification pending)
 
 Each control owns its interaction state, keyboard model, and mouse behavior.
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
 | 6.1 | Label | ✅ Done | Alignment (leading/center/trailing), ellipsis truncation, intrinsic size. |
-| 6.1b | RichText view (RichSwift) | ⏳ Pending | Renders RichSwift markup and `RichRenderable`s (tables/panels/markdown/syntax) into cells; see RichSwift Integration section. |
+| 6.1b | RichText view (RichSwift) | ✅ Done | Two paths: markup via `Markup.parse` (RichSwift `Style`/`Color` map directly onto `CellStyle` — no escapes involved), and any `RichRenderable` (tables/panels/markdown/syntax) rendered at view width then decoded by the internal `SGRDecoder` (the inverse of `ANSIEncoder`, scoped to the SGR subset RichSwift emits). Display-only; width-keyed render cache. RichSwift lands as the package's first (in-house) dependency. |
 | 6.2 | Button | ✅ Done | Return/Space + press/release-inside activation with pressed feedback; focus inverts; `onActivate`. |
 | 6.3 | TextField | ✅ Done | Cursor movement/editing keys, horizontal scrolling, click-to-place-cursor, placeholder; `onChanged`/`onSubmit`. (Text selection deferred to SyntaxTextView work.) |
 | 6.4 | Checkbox / RadioGroup | ✅ Done | Toggle via Space/Return/click, arrows+click selection; silent programmatic setters, typed events; RadioGroup inverts the full current row when focused (visible focus even with no selection). |
@@ -165,7 +169,7 @@ Each control owns its interaction state, keyboard model, and mouse behavior.
 | 6.13 | `Stepper` | ✅ Done | `[-] 42 [+]`: Up/`+` and Down/`-` step (clamped to `range`, custom `step`), Home/End jump to bounds, clicking a bracket steps; field width sized to the range's widest value; silent `setValue`, `onValueChanged`; steps at a bound emit nothing. |
 | 6.14 | Open/Save dialog | ✅ Done | `FileDialog(mode:root:fileSystem:)` — open / save / selectFolder — composed from `Dialog` (modality, default/cancel buttons, new `body` slot) + `DirectoryTree` + `TextField`. Save mode joins the current directory with the name field (file selection prefills the name, folder selection retargets); footer always shows the path confirm would return; Return confirms from tree, name field, or button; tested entirely against a fake `FileSystemProvider`. |
 | 6.15 | Color picker | ✅ Done | Composite of existing controls: `TabView` with Named (16-swatch grid, arrow/click selection), Palette (index stepper), and RGB (three steppers) tabs, plus an always-visible preview swatch with a readable description (`TerminalColor` is now `CustomStringConvertible`); one typed `onColorChanged(TerminalColor)`; silent `setColor` switches to the matching tab. |
-| 6.16 | `SyntaxTextView` | ⏳ Pending | Editable text view with syntax highlighting rendered through RichSwift `Syntax` (see RichSwift Integration); line numbers, scroll; builds on TextField/ScrollView internals. |
+| 6.16 | `SyntaxTextView` | ✅ Done | Editable multi-line code view: line-oriented cursor editing (insert, Return splits, Backspace/Delete join, Tab indents — Shift+Tab still leaves), two-axis viewport that follows the cursor, click-to-place, wheel scroll, dim line-number gutter; per-line highlighting through RichSwift `Syntax` with a per-line cache (editing one line re-highlights one line); `onChanged`, silent `setText`. Text selection still deferred (noted at 6.3). |
 
 ## Phase 7 — Styling & Theming ⏳ 0%
 

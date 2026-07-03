@@ -1,5 +1,5 @@
 import Foundation
-import TUIKit
+import TUIKit   // re-exports RichSwift (Markup, Table, Syntax, …)
 
 // TUIKitDemo — the living gallery of TUIKit capabilities.
 //
@@ -270,11 +270,29 @@ func runFormDemo() async throws {
     dataTab.addSubview(Label("SplitView: drag the ─ divider, or focus it and use ↑/↓", style: CellStyle(flags: .bold)))
     dataTab.addSubview(dataSplit)
 
+    // "Code" tab content: the syntax-highlighted editor.
+    let editor = SyntaxTextView(
+        text: """
+        func greet(name: String) {
+            // Everyone gets a hello
+            let excitement = 1
+            print("Hello, \\(name)!")
+        }
+        """,
+        language: "swift"
+    )
+    editor.onChanged = { _ in status.text = "editing — \(editor.lineCount) lines" }
+
+    let codeTab = VStack(spacing: 1, insets: EdgeInsets(all: 1))
+    codeTab.addSubview(RichText(markup: "[bold]SyntaxTextView[/] — type away; [cyan]Tab[/] indents, [cyan]Return[/] splits"))
+    codeTab.addSubview(editor)
+
     let tabs = TabView()
     tabs.addTab("Form", content: formTab)
     tabs.addTab("Files", content: filesTab)
     tabs.addTab("Scroll", content: scrollTab)
     tabs.addTab("Data", content: dataTab)
+    tabs.addTab("Code", content: codeTab)
     tabs.onSelectionChanged = { status.text = "tab: \(tabs.title(at: $0) ?? "?")" }
     // Fill the window, leaving the top row for Exit and the bottom for status.
     tabs.anchors = AnchorSet(leading: 1, trailing: 8, top: 1, bottom: 1)
@@ -294,7 +312,7 @@ func runFormDemo() async throws {
 
     let viewMenu = Menu("View")
 
-    for (index, name) in ["Form", "Files", "Scroll", "Data"].enumerated() {
+    for (index, name) in ["Form", "Files", "Scroll", "Data", "Code"].enumerated() {
         viewMenu.addItem(name) {
             tabs.select(index, notify: true)
         }
@@ -453,7 +471,7 @@ func show(_ buffer: CellBuffer) {
     }
 }
 
-print("TUIKit \(TUIKit.version) — capability demo")
+print("TUIKit \(TUIKitInfo.version) — capability demo")
 
 // MARK: - Named Colors
 
@@ -690,7 +708,7 @@ print("(one selection/scroll core drives List, Table, and Tree)")
 
 heading("Panel & Dialog — window chrome and modals")
 
-let galleryPanel = Panel("Inspector")
+let galleryPanel = TUIKit.Panel("Inspector")   // qualified: RichSwift also has a Panel
 galleryPanel.showsCloseButton = true
 let panelBody = Label("Content lives inside the border")
 panelBody.anchors = .fill()
@@ -707,13 +725,34 @@ galleryDialog.frame = Rect(origin: .zero, size: galleryDialog.preferredSize)
 show(SceneRenderer(root: galleryDialog).render(size: galleryDialog.frame.size))
 print("(present with app.present — the window stack makes it modal)")
 
-// MARK: - Coming Soon
+heading("RichText — RichSwift content rendered into cells")
 
-heading("Coming soon")
+let richBanner = RichText(markup: "[bold magenta]RichSwift[/] markup, [green]tables[/], and [cyan]syntax[/] compose into TUIKit views")
+richBanner.frame = Rect(x: 0, y: 0, width: 70, height: 1)
+show(SceneRenderer(root: richBanner).render(size: Size(width: 70, height: 1)))
+
+var buildMatrix = Table(title: "Build Matrix")
+buildMatrix.addColumn("Platform", style: Style("bold cyan"))
+buildMatrix.addColumn("Status")
+buildMatrix.addRow("macOS", "[green]passing[/]")
+buildMatrix.addRow("Linux", "[yellow]expected[/]")
+
+let richTable = RichText(renderable: buildMatrix)
+richTable.frame = Rect(x: 0, y: 0, width: 46, height: 7)
+show(SceneRenderer(root: richTable).render(size: Size(width: 46, height: 7)))
+
+let snippet = RichText(renderable: Syntax("let answer = 42  // the usual", language: "swift", lineNumbers: true))
+snippet.frame = Rect(x: 0, y: 0, width: 46, height: 1)
+show(SceneRenderer(root: snippet).render(size: Size(width: 46, height: 1)))
+print("(SyntaxTextView makes this editable — see the Code tab, --interactive)")
+
+// MARK: - What's Next
+
+heading("Controls v1 complete")
 
 print("""
-Remaining controls arrive through Phase 6: RichText (RichSwift) and
-SyntaxTextView.
+All Phase 6 controls have landed. Next up: styling & theming (Phase 7),
+demo polish (Phase 8), and the tutorial (Phase 9).
 
 Live demos:  swift run TUIKitDemo --interactive   (tabbed control form)
              swift run TUIKitDemo --events        (driver event viewer)

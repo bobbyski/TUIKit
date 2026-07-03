@@ -241,6 +241,22 @@ classDiagram
         +setColor(TerminalColor, notify)
     }
 
+    class RichText {
+        +setMarkup(String)
+        +setRenderable(RichRenderable)
+    }
+
+    class SyntaxTextView {
+        +text : String
+        +language : String
+        +showsLineNumbers : Bool
+        +tabWidth : Int
+        +lineCount : Int
+        +cursorPosition : Point
+        +onChanged : (String) -> Void
+        +setText(String)
+    }
+
     class RowNavigationState {
         <<struct, pure>>
         +count : Int
@@ -297,6 +313,8 @@ classDiagram
     View <|-- SplitView
     View <|-- MenuBar
     View <|-- ColorPicker
+    View <|-- RichText
+    View <|-- SyntaxTextView
     View <|-- StackView
     View <|-- GridView
     View <|-- Window
@@ -324,27 +342,8 @@ classDiagram
     ScrollView o-- View : documentView
 
     note for RowNavigationState "Shared selection/scroll core\ndriving List, Table, and Tree."
+    note for RichText "Bridges RichSwift content\n(markup, tables, panels, syntax)\ninto cells via SGRDecoder."
 ```
 
-## Planned (Phase 6 remainder)
-
-Not yet implemented; shown so the diagram tracks the design intent.
-
-```mermaid
-classDiagram
-    direction TB
-
-    class View
-    class ScrollView
-
-    class RichText {
-        +markup : String
-    }
-    class SyntaxTextView {
-        +text : String
-        +language : String
-    }
-
-    View <|-- RichText
-    ScrollView <|-- SyntaxTextView
-```
+All Phase 6 controls are implemented; this diagram is the complete control
+surface as of Controls v1.

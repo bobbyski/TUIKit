@@ -14,10 +14,20 @@ let package = Package(
             targets: ["TUIKit"]
         ),
     ],
+    dependencies: [
+        // In-house only — RichSwift renders rich *content* (markup, tables,
+        // panels, markdown, syntax); TUIKit owns the interactive layer.
+        .package(url: "https://github.com/bobbyski/RichSwift.git", from: "0.1.0"),
+    ],
     targets: [
         .target(
-            name: "TUIKit"
+            name: "TUIKit",
+            dependencies: [
+                .product(name: "RichSwift", package: "RichSwift"),
+            ]
         ),
+        // TUIKit re-exports RichSwift, so consumers (demo, tests, apps)
+        // depend on TUIKit alone and get the RichSwift API automatically.
         .executableTarget(
             name: "TUIKitDemo",
             dependencies: ["TUIKit"],
