@@ -268,6 +268,36 @@ classDiagram
         +setText(String)
     }
 
+    class PopUpButton {
+        +items : [String]
+        +selectedIndex : Int?
+        +isOpen : Bool
+        +onSelectionChanged : (Int) -> Void
+        +select(Int?, notify)
+        +openPopup() / closePopup()
+    }
+
+    class ToggleButton {
+        +title : String
+        +isOn : Bool
+        +onChange : (Bool) -> Void
+        +setOn(Bool, notify)
+        +toggle()
+    }
+
+    class StatusBar {
+        +segments : [StatusBarSegment]
+        +showsSeparators : Bool
+        +addSegment(content, min, max, percentage)
+    }
+
+    class Divider {
+        +axis : StackView.Axis
+        +isConnected : Bool
+        +isDraggable : Bool
+        +onMoved : (Int) -> Void
+    }
+
     class RowNavigationState {
         <<struct, pure>>
         +count : Int
@@ -345,6 +375,10 @@ classDiagram
     View <|-- RichText
     View <|-- MarkdownView
     View <|-- SyntaxTextView
+    View <|-- PopUpButton
+    View <|-- ToggleButton
+    View <|-- StatusBar
+    View <|-- Divider
     View <|-- StackView
     View <|-- GridView
     View <|-- Window
@@ -375,5 +409,48 @@ classDiagram
     note for RichText "Bridges RichSwift content\n(markup, tables, panels, syntax)\ninto cells via SGRDecoder."
 ```
 
-All Phase 6 controls are implemented; this diagram is the complete control
-surface as of Controls v1.
+All Phase 6 controls are implemented; the diagram above is the complete
+control surface as of Controls v1.
+
+## Planned (Controls v2 — PLAN Phase 6B)
+
+```mermaid
+classDiagram
+    direction TB
+
+    class View
+    class TextField
+
+    class ComboBox {
+        +text : String
+        +items : [String]
+        +onChanged : (String) -> Void
+        +onSubmit : (String) -> Void
+        +onSelectionChanged : (Int) -> Void
+    }
+
+    class ProgressIndicator
+    class Slider
+    class DatePicker
+    class LevelIndicator
+    class Browser
+    class PathControl
+    class DisclosureGroup
+    class Toolbar
+    class ContextMenu
+
+    View <|-- ComboBox
+    View <|-- ProgressIndicator
+    View <|-- Slider
+    View <|-- DatePicker
+    View <|-- LevelIndicator
+    View <|-- Browser
+    View <|-- PathControl
+    View <|-- DisclosureGroup
+    View <|-- Toolbar
+    ComboBox *-- TextField : editing
+    StatusBar o-- StatusBarSegment : segments
+```
+
+Rev 2 (PLAN Phase 11): SearchField, Sheets, ImageView, TokenField,
+Tooltips.

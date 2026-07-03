@@ -98,6 +98,58 @@ public final class Panel: View {
                 style: theme.border
             )
         }
+
+        drawDividerJunctions(painter, theme: theme)
+    }
+
+    // Joins connected dividers (direct children of `content`) that reach
+    // the content edges into this panel's border with tee junctions, so
+    // divided layouts read as one piece of chrome.
+    private func drawDividerJunctions(_ painter: Painter, theme: Theme) {
+        guard let junctions = theme.borderStyle.junctions else {
+            return
+        }
+
+        let contentSize = content.frame.size
+
+        for case let divider as Divider in content.subviews
+        where divider.isConnected && !divider.isHidden {
+            switch divider.axis {
+            case .horizontal:
+                let y = divider.frame.origin.y + 1   // content is inset by 1
+
+                if divider.frame.minX <= 0 {
+                    painter.set(
+                        TerminalCell(character: junctions.teeLeft, style: theme.border),
+                        at: Point(x: 0, y: y)
+                    )
+                }
+
+                if divider.frame.maxX >= contentSize.width {
+                    painter.set(
+                        TerminalCell(character: junctions.teeRight, style: theme.border),
+                        at: Point(x: bounds.size.width - 1, y: y)
+                    )
+                }
+
+            case .vertical:
+                let x = divider.frame.origin.x + 1
+
+                if divider.frame.minY <= 0 {
+                    painter.set(
+                        TerminalCell(character: junctions.teeTop, style: theme.border),
+                        at: Point(x: x, y: 0)
+                    )
+                }
+
+                if divider.frame.maxY >= contentSize.height {
+                    painter.set(
+                        TerminalCell(character: junctions.teeBottom, style: theme.border),
+                        at: Point(x: x, y: bounds.size.height - 1)
+                    )
+                }
+            }
+        }
     }
 
     /// Click on `[x]` closes.

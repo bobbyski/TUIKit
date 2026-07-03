@@ -23,7 +23,7 @@ Docs: `Docs/Architecture.md` (layers/ownership), `Docs/ControlsUML.md`
 ## Dashboard
 
 ```
-Overall Progress  ███████████████████████░░░░░░░░░  72%   (50 / 69 items)
+Overall Progress  ████████████████████░░░░░░░░░░░░  61%   (54 / 88 items)
 
 Phase 1 · Package Scaffold & Docs     ██████████████████████████  100%  ✅ Complete
 Phase 2 · Terminal Drivers            ██████████████████████████  100%  ✅ Complete (44 tests green 2026-07-01; interactive demo check pending)
@@ -31,10 +31,12 @@ Phase 3 · View System & Rendering     █████████████�
 Phase 4 · Run Loop & Responder Chain  ██████████████████████████  100%  🔄 Code complete, unverified
 Phase 5 · Layout                      ██████████████████████████  100%  🔄 Code complete, unverified
 Phase 6 · Controls v1                 ██████████████████████████  100%  🔄 Code complete (all 21 controls; full-suite verification pending)
+Phase 6B · Controls v2                ███████░░░░░░░░░░░░░░░░░░░   29%  🔄 In Progress (4 of 14: PopUpButton, ToggleButton, StatusBar, Divider)
 Phase 7 · Styling & Theming           ██████████████████████████  100%  🔄 Code complete (verification pending)
 Phase 8 · Demo & Polish               ███░░░░░░░░░░░░░░░░░░░░░░░   12%  🔄 Demo gallery started early
 Phase 9 · Tutorial                    ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending
 Phase 10 · VTG Vector Graphics        ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending (rev 2)
+Phase 11 · Controls v3                ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending (rev 2: search, sheets, images, tokens, tooltips)
 ```
 
 **Status key:** ✅ Done &nbsp;|&nbsp; 🔄 In Progress &nbsp;|&nbsp; ⏳ Pending &nbsp;|&nbsp; 🚫 Blocked
@@ -172,6 +174,29 @@ Each control owns its interaction state, keyboard model, and mouse behavior.
 | 6.15 | Color picker | ✅ Done | Composite of existing controls: `TabView` with Named (16-swatch grid, arrow/click selection), Palette (index stepper), and RGB (three steppers) tabs, plus an always-visible preview swatch with a readable description (`TerminalColor` is now `CustomStringConvertible`); one typed `onColorChanged(TerminalColor)`; silent `setColor` switches to the matching tab. |
 | 6.16 | `SyntaxTextView` | ✅ Done | Editable multi-line code view: line-oriented cursor editing (insert, Return splits, Backspace/Delete join, Tab indents — Shift+Tab still leaves), two-axis viewport that follows the cursor, click-to-place, wheel scroll, dim line-number gutter; per-line highlighting through RichSwift `Syntax` with a per-line cache (editing one line re-highlights one line); `onChanged`, silent `setText`. Text selection still deferred (noted at 6.3). |
 
+## Phase 6B — Controls v2 🔄 29% (4 of 14)
+
+A second wave of controls, motivated by building the desktop-style demo.
+Same rules as v1: controls own their interaction state, semantic events
+out, theme slots for presentation, headless tests for every behavior.
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| 6B.1 | `PopUpButton` | ✅ Done | `[ Balanced ▾ ]` closed; Space/Return/↓/click opens the internal `PopUpList` (bordered, theme-styled) attached to the owning window — **below when it fits, above when tighter**; ↑/↓/Home/End + Return choose, Esc cancels, and losing focus dismisses (an outside click closes without stealing focus back); silent `select`, `onSelectionChanged(Int)`. `PopUpList` is the shared machinery for 6B.3/6B.14. |
+| 6B.2 | `ToggleButton` | ✅ Done | Checkbox semantics, color presentation: on wears the selection slot, off the placeholder (dim); focus adds inverse/bold. Space/Return/click toggle; silent `setOn`, `onChange(Bool)`; restyles via themes and stylesheets like everything else. |
+| 6B.3 | `ComboBox` | ⏳ Pending | `TextField` plus a one-cell `▾` disclosure that pops the value menu (same above/below placement as 6B.1); typing filters or enters free text, picking fills the field; `onChanged`/`onSubmit` from the field plus `onSelectionChanged(Int)` from the list. |
+| 6B.4 | `StatusBar` | ✅ Done | One-row segmented container: segments declare `minimumWidth` (default: content's natural width), optional `maximumWidth`, and a `percentage` weight; mins honored first, leftover split by weight with one-cell remainders to the earliest segments, maximums clamp, too-narrow bars shrink from the trailing end. `│` separators from the border slot (`showsSeparators`). Hosts any one-row control. |
+| 6B.5 | `Divider` | ✅ Done | Visible line (h/v, 1-cell intrinsic) in the theme's border slot + `borderStyle` glyphs. `isConnected` (default true, opt out per divider): tee/cross junctions (`├ ┤ ┬ ┴ ┼`, with double/heavy tables) where dividers cross, where a perpendicular divider's endpoint abuts, and — drawn by the enclosing `Panel` — where a divider reaches the content edge, joining it into the border. `isDraggable`: arrows while focused or mouse drag (window capture) move the line, resizing the sibling views on either side; `onMoved`. v1 limits: panel-edge joining covers direct `content` children; junction pairs assume one border style. |
+| 6B.6 | `ProgressIndicator` | ⏳ Pending | Determinate bar (accent-slot fill over track, percent label optional) and indeterminate spinner mode. First control needing a timing source — comes with a small App tick/timer story (async, never blocking, headless-scriptable). |
+| 6B.7 | `Slider` | ⏳ Pending | Horizontal value track with draggable handle (`├────█────┤`); ←/→ step, Home/End to bounds, click/drag positions; min/max/step; silent `setValue`, `onValueChanged`. |
+| 6B.8 | Date/Time/Calendar control | ⏳ Pending | `DatePicker` with date, time, and calendar modes: segment-wise editing (↑/↓ per field, ←/→ between fields) plus a month-grid calendar popup; Foundation `Calendar`-backed; `onDateChanged`. |
+| 6B.9 | `LevelIndicator` | ⏳ Pending | Capacity/level/rating display (`▮▮▮▯▯`, `★★★☆☆`); discrete or continuous; optional interactive rating mode with typed value events. |
+| 6B.10 | `Browser` (Miller columns) | ⏳ Pending | Column browser: side-by-side lists where selecting descends a level; ←/→ move between columns; third consumer of `RowNavigationState`; `FileSystemProvider` integration for file browsing. |
+| 6B.11 | `PathControl` | ⏳ Pending | Breadcrumb path bar (`Projects ▸ TUIKit ▸ Sources`); crumbs clickable, ←/→ + Return keyboard model; pairs with DirectoryTree/Browser/FileDialog; `onPathSelected`. |
+| 6B.12 | Disclosure triangle | ⏳ Pending | `DisclosureGroup`: a `▸/▾` header that shows/hides its content view with relayout — collapsible form sections; Space/Return/click toggles; `onExpansionChanged`. |
+| 6B.13 | `Toolbar` | ⏳ Pending | Row of labeled/icon buttons under a title bar; overflow menu (`»`) when the window is too narrow; themable via header/border slots. |
+| 6B.14 | Context menu | ⏳ Pending | Right-click (mouse decoder already reports it) pops a menu at the pointer, above/below by available space; reuses the dropdown machinery; per-view hook (`contextMenu` property or `menu(for:)` override); Esc/outside-click dismisses. |
+
 ## Phase 7 — Styling & Theming 🔄 100% (code complete; verification pending)
 
 | # | Item | Status | Notes |
@@ -242,6 +267,18 @@ apps cannot tell (except visually) which mode they are running in.
 | 10.6 | VTG input routing | ⏳ Pending | VTG-native pixel mouse events decoded in the driver and routed through the existing responder chain as the same typed `MouseInput` in cell coords — chrome never changes hit-testing semantics, it only looks better. |
 | 10.7 | Headless VTG testing | ⏳ Pending | Closure-backed `VTGOutput` transport recording sequences + scripted event injection: assert emitted VTG chrome commands and unchanged input routing deterministically, no terminal required (same discipline as the headless cell driver). |
 | 10.8 | Demo & fallback proof | ⏳ Pending | The *same* demo app, untouched, runs twice: in a VTG terminal with full chrome, and in a plain terminal with cell rendering — identical behavior, focus order, and events in both. That equivalence is the phase exit criterion. |
+
+## Phase 11 — Controls v3 ⏳ 0% (rev 2)
+
+**Rev 2 — after 1.0**, alongside the VTG work.
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| 11.1 | `SearchField` | ⏳ Pending | TextField variant: hint icon, clear affordance, incremental `onSearch` as you type, Esc clears. |
+| 11.2 | Sheets | ⏳ Pending | Window-attached modal: a dialog that anchors to (and visually hangs from) a specific window's title bar instead of centering on screen; blocks only that window in a non-modal stack. |
+| 11.3 | `ImageView` | ⏳ Pending | Raster display: cell-art/braille approximation in plain terminals; real raster via the VTG layer (Phase 10) when the terminal supports it. |
+| 11.4 | `TokenField` | ⏳ Pending | Tag pills inside a text field: typing + Return mints a token, Backspace removes, tokens navigable with ←/→; `onTokensChanged`. |
+| 11.5 | Tooltips | ⏳ Pending | Hover text after a delay (mouse-move events already decoded; uses the 6B.6 timer story); per-view `toolTip` property; renders as a small floating panel that never takes focus. |
 
 ---
 

@@ -365,11 +365,31 @@ func runFormDemo() async throws {
     tabs.addTab("Code", content: codeTab)
     tabs.addTab("Docs", content: docsTab)
     tabs.onSelectionChanged = { status.text = "tab: \(tabs.title(at: $0) ?? "?")" }
-    // Fill the controls window, leaving the bottom row for status.
+    // Fill the controls window, leaving the bottom row for the status bar.
     tabs.anchors = AnchorSet(leading: 0, trailing: 0, top: 0, bottom: 1)
 
-    // Status pinned to the bottom row of the controls window.
-    status.anchors = AnchorSet(leading: 0, trailing: 0, bottom: 0, height: 1)
+    // Status bar (Controls v2): flexible status label, a live-CSS toggle,
+    // and a theme pop-up whose menu opens *above* (it sits at the bottom).
+    let liveToggle = ToggleButton("CSS")
+    liveToggle.onChange = { on in
+        cssThemeActive = on
+        controls.styleSheet = on ? StyleSheet(editor.text) : nil
+        status.text = on
+            ? "stylesheet applied — edit it live in the Code tab"
+            : "stylesheet cleared"
+    }
+
+    let themePopUp = PopUpButton(items: TUIKit.Theme.builtIn.map(\.name), selectedIndex: 0)
+    themePopUp.onSelectionChanged = { index in
+        controls.theme = TUIKit.Theme.builtIn[index].theme
+        status.text = "theme: \(TUIKit.Theme.builtIn[index].name)"
+    }
+
+    let statusBar = StatusBar()
+    statusBar.addSegment(status, percentage: 100)
+    statusBar.addSegment(liveToggle)
+    statusBar.addSegment(themePopUp)
+    statusBar.anchors = AnchorSet(leading: 0, trailing: 0, bottom: 0, height: 1)
 
     // Menu bar on the top row: hot keys work from anywhere (^O, ^Q).
     let fileMenu = Menu("File")
@@ -447,6 +467,7 @@ func runFormDemo() async throws {
     for (name, theme) in TUIKit.Theme.builtIn {   // qualified: RichSwift also has a Theme
         themeMenu.addItem(name) {
             cssThemeActive = false
+            liveToggle.setOn(false)
             controls.styleSheet = nil
             controls.theme = theme
             status.text = "theme: \(name)"
@@ -456,6 +477,7 @@ func runFormDemo() async throws {
     themeMenu.addSeparator()
     themeMenu.addItem("CSS") {
         cssThemeActive = true
+        liveToggle.setOn(true)
         controls.theme = .standard
         controls.styleSheet = StyleSheet(editor.text)
         tabs.select(4, notify: true)   // jump to the Code tab: the source
@@ -472,7 +494,7 @@ func runFormDemo() async throws {
     // Assemble: controls in their floating window, the menu bar in the
     // root strip window.
     controls.content.addSubview(tabs)
-    controls.content.addSubview(status)
+    controls.content.addSubview(statusBar)
     controls.makeFirstResponder(tabs)   // ←/→ switches tabs; Tab enters content
 
     menuWindow.addSubview(menuBar)

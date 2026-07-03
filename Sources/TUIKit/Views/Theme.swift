@@ -38,6 +38,28 @@ public enum BorderStyle: String, Hashable, Sendable, CaseIterable {
             return ("┏", "┓", "┗", "┛", "━", "┃")
         }
     }
+
+    // Junction glyphs for connected dividers: tees against each edge and
+    // the four-way crossing. Rounded borders use the single-line tees.
+    var junctions: (
+        teeLeft: Character, teeRight: Character,
+        teeTop: Character, teeBottom: Character,
+        cross: Character
+    )? {
+        switch self {
+        case .none:
+            return nil
+
+        case .single, .rounded:
+            return ("├", "┤", "┬", "┴", "┼")
+
+        case .double:
+            return ("╠", "╣", "╦", "╩", "╬")
+
+        case .heavy:
+            return ("┣", "┫", "┳", "┻", "╋")
+        }
+    }
 }
 
 /// Semantic style palette for a view subtree.
