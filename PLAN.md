@@ -23,16 +23,17 @@ Docs: `Docs/Architecture.md` (layers/ownership), `Docs/ControlsUML.md`
 ## Dashboard
 
 ```
-Overall Progress  ██████████████████░░░░░░░░░░░░░░  60%   (31 / 52 items)
+Overall Progress  ██████████████████░░░░░░░░░░░░░░  58%   (34 / 59 items)
 
 Phase 1 · Package Scaffold & Docs     ██████████████████████████  100%  ✅ Complete
 Phase 2 · Terminal Drivers            ██████████████████████████  100%  ✅ Complete (44 tests green 2026-07-01; interactive demo check pending)
 Phase 3 · View System & Rendering     ██████████████████████████  100%  🔄 Code complete, unverified
 Phase 4 · Run Loop & Responder Chain  ██████████████████████████  100%  🔄 Code complete, unverified
 Phase 5 · Layout                      ██████████████████████████  100%  🔄 Code complete, unverified
-Phase 6 · Controls v1                 ███████████░░░░░░░░░░░░░░░   42%  🔄 In Progress (8 of 19 controls)
+Phase 6 · Controls v1                 ██████████████░░░░░░░░░░░░   53%  🔄 In Progress (10 of 19 controls)
 Phase 7 · Styling & Theming           ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending
 Phase 8 · Demo & Polish               ███░░░░░░░░░░░░░░░░░░░░░░░   12%  🔄 Demo gallery started early
+Phase 9 · Tutorial                    ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending
 ```
 
 **Status key:** ✅ Done &nbsp;|&nbsp; 🔄 In Progress &nbsp;|&nbsp; ⏳ Pending &nbsp;|&nbsp; 🚫 Blocked
@@ -152,14 +153,14 @@ Each control owns its interaction state, keyboard model, and mouse behavior.
 | 6.5 | List | ✅ Done | `ListView` on the shared `RowNavigationState` core (pure, unit-tested): arrows/Home/End/PgUp/PgDn, viewport scrolling, wheel scroll without selection change, click select, Return activate, selects first row on focus for a visible highlight; `onSelectionChanged`/`onActivate`. The 6.10 design answer: TableView will be a multi-column consumer of the same core. |
 | 6.5a | `SegmentedControl` | ✅ Done | Horizontal button-style exclusive selection; arrows/Home/End/click, selected inverted, focus bold; silent programmatic select; typed event. |
 | 6.5b | `TabView` (folder tabs) | ✅ Done | Tab bar selects which content view shows below; ←/→ + click switch tabs; non-selected content hidden (drops from focus order); addTab/select/title API. |
-| 6.6 | ScrollView | ⏳ Pending | Viewport + offset; owns scroll keys/wheel. |
+| 6.6 | ScrollView | ✅ Done | Viewport + document view at full content size; offset clamps both axes; arrows/PgUp-PgDn/Home/End when focused, wheel anytime; proportional ░/█ indicator bars in reserved column/row (two-pass reservation); silent `setOffset`, `onOffsetChanged`. Clipping needs nothing special — the Painter contract already contains the document. Note: focus traversal can still reach controls scrolled out of view; revisit with 6.16. |
 | 6.7 | Window / Panel chrome | ⏳ Pending | Title, border, close; drag/resize later. |
 | 6.8 | MenuBar / Menu | ⏳ Pending | Hot keys, submenu navigation. |
 | 6.9 | Dialog / Alert | ⏳ Pending | Modal focus capture, default/cancel actions. |
 | 6.10 | `TableView` | ⏳ Pending | Columns, headers, sorting hooks, row selection, keyboard navigation; `onSelectionChanged`. Design note: may unify with `List` (6.5) — a List is plausibly a single-column TableView (or TableView a multi-column List); decide when 6.5 is implemented and share the selection/navigation core either way. |
 | 6.11 | `TreeView` | ⏳ Pending | Expand/collapse, disclosure keys (←/→), lazy children, selection events. |
 | 6.12 | `SplitView` | ⏳ Pending | H/V panes, keyboard- and mouse-draggable divider, min sizes, collapse. |
-| 6.13 | `Stepper` | ⏳ Pending | Numeric increment/decrement with bounds, typed value events. |
+| 6.13 | `Stepper` | ✅ Done | `[-] 42 [+]`: Up/`+` and Down/`-` step (clamped to `range`, custom `step`), Home/End jump to bounds, clicking a bracket steps; field width sized to the range's widest value; silent `setValue`, `onValueChanged`; steps at a bound emit nothing. |
 | 6.14 | Open/Save dialog | ⏳ Pending | File and directory choosing (open/save/select-folder modes) behind a `FileSystemProvider` protocol (AICoding rule 30) so tests use a fake file system; builds on TableView + TextField + Dialog. |
 | 6.15 | Color picker | ⏳ Pending | Named/palette/RGB selection matching `TerminalColor`; preview swatches; typed color events. |
 | 6.16 | `SyntaxTextView` | ⏳ Pending | Editable text view with syntax highlighting rendered through RichSwift `Syntax` (see RichSwift Integration); line numbers, scroll; builds on TextField/ScrollView internals. |
@@ -181,6 +182,24 @@ Each control owns its interaction state, keyboard model, and mouse behavior.
 | 8.2 | Headless demo test | ⏳ Pending | The demo renders identically through the headless driver — the phase exit criterion. |
 | 8.3 | API review pass | ⏳ Pending | Swift API Design Guidelines; public surface smaller than implementation. |
 | 8.4 | Docs complete | ⏳ Pending | Doc comments on all public API; Architecture.md current. |
+
+## Phase 9 — Tutorial ⏳ 0%
+
+A step-by-step "Building with TUIKit" tutorial (`Docs/Tutorial/`), written
+for someone who has never used the framework. Each chapter is a short read
+ending in a runnable milestone; the code for every milestone lives in a
+`TUIKitTutorial` executable target so it compiles (and is tested headlessly)
+forever — a tutorial that drifts from the API is worse than none.
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| 9.1 | Outline & ground rules | ⏳ Pending | Chapter list, voice, and the runnable-milestone rule; every snippet comes from compiling code. |
+| 9.2 | Ch. 1 — Hello, terminal | ⏳ Pending | App, Window, the run loop, drawing a first view, quitting cleanly (Esc/Ctrl+C). |
+| 9.3 | Ch. 2 — Layout | ⏳ Pending | Stacks, grid, anchors, intrinsic sizes; build the app shell (title bar, content, status line). |
+| 9.4 | Ch. 3 — Controls & events | ⏳ Pending | Add the form: fields, buttons, list, tabs; wire semantic events (`onActivate`, `onSelectionChanged`). |
+| 9.5 | Ch. 4 — Focus, keys & mouse | ⏳ Pending | Responder chain, Tab traversal, hot/cold keys, mouse routing; add app-level shortcuts. |
+| 9.6 | Ch. 5 — Testing your app | ⏳ Pending | Drive the finished app through the headless driver: scripted input, buffer snapshots, resize. |
+| 9.7 | `TUIKitTutorial` target + CI test | ⏳ Pending | Per-chapter milestones runnable via `swift run TUIKitTutorial ch3`; a test renders each milestone headlessly so chapters can never rot. |
 
 ---
 

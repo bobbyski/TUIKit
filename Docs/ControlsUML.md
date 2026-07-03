@@ -104,6 +104,24 @@ classDiagram
         +title(at : Int) String?
     }
 
+    class ScrollView {
+        +documentView : View?
+        +contentOffset : Point
+        +contentSize : Size
+        +showsIndicators : Bool
+        +onOffsetChanged : (Point) -> Void
+        +setOffset(Point, notify)
+    }
+
+    class Stepper {
+        +value : Int
+        +range : ClosedRange~Int~
+        +step : Int
+        +onValueChanged : (Int) -> Void
+        +setValue(Int, notify)
+        +stepValue(Int)
+    }
+
     class RowNavigationState {
         <<struct, pure>>
         +count : Int
@@ -149,6 +167,8 @@ classDiagram
     View <|-- ListView
     View <|-- SegmentedControl
     View <|-- TabView
+    View <|-- ScrollView
+    View <|-- Stepper
     View <|-- StackView
     View <|-- GridView
     View <|-- Window
@@ -157,6 +177,7 @@ classDiagram
 
     ListView *-- RowNavigationState : uses
     TabView o-- View : content per tab
+    ScrollView o-- View : documentView
 
     note for RowNavigationState "Shared selection/scroll core.\nFuture TableView & TreeView\nwill reuse this."
 ```
@@ -173,10 +194,7 @@ classDiagram
     class ListView
     class RowNavigationState
 
-    class ScrollView {
-        +contentSize : Size
-        +contentOffset : Point
-    }
+    class ScrollView
     class TableView {
         +columns : [Column]
         +rows : [[String]]
@@ -189,11 +207,6 @@ classDiagram
     class SplitView {
         +axis
         +dividerPosition : Int
-    }
-    class Stepper {
-        +value : Int
-        +range : ClosedRange
-        +onChange
     }
     class MenuBar
     class Dialog
@@ -209,11 +222,9 @@ classDiagram
         +language : String
     }
 
-    View <|-- ScrollView
     View <|-- TableView
     View <|-- TreeView
     View <|-- SplitView
-    View <|-- Stepper
     View <|-- MenuBar
     View <|-- ColorPicker
     View <|-- RichText

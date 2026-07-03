@@ -79,6 +79,9 @@ func runFormDemo() async throws {
     let density = SegmentedControl(["Compact", "Cozy", "Roomy"], selectedIndex: 1)
     density.onSelectionChanged = { status.text = "density: \(density.segments[$0])" }
 
+    let tabSize = Stepper(value: 4, in: 1...16)
+    tabSize.onValueChanged = { status.text = "tab size: \($0)" }
+
     let files = ListView(items: (1...30).map { "Document-\($0).txt" })
     files.onSelectionChanged = { index in
         status.text = index.map { "selected \(files.items[$0])" } ?? "selection cleared"
@@ -107,6 +110,13 @@ func runFormDemo() async throws {
     formTab.addSubview(mode)
     formTab.addSubview(Label("Density (segmented):", style: CellStyle(flags: .bold)))
     formTab.addSubview(density)
+
+    let stepperRow = HStack(spacing: 1)
+    stepperRow.addSubview(Label("Tab size (stepper):", style: CellStyle(flags: .bold)))
+    stepperRow.addSubview(tabSize)
+    stepperRow.addSubview(View())   // flexible spacer keeps the row leading
+    formTab.addSubview(stepperRow)
+
     formTab.addSubview(buttons)
     formTab.addSubview(View())   // spacer pushes content to the top
 
@@ -115,9 +125,33 @@ func runFormDemo() async throws {
     filesTab.addSubview(Label("Files (arrows, PgUp/PgDn, Return):", style: CellStyle(flags: .bold)))
     filesTab.addSubview(files)
 
+    // "Scroll" tab content: a document taller than any terminal, inside a
+    // ScrollView (arrows/PgUp/PgDn/Home/End when focused; wheel anytime).
+    let article = VStack(spacing: 0, insets: EdgeInsets(all: 1))
+    article.addSubview(Label("TUIKit — scrollable document", style: CellStyle(flags: .bold)))
+    article.addSubview(Label(""))
+
+    for chapter in 1...12 {
+        article.addSubview(Label("Chapter \(chapter)", style: CellStyle(flags: .underline)))
+
+        for line in 1...4 {
+            article.addSubview(Label("  \(chapter).\(line) The viewport clips; the offset translates."))
+        }
+
+        article.addSubview(Label(""))
+    }
+
+    let scroller = ScrollView(document: article)
+    scroller.onOffsetChanged = { status.text = "scrolled to row \($0.y)" }
+
+    let scrollTab = VStack(spacing: 1, insets: EdgeInsets(all: 1))
+    scrollTab.addSubview(Label("Scroll (arrows, PgUp/PgDn, wheel):", style: CellStyle(flags: .bold)))
+    scrollTab.addSubview(scroller)
+
     let tabs = TabView()
     tabs.addTab("Form", content: formTab)
     tabs.addTab("Files", content: filesTab)
+    tabs.addTab("Scroll", content: scrollTab)
     tabs.onSelectionChanged = { status.text = "tab: \(tabs.title(at: $0) ?? "?")" }
     // Fill the window, leaving the top row for Exit and the bottom for status.
     tabs.anchors = AnchorSet(leading: 1, trailing: 8, top: 1, bottom: 1)
@@ -444,7 +478,7 @@ print("(fixed 8-cell column, then flexible columns weighted 2:1)")
 
 heading("Controls — first set (static render; --interactive for live)")
 
-let controlsWindow = Window(frame: Rect(x: 0, y: 0, width: 46, height: 12))
+let controlsWindow = Window(frame: Rect(x: 0, y: 0, width: 46, height: 14))
 let controlsForm = VStack(spacing: 1, insets: EdgeInsets(all: 1))
 controlsForm.anchors = .fill()
 
@@ -463,22 +497,38 @@ controlsForm.addSubview(galleryRow)
 controlsForm.addSubview(Checkbox("Wrap lines", isChecked: true))
 controlsForm.addSubview(RadioGroup(["Fast", "Balanced", "Accurate"], selectedIndex: 1))
 controlsForm.addSubview(ListView(items: ["Document-1.txt", "Document-2.txt"]))
+controlsForm.addSubview(Stepper(value: 42, in: 0...100))
 controlsForm.addSubview(galleryButtons)
 
 controlsWindow.addSubview(controlsForm)
 controlsWindow.makeFirstResponder(galleryOK)
 
-show(SceneRenderer(root: controlsWindow).render(size: Size(width: 46, height: 12)))
+show(SceneRenderer(root: controlsWindow).render(size: Size(width: 46, height: 14)))
 print("(the focused OK button renders inverted)")
+
+heading("ScrollView — viewport, offset, indicator")
+
+let scrollDocument = VStack(spacing: 0)
+
+for row in 0..<12 {
+    scrollDocument.addSubview(Label("row \(row) — only the viewport's slice of me is visible"))
+}
+
+let galleryScroll = ScrollView(document: scrollDocument)
+galleryScroll.frame = Rect(x: 0, y: 0, width: 46, height: 5)
+galleryScroll.setOffset(Point(x: 0, y: 4))
+
+show(SceneRenderer(root: galleryScroll).render(size: Size(width: 46, height: 5)))
+print("(scrolled to row 4 of 12; the right column is the indicator)")
 
 // MARK: - Coming Soon
 
 heading("Coming soon")
 
 print("""
-Remaining controls arrive through Phase 6: ScrollView, Window chrome,
-MenuBar, Dialog, TableView, TreeView, SplitView, Stepper, color picker,
-file dialogs, RichText (RichSwift), and SyntaxTextView.
+Remaining controls arrive through Phase 6: Window chrome, MenuBar, Dialog,
+TableView, TreeView, SplitView, color picker, file dialogs, RichText
+(RichSwift), and SyntaxTextView.
 
 Live demos:  swift run TUIKitDemo --interactive   (tabbed control form)
              swift run TUIKitDemo --events        (driver event viewer)
