@@ -112,7 +112,7 @@ public final class StatusBar: View {
 
         // Start every segment at its minimum.
         var widths = segments.map { resolvedMinimum(of: $0) }
-        var leftover = available - widths.reduce(0, +)
+        let leftover = available - widths.reduce(0, +)
 
         // Split the leftover by percentage weight, clamping to maximums;
         // remainder cells go one each to the earliest weighted segments.

@@ -357,6 +357,46 @@ func runFormDemo() async throws {
     let formScroll = ScrollView(document: formTab)
     formScroll.fitsDocumentWidth = true
 
+    // "Panes" tab content: dividers and their junctions. A panel so the
+    // edge tees (├ ┤ ┬ ┴) join into the border; one full-height vertical
+    // crossing the draggable horizontal (┼); one half vertical whose
+    // endpoint tees into the line (┬).
+    let panesPanel = TUIKit.Panel("Dividers & Junctions")
+
+    let acrossDivider = Divider(axis: .horizontal)
+    acrossDivider.isDraggable = true
+    acrossDivider.frame = Rect(x: 0, y: 5, width: 10, height: 1)
+    acrossDivider.anchors = AnchorSet(leading: 0, trailing: 0, height: 1)   // y stays where you drag it
+    acrossDivider.onMoved = { status.text = "divider at row \($0) — watch the junctions follow" }
+
+    // Vertical position of the full divider and the top edge of the half
+    // divider are deliberately anchor-under-constrained (or unanchored),
+    // so dragged positions — and the half divider following the
+    // horizontal line — survive relayout.
+    let fullVertical = Divider(axis: .vertical)
+    fullVertical.isDraggable = true
+    fullVertical.frame = Rect(x: 16, y: 0, width: 1, height: 10)
+    fullVertical.anchors = AnchorSet(top: 0, bottom: 0, width: 1)   // x stays where you drag it
+
+    let halfVertical = Divider(axis: .vertical)
+    halfVertical.isDraggable = true
+    halfVertical.frame = Rect(x: 38, y: 6, width: 1, height: 80)   // tall on purpose: clipped by the panel, so its ┴ always reaches the bottom border
+
+    for (text, x, y) in [
+        ("drag any line (mouse, or Tab + arrows)", 2, 1),
+        ("┼ where lines cross", 18, 3),
+        ("┬ where an endpoint meets a line", 18, 8),
+        ("├ ┤ ┬ ┴ join the panel border", 2, 10),
+    ] {
+        let label = Label(text, style: CellStyle(flags: .dim))
+        label.anchors = AnchorSet(leading: x, top: y, height: 1)
+        panesPanel.content.addSubview(label)
+    }
+
+    panesPanel.content.addSubview(acrossDivider)
+    panesPanel.content.addSubview(fullVertical)
+    panesPanel.content.addSubview(halfVertical)
+
     let tabs = TabView()
     tabs.addTab("Form", content: formScroll)
     tabs.addTab("Files", content: filesTab)
@@ -364,6 +404,7 @@ func runFormDemo() async throws {
     tabs.addTab("Data", content: dataTab)
     tabs.addTab("Code", content: codeTab)
     tabs.addTab("Docs", content: docsTab)
+    tabs.addTab("Panes", content: panesPanel)
     tabs.onSelectionChanged = { status.text = "tab: \(tabs.title(at: $0) ?? "?")" }
     // Fill the controls window, leaving the bottom row for the status bar.
     tabs.anchors = AnchorSet(leading: 0, trailing: 0, top: 0, bottom: 1)
@@ -403,7 +444,7 @@ func runFormDemo() async throws {
 
     let viewMenu = Menu("View")
 
-    for (index, name) in ["Form", "Files", "Scroll", "Data", "Code", "Docs"].enumerated() {
+    for (index, name) in ["Form", "Files", "Scroll", "Data", "Code", "Docs", "Panes"].enumerated() {
         viewMenu.addItem(name) {
             tabs.select(index, notify: true)
         }

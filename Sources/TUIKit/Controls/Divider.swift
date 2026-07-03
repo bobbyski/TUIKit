@@ -78,12 +78,9 @@ public final class Divider: View {
         let characters = theme.borderStyle.characters
             ?? BorderStyle.single.characters!
 
-        var style = theme.border
-
-        if isDraggable, isFirstResponder || isDragging {
-            style.flags.insert(.bold)
-            style.flags.insert(.inverse)
-        }
+        // Deliberately no focus/drag highlight — dividers stay quiet
+        // chrome; the pointer (or the moving line itself) is the feedback.
+        let style = theme.border
 
         switch axis {
         case .horizontal:
@@ -275,20 +272,23 @@ public final class Divider: View {
 
         let change = target - position
 
+        // Resize only the views whose edges actually abut the line —
+        // pane-style behavior. Views elsewhere (captions, crossing
+        // dividers) are untouched.
         for sibling in superview.subviews where sibling !== self {
             var siblingFrame = sibling.frame
 
             if axis == .horizontal {
-                if siblingFrame.maxY <= position + 1 {
+                if siblingFrame.maxY == position {
                     siblingFrame.size.height = max(0, siblingFrame.size.height + change)
-                } else if siblingFrame.minY >= position {
+                } else if siblingFrame.minY == position + 1 {
                     siblingFrame.origin.y += change
                     siblingFrame.size.height = max(0, siblingFrame.size.height - change)
                 }
             } else {
-                if siblingFrame.maxX <= position + 1 {
+                if siblingFrame.maxX == position {
                     siblingFrame.size.width = max(0, siblingFrame.size.width + change)
-                } else if siblingFrame.minX >= position {
+                } else if siblingFrame.minX == position + 1 {
                     siblingFrame.origin.x += change
                     siblingFrame.size.width = max(0, siblingFrame.size.width - change)
                 }
@@ -306,6 +306,11 @@ public final class Divider: View {
         }
 
         frame = newFrame
+
+        // Relayout so anchored siblings resolve against their (possibly
+        // adjusted) frames; the divider's own dragged position survives
+        // because its perpendicular axis is anchor-under-constrained.
+        superview.setNeedsLayout()
         superview.setNeedsDisplay()
         onMoved(target)
     }
