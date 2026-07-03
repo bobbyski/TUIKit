@@ -102,7 +102,7 @@ public final class Panel: View {
         drawDividerJunctions(painter, theme: theme)
     }
 
-    // Joins connected dividers (direct children of `content`) that reach
+    // Joins connected dividers anywhere in the content subtree that reach
     // the content edges into this panel's border with tee junctions, so
     // divided layouts read as one piece of chrome.
     private func drawDividerJunctions(_ painter: Painter, theme: Theme) {
@@ -112,20 +112,30 @@ public final class Panel: View {
 
         let contentSize = content.frame.size
 
-        for case let divider as Divider in content.subviews
-        where divider.isConnected && !divider.isHidden {
+        func visit(_ view: View, offset: Point) {
+            for subview in view.subviews where !subview.isHidden {
+                if let divider = subview as? Divider, divider.isConnected {
+                    join(divider, at: offset + divider.frame.origin)
+                } else {
+                    visit(subview, offset: offset + subview.frame.origin)
+                }
+            }
+        }
+
+        // `origin` is the divider's position in content coordinates.
+        func join(_ divider: Divider, at origin: Point) {
             switch divider.axis {
             case .horizontal:
-                let y = divider.frame.origin.y + 1   // content is inset by 1
+                let y = origin.y + 1   // content is inset by 1
 
-                if divider.frame.minX <= 0 {
+                if origin.x <= 0 {
                     painter.set(
                         TerminalCell(character: junctions.teeLeft, style: theme.border),
                         at: Point(x: 0, y: y)
                     )
                 }
 
-                if divider.frame.maxX >= contentSize.width {
+                if origin.x + divider.frame.size.width >= contentSize.width {
                     painter.set(
                         TerminalCell(character: junctions.teeRight, style: theme.border),
                         at: Point(x: bounds.size.width - 1, y: y)
@@ -133,16 +143,16 @@ public final class Panel: View {
                 }
 
             case .vertical:
-                let x = divider.frame.origin.x + 1
+                let x = origin.x + 1
 
-                if divider.frame.minY <= 0 {
+                if origin.y <= 0 {
                     painter.set(
                         TerminalCell(character: junctions.teeTop, style: theme.border),
                         at: Point(x: x, y: 0)
                     )
                 }
 
-                if divider.frame.maxY >= contentSize.height {
+                if origin.y + divider.frame.size.height >= contentSize.height {
                     painter.set(
                         TerminalCell(character: junctions.teeBottom, style: theme.border),
                         at: Point(x: x, y: bounds.size.height - 1)
@@ -150,6 +160,8 @@ public final class Panel: View {
                 }
             }
         }
+
+        visit(content, offset: .zero)
     }
 
     /// Click on `[x]` closes.

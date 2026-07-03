@@ -78,9 +78,18 @@ public final class Divider: View {
         let characters = theme.borderStyle.characters
             ?? BorderStyle.single.characters!
 
-        // Deliberately no focus/drag highlight — dividers stay quiet
-        // chrome; the pointer (or the moving line itself) is the feedback.
-        let style = theme.border
+        // Focus/drag cue: the line changes to the accent color (no video
+        // inverse — a recolored line is quieter and prettier). Colorless
+        // themes fall back to bold.
+        var style = theme.border
+
+        if isDraggable, isFirstResponder || isDragging {
+            if theme.accent != .standard {
+                style.foreground = theme.accent
+            } else {
+                style.flags.insert(.bold)
+            }
+        }
 
         switch axis {
         case .horizontal:

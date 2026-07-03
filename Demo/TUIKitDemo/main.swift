@@ -70,6 +70,98 @@ final class MenuBarWindow: Window {
     }
 }
 
+/// Five panes carved by three draggable dividers. The layout is *derived*:
+/// every pass positions panes from the current divider coordinates, and
+/// drags update those coordinates — so dragged positions survive relayout,
+/// the panes resize live, and junctions follow.
+///
+/// ```text
+///   topLeft      │ topRight
+///   ─────────────┼───────────────────
+///   bottomLeft   │ bottomMid │ bottomRight
+/// ```
+@MainActor
+final class PanesLayout: View {
+    var onDividerMoved: (String) -> Void = { _ in }
+
+    private let across = Divider(axis: .horizontal)
+    private let left = Divider(axis: .vertical)
+    private let right = Divider(axis: .vertical)
+    private let panes: [View]
+
+    // Divider coordinates; derived from ratios on first layout.
+    private var acrossY = -1
+    private var leftX = -1
+    private var rightX = -1
+
+    init(topLeft: View, topRight: View, bottomLeft: View, bottomMiddle: View, bottomRight: View) {
+        self.panes = [topLeft, topRight, bottomLeft, bottomMiddle, bottomRight]
+        super.init(frame: .zero)
+
+        for pane in panes {
+            addSubview(pane)
+        }
+
+        // Dividers last: drawn over the panes and hit-tested first.
+        for (divider, name) in [(across, "horizontal"), (left, "left"), (right, "right")] {
+            divider.isDraggable = true
+            addSubview(divider)
+            divider.onMoved = { [weak self] position in
+                self?.dividerMoved(name, to: position)
+            }
+        }
+    }
+
+    private func dividerMoved(_ name: String, to position: Int) {
+        switch name {
+        case "horizontal":
+            acrossY = position
+
+        case "left":
+            leftX = position
+
+        default:
+            rightX = position
+        }
+
+        setNeedsLayout()
+        onDividerMoved(name)
+    }
+
+    override func layoutSubviews() {
+        let width = bounds.size.width
+        let height = bounds.size.height
+
+        guard width > 8, height > 4 else {
+            return
+        }
+
+        if acrossY < 0 {
+            acrossY = height * 2 / 5
+            leftX = width / 3
+            rightX = width * 2 / 3
+        }
+
+        // Clamp for window resizes.
+        acrossY = min(max(1, acrossY), height - 2)
+        leftX = min(max(1, leftX), width - 4)
+        rightX = min(max(leftX + 2, rightX), width - 2)
+
+        across.frame = Rect(x: 0, y: acrossY, width: width, height: 1)
+        left.frame = Rect(x: leftX, y: 0, width: 1, height: height)
+        right.frame = Rect(x: rightX, y: acrossY + 1, width: 1, height: height - acrossY - 1)
+
+        let bottomY = acrossY + 1
+        let bottomHeight = height - bottomY
+
+        panes[0].frame = Rect(x: 0, y: 0, width: leftX, height: acrossY)
+        panes[1].frame = Rect(x: leftX + 1, y: 0, width: width - leftX - 1, height: acrossY)
+        panes[2].frame = Rect(x: 0, y: bottomY, width: leftX, height: bottomHeight)
+        panes[3].frame = Rect(x: leftX + 1, y: bottomY, width: rightX - leftX - 1, height: bottomHeight)
+        panes[4].frame = Rect(x: rightX + 1, y: bottomY, width: width - rightX - 1, height: bottomHeight)
+    }
+}
+
 /// Interactive form dogfooding every Phase 6 control on the real driver:
 /// Tab/Shift+Tab move focus, all controls answer keys and mouse, and the
 /// status line narrates the semantic events the app receives.
@@ -357,45 +449,55 @@ func runFormDemo() async throws {
     let formScroll = ScrollView(document: formTab)
     formScroll.fitsDocumentWidth = true
 
-    // "Panes" tab content: dividers and their junctions. A panel so the
-    // edge tees (├ ┤ ┬ ┴) join into the border; one full-height vertical
-    // crossing the draggable horizontal (┼); one half vertical whose
-    // endpoint tees into the line (┬).
-    let panesPanel = TUIKit.Panel("Dividers & Junctions")
+    // "Panes" tab content: five live panes carved by three draggable
+    // dividers — drag a line and watch the content reflow. The panel joins
+    // edge-reaching dividers into its border (├ ┤ ┬ ┴), the crossing shows
+    // ┼, and the right divider's endpoint tees into the horizontal (┬).
+    let panesPanel = TUIKit.Panel("Dividers & Junctions — drag any line")
 
-    let acrossDivider = Divider(axis: .horizontal)
-    acrossDivider.isDraggable = true
-    acrossDivider.frame = Rect(x: 0, y: 5, width: 10, height: 1)
-    acrossDivider.anchors = AnchorSet(leading: 0, trailing: 0, height: 1)   // y stays where you drag it
-    acrossDivider.onMoved = { status.text = "divider at row \($0) — watch the junctions follow" }
+    let paneGuide = MarkdownView(markdown: """
+    **Panes.** Drag the lines with the mouse, or Tab to one and use the \
+    arrows. This text **rewraps** as its pane resizes.
+    """)
 
-    // Vertical position of the full divider and the top edge of the half
-    // divider are deliberately anchor-under-constrained (or unanchored),
-    // so dragged positions — and the half divider following the
-    // horizontal line — survive relayout.
-    let fullVertical = Divider(axis: .vertical)
-    fullVertical.isDraggable = true
-    fullVertical.frame = Rect(x: 16, y: 0, width: 1, height: 10)
-    fullVertical.anchors = AnchorSet(top: 0, bottom: 0, width: 1)   // x stays where you drag it
+    let paneSwift = SyntaxTextView(text: """
+    // resize me
+    func layout(panes: Int) -> Bool {
+        let lines = 3
+        return panes == 5 && lines == 3
+    }
+    """, language: "swift")
 
-    let halfVertical = Divider(axis: .vertical)
-    halfVertical.isDraggable = true
-    halfVertical.frame = Rect(x: 38, y: 6, width: 1, height: 80)   // tall on purpose: clipped by the panel, so its ┴ always reaches the bottom border
-
-    for (text, x, y) in [
-        ("drag any line (mouse, or Tab + arrows)", 2, 1),
-        ("┼ where lines cross", 18, 3),
-        ("┬ where an endpoint meets a line", 18, 8),
-        ("├ ┤ ┬ ┴ join the panel border", 2, 10),
-    ] {
-        let label = Label(text, style: CellStyle(flags: .dim))
-        label.anchors = AnchorSet(leading: x, top: y, height: 1)
-        panesPanel.content.addSubview(label)
+    let paneList = ListView(items: (1...20).map { "Pane row \($0)" })
+    paneList.onSelectionChanged = { index in
+        status.text = index.map { "pane list row \($0 + 1)" } ?? ""
     }
 
-    panesPanel.content.addSubview(acrossDivider)
-    panesPanel.content.addSubview(fullVertical)
-    panesPanel.content.addSubview(halfVertical)
+    let paneNotes = MarkdownView(markdown: """
+    - `┼` where lines cross
+    - `┬` endpoint meets a line
+    - border tees join the panel
+    - focused lines show the accent
+    """)
+
+    let paneCSS = SyntaxTextView(text: """
+    /* junctions follow drags */
+    Panel { border: rounded; }
+    .status { color: brightCyan; }
+    """, language: "css")
+
+    let panes = PanesLayout(
+        topLeft: paneGuide,
+        topRight: paneSwift,
+        bottomLeft: paneList,
+        bottomMiddle: paneNotes,
+        bottomRight: paneCSS
+    )
+    panes.onDividerMoved = { name in
+        status.text = "\(name) divider moved — panes resize, junctions follow"
+    }
+    panes.anchors = .fill()
+    panesPanel.content.addSubview(panes)
 
     let tabs = TabView()
     tabs.addTab("Form", content: formScroll)
