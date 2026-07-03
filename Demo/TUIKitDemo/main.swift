@@ -91,7 +91,14 @@ final class DemoPanel: View {
     var title: String
     var background: TerminalColor
 
-    init(frame: Rect, title: String, background: TerminalColor) {
+    /// Natural size, when the panel should be fixed rather than flexible.
+    var preferredSize: Size?
+
+    override var intrinsicContentSize: Size? {
+        preferredSize
+    }
+
+    init(frame: Rect = .zero, title: String, background: TerminalColor) {
         self.title = title
         self.background = background
         super.init(frame: frame)
@@ -248,6 +255,51 @@ panel.addSubview(clipped)
 
 show(SceneRenderer(root: window).render(size: Size(width: 46, height: 9)))
 print("(the red panel is cut off at its parent's edge — clipping contract)")
+
+// MARK: - Layout (Phase 5)
+
+heading("Layout — stacks & grid")
+
+// A classic app shell: fixed sidebar + flexible content, over a status bar,
+// laid out entirely by VStack/HStack — no hand-computed frames.
+let shell = VStack(frame: Rect(x: 0, y: 0, width: 46, height: 8), spacing: 0)
+let mainRow = HStack(spacing: 1)
+
+let sidebar = DemoPanel(title: "Side", background: .named(.magenta))
+sidebar.preferredSize = Size(width: 10, height: 1)
+
+mainRow.addSubview(sidebar)
+mainRow.addSubview(DemoPanel(title: "Content", background: .named(.blue)))
+mainRow.addSubview(DemoPanel(title: "Aside", background: .named(.cyan)))
+
+let status = DemoPanel(title: "Status", background: .named(.brightBlack))
+status.preferredSize = Size(width: 1, height: 3)
+
+shell.addSubview(mainRow)
+shell.addSubview(status)
+
+show(SceneRenderer(root: shell).render(size: Size(width: 46, height: 8)))
+print("(fixed 10-cell sidebar; Content/Aside split the leftover; fixed status)")
+
+heading("Layout — grid with spans")
+
+let grid = GridView(
+    columns: [.fixed(8), .flexible(2), .flexible(1)],
+    frame: Rect(x: 0, y: 0, width: 46, height: 7),
+    columnSpacing: 1,
+    rowSpacing: 0
+)
+
+let banner = DemoPanel(title: "Header spans all columns", background: .named(.blue))
+grid.place(banner, column: 0, row: 0, columnSpan: 3)
+grid.setRow(0, .fixed(3))
+grid.place(DemoPanel(title: "8", background: .named(.red)), column: 0, row: 1)
+grid.place(DemoPanel(title: "2fr", background: .named(.green)), column: 1, row: 1)
+grid.place(DemoPanel(title: "1fr", background: .named(.yellow)), column: 2, row: 1)
+grid.setRow(1, .flexible())
+
+show(SceneRenderer(root: grid).render(size: Size(width: 46, height: 7)))
+print("(fixed 8-cell column, then flexible columns weighted 2:1)")
 
 // MARK: - Coming Soon
 

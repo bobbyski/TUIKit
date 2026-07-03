@@ -52,9 +52,14 @@ public final class SceneRenderer {
 
     /// Renders a frame unconditionally.
     ///
+    /// Pending layout runs first, so a presented frame always reflects
+    /// settled geometry.
+    ///
     /// - Parameter size: Target frame size in cells.
     /// - Returns: The composed frame.
     public func render(size: Size) -> CellBuffer {
+        root.layoutIfNeeded()
+
         let target = RenderTarget(size: size)
         let screen = Rect(origin: .zero, size: size)
         let painter = Painter(

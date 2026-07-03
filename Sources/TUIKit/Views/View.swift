@@ -31,6 +31,10 @@ open class View {
             if frame != oldValue {
                 setNeedsDisplay()
             }
+
+            if frame.size != oldValue.size {
+                setNeedsLayout()
+            }
         }
     }
 
@@ -72,7 +76,7 @@ open class View {
         view.removeFromSuperview()
         subviews.append(view)
         view.superview = self
-        setNeedsDisplay()
+        setNeedsLayout()
     }
 
     /// Detaches the view from its parent.
@@ -82,7 +86,7 @@ open class View {
         }
 
         superview.subviews.removeAll { $0 === self }
-        superview.setNeedsDisplay()
+        superview.setNeedsLayout()
         self.superview = nil
     }
 
@@ -112,6 +116,88 @@ open class View {
     /// Whether this view or anything beneath it needs redrawing.
     public var needsDisplayInTree: Bool {
         needsDisplay || subtreeNeedsDisplay
+    }
+
+    // MARK: - Layout
+
+    /// The size the view's content wants, when it has a natural size.
+    ///
+    /// Layout containers use this for fit-content sizing; views without a
+    /// natural size return `nil` and are treated as flexible.
+    open var intrinsicContentSize: Size? {
+        nil
+    }
+
+    /// Smallest size layout containers may give the view.
+    public var minimumSize: Size = .zero {
+        didSet {
+            if minimumSize != oldValue {
+                superview?.setNeedsLayout()
+            }
+        }
+    }
+
+    /// Largest size layout containers may give the view, when limited.
+    public var maximumSize: Size? {
+        didSet {
+            if maximumSize != oldValue {
+                superview?.setNeedsLayout()
+            }
+        }
+    }
+
+    /// Edge/center pinning applied by the parent's default layout pass.
+    ///
+    /// Layout containers (stacks, grids) own their children's frames and
+    /// ignore anchors.
+    public var anchors: AnchorSet? {
+        didSet {
+            if anchors != oldValue {
+                superview?.setNeedsLayout()
+            }
+        }
+    }
+
+    /// Whether the view needs a layout pass.
+    public private(set) var needsLayout = true
+
+    /// Marks the view as needing layout (and therefore redraw).
+    public func setNeedsLayout() {
+        needsLayout = true
+        setNeedsDisplay()
+    }
+
+    /// Computes subview frames.
+    ///
+    /// The default implementation applies each subview's `anchors`. Layout
+    /// containers override this and own their children's frames outright.
+    open func layoutSubviews() {
+        for subview in subviews {
+            guard let anchors = subview.anchors else {
+                continue
+            }
+
+            subview.frame = anchors.resolvedFrame(
+                in: bounds,
+                current: subview.frame,
+                preferred: subview.intrinsicContentSize
+            )
+        }
+    }
+
+    /// Runs any pending layout for the view and its subtree, top down.
+    ///
+    /// Rendering calls this automatically; tests call it directly to assert
+    /// geometry without rendering anything.
+    public func layoutIfNeeded() {
+        if needsLayout {
+            layoutSubviews()
+            needsLayout = false
+        }
+
+        for subview in subviews {
+            subview.layoutIfNeeded()
+        }
     }
 
     // MARK: - Responder Surface

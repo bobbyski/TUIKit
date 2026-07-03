@@ -68,9 +68,13 @@ layer: the `View` responder surface (typed key/mouse handlers, focus hooks),
 `Window` as the focus scope (first responder, Tab order, hot → focused →
 Tab → cold key routing, hit-tested mouse delivery in local coordinates), and
 `App` — the window stack and the pure-suspension run loop with graceful
-`stop()`. The interactive demo is now a real TUIKit app
-(`swift run TUIKitDemo --interactive`). Next: layout (Phase 5), then
-controls (Phase 6).
+`stop()`. Phase 5 added layout: size preferences
+(`intrinsicContentSize`/min/max) with a proper layout pass
+(`setNeedsLayout`/`layoutIfNeeded`, run by the renderer before drawing),
+`AnchorSet` edge/center pinning applied by the default `layoutSubviews`,
+`HStack`/`VStack` with flexible-space distribution, and `GridView` with
+fixed/fit/flexible tracks and spans. The interactive demo is a real TUIKit
+app (`swift run TUIKitDemo --interactive`). Next: controls (Phase 6).
 
 ## RichSwift
 

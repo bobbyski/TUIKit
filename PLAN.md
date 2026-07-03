@@ -20,13 +20,13 @@ testable, demos read as tutorials).
 ## Dashboard
 
 ```
-Overall Progress  █████████████░░░░░░░░░░░░░░░░░░░  40%   (20 / 50 items)
+Overall Progress  ████████████████░░░░░░░░░░░░░░░░  50%   (25 / 50 items)
 
 Phase 1 · Package Scaffold & Docs     ██████████████████████████  100%  ✅ Complete
 Phase 2 · Terminal Drivers            ██████████████████████████  100%  ✅ Complete (44 tests green 2026-07-01; interactive demo check pending)
 Phase 3 · View System & Rendering     ██████████████████████████  100%  🔄 Code complete, unverified
 Phase 4 · Run Loop & Responder Chain  ██████████████████████████  100%  🔄 Code complete, unverified
-Phase 5 · Layout                      ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending
+Phase 5 · Layout                      ██████████████████████████  100%  🔄 Code complete, unverified
 Phase 6 · Controls v1                 ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending
 Phase 7 · Styling & Theming           ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending
 Phase 8 · Demo & Polish               ███░░░░░░░░░░░░░░░░░░░░░░░   12%  🔄 Demo gallery started early
@@ -125,15 +125,15 @@ Layout per the AICoding rules framework structure.
 | 4.4 | Semantic event surface | ✅ Done | Views receive typed KeyInput/MouseInput in local coords only; per-control typed callbacks (onActivate etc.) land with each Phase 6 control. |
 | 4.5 | Window stack | ✅ Done | App present/dismiss stack; top window is key (modal input rule); z-order via subview compositing; fillsScreen windows follow resize. |
 
-## Phase 5 — Layout ⏳ 0%
+## Phase 5 — Layout 🔄 100% (code complete, unverified)
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 5.1 | Size preferences | ⏳ Pending | Intrinsic/min/max per view. |
-| 5.2 | `HStack` / `VStack` | ⏳ Pending | Spacing, alignment, flexible children. |
-| 5.3 | Anchor/pin helpers | ⏳ Pending | AppKit-flavored: fill, center, pin edges. |
-| 5.4 | `Grid` | ⏳ Pending | Rows × columns with spans, per-column sizing (fixed/flex/fit). |
-| 5.5 | Geometry-only layout tests | ⏳ Pending | Assert frames without rendering (stacks, grid, anchors). |
+| 5.1 | Size preferences | ✅ Done | intrinsicContentSize (open) + minimumSize/maximumSize; layout pass (setNeedsLayout/layoutIfNeeded) with renderer integration. |
+| 5.2 | `HStack` / `VStack` | ✅ Done | Shared StackView engine: natural-size children fixed, flexible share leftover (deterministic remainders), spacing/insets/alignment, hidden skipped, min/max clamps, fit-content intrinsic size for nesting. |
+| 5.3 | Anchor/pin helpers | ✅ Done | AnchorSet (edge insets, fixed lengths, centering) applied by the default View.layoutSubviews; .fill/.centered helpers; per-axis resolution with intrinsic fallback. |
+| 5.4 | `Grid` | ✅ Done | GridView: fixed/fitContent/flexible(weight) tracks both axes, auto-growing rows, column+row spans, spacing/insets. |
+| 5.5 | Geometry-only layout tests | ✅ Done | 16 tests assert frames via layoutIfNeeded, no rendering; plus render-runs-layout integration checks. |
 
 ## Phase 6 — Controls v1 ⏳ 0%
 
