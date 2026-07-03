@@ -31,6 +31,10 @@ final class FormWindow: Window {
 
     let exitButton = Button("Exit")
 
+    /// The window's menu bar; while one of its menus is open, Esc closes
+    /// the menu instead of quitting.
+    weak var menuBar: MenuBar?
+
     override init(frame: Rect = .zero) {
         super.init(frame: frame)
         exitButton.anchors = AnchorSet(trailing: 1, top: 0)
@@ -44,9 +48,14 @@ final class FormWindow: Window {
         addSubview(exitButton)
     }
 
-    /// Esc quits from anywhere via the hot-key pass (before focused views).
+    /// Esc quits from anywhere via the hot-key pass (before focused views),
+    /// unless a menu is open — then the dropdown handles it.
     override func handleHotKey(_ key: KeyInput) -> Bool {
         if key.key == .escape, key.modifiers.isEmpty {
+            if menuBar?.isMenuOpen == true {
+                return false
+            }
+
             onQuit()
             return true
         }
@@ -82,6 +91,9 @@ func runFormDemo() async throws {
 
     let tabSize = Stepper(value: 4, in: 1...16)
     tabSize.onValueChanged = { status.text = "tab size: \($0)" }
+
+    let accent = ColorPicker(color: .named(.cyan))
+    accent.onColorChanged = { status.text = "accent color: \($0)" }
 
     let files = ListView(items: (1...30).map { "Document-\($0).txt" })
     files.onSelectionChanged = { index in
@@ -142,6 +154,9 @@ func runFormDemo() async throws {
     stepperRow.addSubview(tabSize)
     stepperRow.addSubview(View())   // flexible spacer keeps the row leading
     formTab.addSubview(stepperRow)
+
+    formTab.addSubview(Label("Accent (color picker):", style: CellStyle(flags: .bold)))
+    formTab.addSubview(accent)
 
     formTab.addSubview(buttons)
     formTab.addSubview(View())   // spacer pushes content to the top
@@ -267,12 +282,33 @@ func runFormDemo() async throws {
     // Status pinned to the bottom row.
     status.anchors = AnchorSet(leading: 1, trailing: 1, bottom: 0, height: 1)
 
-    let title = Label("TUIKit controls — ←/→ switch tabs, Tab to move focus", style: CellStyle(flags: .bold))
-    title.anchors = AnchorSet(leading: 1, top: 0, height: 1)
+    // Menu bar on the top row: hot keys work from anywhere (^O, ^Q).
+    let fileMenu = Menu("File")
+    fileMenu.addItem("Open…", keyEquivalent: KeyInput(key: .character("o"), modifiers: .control)) {
+        open.activate()
+    }
+    fileMenu.addSeparator()
+    fileMenu.addItem("Quit", keyEquivalent: KeyInput(key: .character("q"), modifiers: .control)) {
+        quit.activate()
+    }
+
+    let viewMenu = Menu("View")
+
+    for (index, name) in ["Form", "Files", "Scroll", "Data"].enumerated() {
+        viewMenu.addItem(name) {
+            tabs.select(index, notify: true)
+        }
+    }
+
+    let menuBar = MenuBar()
+    menuBar.addMenu(fileMenu)
+    menuBar.addMenu(viewMenu)
+    menuBar.anchors = AnchorSet(leading: 0, top: 0, height: 1)
 
     window.addSubview(tabs)
     window.addSubview(status)
-    window.addSubview(title)
+    window.addSubview(menuBar)
+    window.menuBar = menuBar
     window.installExitButton()   // front-most: clickable and drawn on top
     window.makeFirstResponder(tabs)   // Left/Right switches tabs; Tab enters content
 
@@ -676,8 +712,8 @@ print("(present with app.present — the window stack makes it modal)")
 heading("Coming soon")
 
 print("""
-Remaining controls arrive through Phase 6: MenuBar, color picker,
-RichText (RichSwift), and SyntaxTextView.
+Remaining controls arrive through Phase 6: RichText (RichSwift) and
+SyntaxTextView.
 
 Live demos:  swift run TUIKitDemo --interactive   (tabbed control form)
              swift run TUIKitDemo --events        (driver event viewer)

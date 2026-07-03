@@ -23,14 +23,14 @@ Docs: `Docs/Architecture.md` (layers/ownership), `Docs/ControlsUML.md`
 ## Dashboard
 
 ```
-Overall Progress  ███████████████████░░░░░░░░░░░░░  60%   (41 / 68 items)
+Overall Progress  ████████████████████░░░░░░░░░░░░  63%   (43 / 68 items)
 
 Phase 1 · Package Scaffold & Docs     ██████████████████████████  100%  ✅ Complete
 Phase 2 · Terminal Drivers            ██████████████████████████  100%  ✅ Complete (44 tests green 2026-07-01; interactive demo check pending)
 Phase 3 · View System & Rendering     ██████████████████████████  100%  🔄 Code complete, unverified
 Phase 4 · Run Loop & Responder Chain  ██████████████████████████  100%  🔄 Code complete, unverified
 Phase 5 · Layout                      ██████████████████████████  100%  🔄 Code complete, unverified
-Phase 6 · Controls v1                 ██████████████████████░░░░   85%  🔄 In Progress (17 of 20 controls)
+Phase 6 · Controls v1                 █████████████████████████░   95%  🔄 In Progress (19 of 20 controls; RichText + SyntaxTextView remain)
 Phase 7 · Styling & Theming           ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending
 Phase 8 · Demo & Polish               ███░░░░░░░░░░░░░░░░░░░░░░░   12%  🔄 Demo gallery started early
 Phase 9 · Tutorial                    ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending
@@ -156,7 +156,7 @@ Each control owns its interaction state, keyboard model, and mouse behavior.
 | 6.5b | `TabView` (folder tabs) | ✅ Done | Tab bar selects which content view shows below; ←/→ + click switch tabs; non-selected content hidden (drops from focus order); addTab/select/title API. |
 | 6.6 | ScrollView | ✅ Done | Viewport + document view at full content size; offset clamps both axes; arrows/PgUp-PgDn/Home/End when focused, wheel anytime; proportional ░/█ indicator bars in reserved column/row (two-pass reservation) that are live — track click pages toward the click, thumb drags (via window mouse capture); silent `setOffset`, `onOffsetChanged`. Clipping needs nothing special — the Painter contract already contains the document. Note: focus traversal can still reach controls scrolled out of view; revisit with 6.16. |
 | 6.7 | Window / Panel chrome | ✅ Done | `Panel`: single-line border, bold title in the top border, optional `[x]` close affordance emitting `onClose` (the app decides what closing means); application content lives in the inset `content` view. Drag/resize still later. |
-| 6.8 | MenuBar / Menu | ⏳ Pending | Hot keys, submenu navigation. |
+| 6.8 | MenuBar / Menu | ✅ Done | `Menu`/`MenuItem` model (separators, disabled items, per-item `keyEquivalent` fired from anywhere via the hot-key pass — menu closed or open); bar highlights with ←/→, Return/↓ opens; dropdown navigates with ↑/↓ (skipping separators/disabled), slides between menus with ←/→, Esc closes, click toggles/activates; focus returns to the bar on close. Dropdown attaches to the bar's superview — v1 limitation: an outside click doesn't auto-close the menu. |
 | 6.9 | Dialog / Alert | ✅ Done | `Dialog`: a `Window` wearing `Panel` chrome, so modality is the existing stack rule (top window is key). Default button (initial focus; Return via cold-key pass when something else holds focus) and cancel button (Esc via hot-key pass); every button runs its action then `onDismiss`; multiline message; `preferredSize` + `sizeToFit(in:)` centering. |
 | 6.10 | `TableView` | ✅ Done | The multi-column consumer of `RowNavigationState`, as designed in 6.5: identical keyboard model to ListView below a fixed bold+underline header; `TableColumn` fixed/flexible(weight) widths (stack-style deterministic remainders, 1-cell separators); selection inverts the full row; header click emits `onSortRequested(column)` — the app owns data and sort order; `onSelectionChanged`/`onActivate`, silent `select`. |
 | 6.11 | `TreeView` | ✅ Done | `TreeNode` model (parent links, `representedValue`, `childProvider` loads lazily exactly once on first expansion); expanded nodes flatten onto `RowNavigationState`, so navigation is ListView's; `→` expands then steps into children, `←` collapses then steps to the parent; disclosure-triangle clicks toggle; selection survives rebuilds by node identity; `onSelectionChanged`/`onActivate`, silent `select`. |
@@ -164,7 +164,7 @@ Each control owns its interaction state, keyboard model, and mouse behavior.
 | 6.12 | `SplitView` | ✅ Done | H/V panes around a one-cell divider; divider drags with the mouse (grabbed via window capture, so the drag survives leaving the divider cell), arrows move it while focused, Home/End snap against the pane minimums; `minimumFirst/SecondLength` clamp every path; silent `setDividerPosition`, `onDividerMoved`. Collapse = a zero minimum + Home/End. |
 | 6.13 | `Stepper` | ✅ Done | `[-] 42 [+]`: Up/`+` and Down/`-` step (clamped to `range`, custom `step`), Home/End jump to bounds, clicking a bracket steps; field width sized to the range's widest value; silent `setValue`, `onValueChanged`; steps at a bound emit nothing. |
 | 6.14 | Open/Save dialog | ✅ Done | `FileDialog(mode:root:fileSystem:)` — open / save / selectFolder — composed from `Dialog` (modality, default/cancel buttons, new `body` slot) + `DirectoryTree` + `TextField`. Save mode joins the current directory with the name field (file selection prefills the name, folder selection retargets); footer always shows the path confirm would return; Return confirms from tree, name field, or button; tested entirely against a fake `FileSystemProvider`. |
-| 6.15 | Color picker | ⏳ Pending | Named/palette/RGB selection matching `TerminalColor`; preview swatches; typed color events. |
+| 6.15 | Color picker | ✅ Done | Composite of existing controls: `TabView` with Named (16-swatch grid, arrow/click selection), Palette (index stepper), and RGB (three steppers) tabs, plus an always-visible preview swatch with a readable description (`TerminalColor` is now `CustomStringConvertible`); one typed `onColorChanged(TerminalColor)`; silent `setColor` switches to the matching tab. |
 | 6.16 | `SyntaxTextView` | ⏳ Pending | Editable text view with syntax highlighting rendered through RichSwift `Syntax` (see RichSwift Integration); line numbers, scroll; builds on TextField/ScrollView internals. |
 
 ## Phase 7 — Styling & Theming ⏳ 0%

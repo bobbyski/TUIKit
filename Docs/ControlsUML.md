@@ -211,6 +211,36 @@ classDiagram
         +collapse(TreeNode)
     }
 
+    class MenuItem {
+        +title : String
+        +keyEquivalent : KeyInput?
+        +isEnabled : Bool
+        +isSeparator : Bool
+        +action : () -> Void
+        +separator()$ MenuItem
+    }
+
+    class Menu {
+        +title : String
+        +items : [MenuItem]
+        +addItem(title, keyEquivalent, action) MenuItem
+        +addSeparator()
+    }
+
+    class MenuBar {
+        +menus : [Menu]
+        +isMenuOpen : Bool
+        +addMenu(Menu)
+        +openMenu(at : Int)
+        +closeMenu()
+    }
+
+    class ColorPicker {
+        +color : TerminalColor
+        +onColorChanged : (TerminalColor) -> Void
+        +setColor(TerminalColor, notify)
+    }
+
     class RowNavigationState {
         <<struct, pure>>
         +count : Int
@@ -265,6 +295,8 @@ classDiagram
     Window <|-- Dialog
     Dialog <|-- FileDialog
     View <|-- SplitView
+    View <|-- MenuBar
+    View <|-- ColorPicker
     View <|-- StackView
     View <|-- GridView
     View <|-- Window
@@ -284,6 +316,10 @@ classDiagram
     Dialog o-- Button : actions
     FileDialog *-- DirectoryTree : browses
     SplitView o-- View : first/second
+    MenuBar o-- Menu : menus
+    Menu o-- MenuItem : items
+    ColorPicker *-- TabView : modes
+    ColorPicker *-- Stepper : palette/rgb
     TabView o-- View : content per tab
     ScrollView o-- View : documentView
 
@@ -301,11 +337,6 @@ classDiagram
     class View
     class ScrollView
 
-    class MenuBar
-    class ColorPicker {
-        +color : TerminalColor
-        +onChange
-    }
     class RichText {
         +markup : String
     }
@@ -314,8 +345,6 @@ classDiagram
         +language : String
     }
 
-    View <|-- MenuBar
-    View <|-- ColorPicker
     View <|-- RichText
     ScrollView <|-- SyntaxTextView
 ```
