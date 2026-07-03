@@ -78,17 +78,14 @@ public final class Divider: View {
         let characters = theme.borderStyle.characters
             ?? BorderStyle.single.characters!
 
-        // Focus/drag cue: the line changes to the accent color (no video
-        // inverse — a recolored line is quieter and prettier). Colorless
-        // themes fall back to bold.
+        // Focus/drag cue: the line recolors to the accent — never bold and
+        // never inverse (bold box-drawing glyphs render unevenly in common
+        // terminal fonts, which reads as a dashed line). Colorless themes
+        // (mono) show no cue.
         var style = theme.border
 
-        if isDraggable, isFirstResponder || isDragging {
-            if theme.accent != .standard {
-                style.foreground = theme.accent
-            } else {
-                style.flags.insert(.bold)
-            }
+        if isDraggable, isFirstResponder || isDragging, theme.accent != .standard {
+            style.foreground = theme.accent
         }
 
         switch axis {

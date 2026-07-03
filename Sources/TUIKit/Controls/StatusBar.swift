@@ -59,6 +59,10 @@ public final class StatusBar: View {
         }
     }
 
+    // Separators are real connected Dividers, so an enclosing Panel welds
+    // them into its border (┴ where the bar sits on the bottom row).
+    private var separators: [Divider] = []
+
     /// Creates an empty status bar.
     public init() {
         super.init(frame: .zero)
@@ -107,8 +111,8 @@ public final class StatusBar: View {
             return
         }
 
-        let separators = showsSeparators ? segments.count - 1 : 0
-        let available = max(0, bounds.size.width - separators)
+        let separatorWidth = showsSeparators ? segments.count - 1 : 0
+        let available = max(0, bounds.size.width - separatorWidth)
 
         // Start every segment at its minimum.
         var widths = segments.map { resolvedMinimum(of: $0) }
@@ -157,24 +161,29 @@ public final class StatusBar: View {
             x += widths[index]
 
             if showsSeparators, index < segments.count - 1 {
+                separator(at: index).frame = Rect(x: x, y: 0, width: 1, height: 1)
                 x += 1
             }
         }
+
+        // Hide any leftover separators (and all of them when disabled).
+        let needed = showsSeparators ? max(0, segments.count - 1) : 0
+
+        for (index, divider) in separators.enumerated() {
+            divider.isHidden = index >= needed
+        }
     }
 
-    /// Draws the separators between segments.
-    public override func draw(_ painter: Painter) {
-        guard showsSeparators, segments.count > 1 else {
-            return
+    // Reuses or creates the divider between segment `index` and the next.
+    private func separator(at index: Int) -> Divider {
+        while separators.count <= index {
+            let divider = Divider(axis: .vertical)
+            separators.append(divider)
+            addSubview(divider)
         }
 
-        let theme = effectiveTheme
-        let vertical = (theme.borderStyle.characters ?? BorderStyle.single.characters!).vertical
-
-        for segment in segments.dropLast() {
-            let x = segment.content.frame.maxX
-            painter.set(TerminalCell(character: vertical, style: theme.border), at: Point(x: x, y: 0))
-        }
+        separators[index].isHidden = false
+        return separators[index]
     }
 
     // A segment's effective minimum: explicit, else content natural width.

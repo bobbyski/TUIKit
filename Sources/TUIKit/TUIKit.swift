@@ -19,6 +19,16 @@
 /// deterministic — the same state, style, and frame always produce the same
 /// cells — which is what makes the whole framework testable in CI through
 /// `HeadlessDriver`.
+///
+/// Anything that needs to happen over *time* — animation, debounces, delayed
+/// actions — goes through the timer facility rather than a blocking sleep or
+/// a detached thread. `App.addTimer(every:)` and `App.schedule(after:)`
+/// return a cancellable `AppTimer` whose body runs on the `MainActor` inside
+/// the run loop (so a tick presents a frame like a keypress does), and whose
+/// ticks come from an injectable `TimerSource` — the real clock in
+/// production, a `ManualTimerSource` in tests. Timing is therefore
+/// non-blocking and headless-scriptable, exactly like input. See
+/// `Docs/Architecture.md`.
 
 // RichSwift is part of TUIKit's public surface (`RichText`,
 // `SyntaxTextView`, and their renderable/markup types), so it is

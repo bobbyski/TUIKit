@@ -92,6 +92,14 @@ open class View {
         }
     }
 
+    /// Menu shown on right-click over this view (or its subtree, unless a
+    /// descendant sets its own).
+    ///
+    /// The owning `Window` presents it at the pointer — below when there
+    /// is room, above otherwise — with the usual menu keyboard model
+    /// (↑/↓, Return, Esc); clicking elsewhere dismisses.
+    public var contextMenu: Menu?
+
     /// The theme in effect for this view: the nearest ancestor's theme,
     /// with matching stylesheet rules applied when any sheets exist
     /// (outer sheets first, then specificity, then source order).

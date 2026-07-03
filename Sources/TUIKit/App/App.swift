@@ -19,6 +19,7 @@
 @MainActor
 public final class App {
     private let driver: any TerminalDriver
+    private let timerSource: TimerSource
 
     /// Screen-sized root and background; windows are its subviews, so
     /// z-order and compositing reuse the ordinary view system. Style it
@@ -47,10 +48,83 @@ public final class App {
 
     /// Creates an application on a driver.
     ///
-    /// - Parameter driver: Terminal driver to run against.
-    public init(driver: any TerminalDriver) {
+    /// - Parameters:
+    ///   - driver: Terminal driver to run against.
+    ///   - timerSource: Source of ticks for `addTimer(every:_:)`. Defaults
+    ///     to the real clock; pass a `ManualTimerSource` in tests.
+    public init(driver: any TerminalDriver, timerSource: TimerSource = ClockTimerSource()) {
         self.driver = driver
+        self.timerSource = timerSource
         self.renderer = SceneRenderer(root: desktop)
+    }
+
+    // MARK: - Timers
+
+    // Registered repeating timers.
+    private var timers: [AppTimer] = []
+
+    // The run loop's event sink while running (input + ticks merge here).
+    private var eventContinuation: AsyncStream<LoopEvent>.Continuation?
+
+    /// Registers a repeating timer that fires on the main thread inside the
+    /// run loop, driving a frame present each tick.
+    ///
+    /// The timer starts immediately when the app is already running, or when
+    /// `run(_:)` next starts. It never blocks — ticks arrive by suspension.
+    ///
+    /// - Parameters:
+    ///   - interval: Time between ticks.
+    ///   - repeats: Whether it keeps firing. A one-shot (`false`) cancels
+    ///     itself after the first fire; prefer `schedule(after:_:)` for that.
+    ///   - body: Called on each tick, on the `MainActor`.
+    /// - Returns: The timer; call `cancel()` to stop it.
+    @discardableResult
+    public func addTimer(
+        every interval: Duration,
+        repeats: Bool = true,
+        _ body: @escaping @MainActor () -> Void
+    ) -> AppTimer {
+        let timer = AppTimer(interval: interval, repeats: repeats, body: body)
+        timer.onCancel = { [weak self] timer in
+            self?.timers.removeAll { $0 === timer }
+        }
+
+        timers.append(timer)
+
+        if let eventContinuation {
+            startTimerTask(timer, into: eventContinuation)
+        }
+
+        return timer
+    }
+
+    /// Registers a one-shot timer that fires once after a delay, then cancels
+    /// itself. A delayed action that never blocks the main thread.
+    ///
+    /// - Parameters:
+    ///   - delay: How long to wait before firing.
+    ///   - body: Called once, on the `MainActor`, inside the run loop.
+    /// - Returns: The timer; call `cancel()` to fire nothing (e.g. if the
+    ///   triggering condition passed before the delay elapsed).
+    @discardableResult
+    public func schedule(after delay: Duration, _ body: @escaping @MainActor () -> Void) -> AppTimer {
+        addTimer(every: delay, repeats: false, body)
+    }
+
+    // Spawns the forwarding task that pumps a timer's ticks into the loop.
+    private func startTimerTask(_ timer: AppTimer, into continuation: AsyncStream<LoopEvent>.Continuation) {
+        let source = timerSource
+        let interval = timer.interval
+
+        timer.task = Task { [weak timer] in
+            for await _ in source.ticks(every: interval) {
+                guard let timer else {
+                    break
+                }
+
+                continuation.yield(.tick(timer))
+            }
+        }
     }
 
     // MARK: - Window Stack
@@ -122,8 +196,38 @@ public final class App {
         present(window)
         await presentFrameIfNeeded()
 
-        for await input in await driver.inputStream() {
-            handle(input)
+        // Merge driver input and timer ticks into one event stream so the
+        // loop wakes on either and presents a frame after each — a tick
+        // animates just like a keypress redraws.
+        let (events, continuation) = AsyncStream<LoopEvent>.makeStream()
+        eventContinuation = continuation
+
+        let inputs = await driver.inputStream()
+        let inputTask = Task {
+            for await input in inputs {
+                continuation.yield(.input(input))
+            }
+        }
+
+        for timer in timers {
+            startTimerTask(timer, into: continuation)
+        }
+
+        for await event in events {
+            switch event {
+            case .input(let input):
+                handle(input)
+
+            case .tick(let timer):
+                if !timer.isCancelled {
+                    timer.body()
+
+                    if !timer.repeats {
+                        timer.cancel()
+                    }
+                }
+            }
+
             await presentFrameIfNeeded()
 
             if !isRunning {
@@ -131,8 +235,22 @@ public final class App {
             }
         }
 
+        inputTask.cancel()
+
+        for timer in timers {
+            timer.task?.cancel()
+            timer.task = nil
+        }
+
+        eventContinuation = nil
         isRunning = false
         await driver.end()
+    }
+
+    // One thing the run loop can wake on.
+    private enum LoopEvent {
+        case input(TerminalInput)
+        case tick(AppTimer)
     }
 
     // Routes one event.

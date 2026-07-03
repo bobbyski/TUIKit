@@ -28,6 +28,24 @@ private func makeMenuWindow() -> (Window, MenuBar, Menu, [String]) {
     #expect(lines[0].hasPrefix(" File  Edit "))
 }
 
+@Test @MainActor func menuBarStaysIdleUntilEngaged() {
+    let (window, bar, _, _) = makeMenuWindow()
+    window.makeFirstResponder(bar)
+
+    // Focused but not yet engaged: no title is highlighted.
+    let idle = SceneRenderer(root: window).render(size: window.frame.size)[Point(x: 1, y: 0)].style
+
+    // The first arrow enters menu mode and lights up the current title.
+    window.route(.key(KeyInput(key: .right)))
+    let active = SceneRenderer(root: window).render(size: window.frame.size)[Point(x: 1, y: 0)].style
+    #expect(active != idle, "engaging the bar highlights a title")
+
+    // Esc leaves menu mode; the highlight clears again.
+    window.route(.key(KeyInput(key: .escape)))
+    let cleared = SceneRenderer(root: window).render(size: window.frame.size)[Point(x: 1, y: 0)].style
+    #expect(cleared == idle, "Esc returns the bar to idle")
+}
+
 @Test @MainActor func menuHotKeyFiresWithoutOpeningTheMenu() {
     let (window, bar, file, _) = makeMenuWindow()
 

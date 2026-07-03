@@ -183,6 +183,21 @@ open class Window: View {
     private weak var mouseGrabView: View?
 
     private func routeMouse(_ mouse: MouseInput) -> Bool {
+        // Right-click: walk the hit chain for a context menu.
+        if mouse.action == .press, mouse.button == .right,
+           let hit = hitTest(mouse.position) {
+            var current: View? = hit.view
+
+            while let view = current {
+                if let menu = view.contextMenu {
+                    presentContextMenu(menu, at: mouse.position)
+                    return true
+                }
+
+                current = view === self ? nil : view.superview
+            }
+        }
+
         // A captured drag or release bypasses hit testing entirely.
         if let grabbed = mouseGrabView, mouse.action == .drag || mouse.action == .release {
             var localMouse = mouse
@@ -233,6 +248,66 @@ open class Window: View {
         }
 
         return false
+    }
+
+    // MARK: - Context Menus
+
+    // The open context menu, when any (also a subview, which retains it).
+    private weak var contextDropdown: MenuDropdown?
+
+    /// Presents a context menu at a window-local point — below it when
+    /// there is room, above otherwise. Items behave as menu items always
+    /// do; Esc, activation, or focusing anything else dismisses.
+    ///
+    /// - Parameters:
+    ///   - menu: Menu to show.
+    ///   - point: Window-local pointer position.
+    public func presentContextMenu(_ menu: Menu, at point: Point) {
+        dismissContextMenu()
+
+        let dropdown = MenuDropdown(menu: menu)
+        let size = dropdown.intrinsicContentSize ?? Size(width: 12, height: 4)
+        let spaceBelow = bounds.size.height - (point.y + 1)
+
+        let y = spaceBelow >= size.height || point.y < size.height
+            ? point.y + 1
+            : point.y - size.height
+
+        dropdown.frame = Rect(
+            origin: Point(
+                x: max(0, min(point.x, bounds.size.width - size.width)),
+                y: max(0, y)
+            ),
+            size: size
+        )
+
+        dropdown.onActivate = { [weak self] item in
+            self?.dismissContextMenu()
+            item.action()
+        }
+
+        dropdown.onClose = { [weak self] in
+            self?.dismissContextMenu()
+        }
+
+        addSubview(dropdown)
+        contextDropdown = dropdown
+        makeFirstResponder(dropdown)
+    }
+
+    /// Dismisses the open context menu, if any.
+    public func dismissContextMenu() {
+        guard let dropdown = contextDropdown else {
+            return
+        }
+
+        contextDropdown = nil
+        let hadFocus = firstResponder === dropdown
+        dropdown.removeFromSuperview()
+
+        if hadFocus {
+            makeFirstResponder(nil)
+        }
     }
 
     // The view's origin in window coordinates (sum of frame origins up the

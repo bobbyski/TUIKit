@@ -148,11 +148,14 @@ public final class PopUpButton: View {
 
     /// Opens the popup (above or below, by available space).
     public func openPopup() {
-        guard popup == nil, !items.isEmpty, let window = owningWindow else {
+        guard popup == nil, !items.isEmpty,
+              let list = PopUpList.present(
+                  items: items,
+                  highlightedIndex: selectedIndex ?? 0,
+                  anchor: self
+              ) else {
             return
         }
-
-        let list = PopUpList(items: items, highlightedIndex: selectedIndex ?? 0)
 
         list.onChoose = { [weak self] index in
             self?.closePopup()
@@ -163,22 +166,7 @@ public final class PopUpButton: View {
             self?.closePopup()
         }
 
-        let size = list.intrinsicContentSize ?? Size(width: 10, height: 4)
-        let origin = originInWindow(of: self, window: window)
-        let spaceBelow = window.bounds.size.height - (origin.y + 1)
-
-        let y = spaceBelow >= size.height || origin.y < size.height
-            ? origin.y + 1              // below (also when neither fits)
-            : origin.y - size.height    // above
-
-        list.frame = Rect(
-            origin: Point(x: max(0, min(origin.x, window.bounds.size.width - size.width)), y: max(0, y)),
-            size: size
-        )
-
-        window.addSubview(list)
         popup = list
-        window.makeFirstResponder(list)
         setNeedsDisplay()
     }
 
@@ -203,7 +191,7 @@ public final class PopUpButton: View {
         setNeedsDisplay()
     }
 
-    // Nearest ancestor window and this view's origin within it.
+    // Nearest ancestor window.
     private var owningWindow: Window? {
         var current: View? = self
 
@@ -217,18 +205,6 @@ public final class PopUpButton: View {
 
         return nil
     }
-
-    private func originInWindow(of view: View, window: Window) -> Point {
-        var origin = Point.zero
-        var current: View? = view
-
-        while let ancestor = current, ancestor !== window {
-            origin = origin + ancestor.frame.origin
-            current = ancestor.superview
-        }
-
-        return origin
-    }
 }
 
 /// Bordered choice list used by pop-up buttons and combo boxes
@@ -238,6 +214,49 @@ public final class PopUpButton: View {
 final class PopUpList: View {
     var onChoose: (Int) -> Void = { _ in }
     var onDismiss: () -> Void = {}
+
+    /// Creates, places, and focuses a list attached to an anchor view's
+    /// window — below the anchor when it fits, above when tighter. Wire
+    /// `onChoose`/`onDismiss` on the returned list.
+    static func present(items: [String], highlightedIndex: Int, anchor: View) -> PopUpList? {
+        var window: Window?
+        var origin = Point.zero
+        var current: View? = anchor
+
+        while let view = current {
+            if let found = view as? Window {
+                window = found
+                break
+            }
+
+            origin = origin + view.frame.origin
+            current = view.superview
+        }
+
+        guard let window else {
+            return nil
+        }
+
+        let list = PopUpList(items: items, highlightedIndex: highlightedIndex)
+        let size = list.intrinsicContentSize ?? Size(width: 10, height: 4)
+        let spaceBelow = window.bounds.size.height - (origin.y + 1)
+
+        let y = spaceBelow >= size.height || origin.y < size.height
+            ? origin.y + 1              // below (also when neither fits)
+            : origin.y - size.height    // above
+
+        list.frame = Rect(
+            origin: Point(
+                x: max(0, min(origin.x, window.bounds.size.width - size.width)),
+                y: max(0, y)
+            ),
+            size: size
+        )
+
+        window.addSubview(list)
+        window.makeFirstResponder(list)
+        return list
+    }
 
     private let items: [String]
     private var highlightedIndex: Int

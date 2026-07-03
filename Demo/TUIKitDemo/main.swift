@@ -220,6 +220,16 @@ func runFormDemo() async throws {
     }
     files.onActivate = { status.text = "OPENED \(files.items[$0])" }
 
+    // Right-click the list for a context menu.
+    let fileActions = Menu("File Actions")
+    fileActions.addItem("Open") {
+        status.text = files.selectedIndex.map { "context: open \(files.items[$0])" } ?? "context: open"
+    }
+    fileActions.addItem("Rename…") { status.text = "context: rename" }
+    fileActions.addSeparator()
+    fileActions.addItem("Delete") { status.text = "context: delete (not really)" }
+    files.contextMenu = fileActions
+
     let summary = Button("Summary") {
         status.text = "name='\(name.text)' wrap=\(wrap.isChecked) mode=\(mode.selectedIndex ?? -1)"
     }
@@ -277,20 +287,63 @@ func runFormDemo() async throws {
     formTab.addSubview(Label("Accent (color picker):", style: CellStyle(flags: .bold)))
     formTab.addSubview(accent)
 
+    // Collapsible "Advanced" section: combo box, slider + level, rating.
+    let fontCombo = ComboBox(items: ["Menlo", "Monaco", "SF Mono", "Fira Code"], placeholder: "font name")
+    fontCombo.onSelectionChanged = { _ in status.text = "font: \(fontCombo.text)" }
+    fontCombo.onSubmit = { status.text = "custom font: \($0)" }
+
+    let speedLevel = LevelIndicator(value: 2, maximum: 5, style: .capacity)
+    let speed = Slider(value: 40, in: 0...100, step: 5)
+    speed.onValueChanged = { value in
+        speedLevel.setValue((value + 10) / 20)
+        status.text = "speed: \(value)"
+    }
+
+    let stars = LevelIndicator(value: 3, maximum: 5, style: .rating)
+    stars.isEditable = true
+    stars.onValueChanged = { status.text = "rating: \($0) star(s)" }
+
+    let advancedStack = VStack(spacing: 1)
+
+    for (title, control) in [("Font:", fontCombo as View), ("Speed:", speed), ("Rating:", stars)] {
+        let row = HStack(spacing: 1)
+        row.addSubview(Label(title, style: CellStyle(flags: .bold)))
+        row.addSubview(control)
+
+        if control === speed {
+            row.addSubview(speedLevel)
+        }
+
+        row.addSubview(View())   // spacer
+        advancedStack.addSubview(row)
+    }
+
+    let advanced = DisclosureGroup("Advanced (disclosure group)")
+    advancedStack.anchors = .fill()
+    advanced.content.addSubview(advancedStack)
+    advanced.onExpansionChanged = { status.text = $0 ? "advanced options revealed" : "advanced options tucked away" }
+    formTab.addSubview(advanced)
+
     formTab.addSubview(buttons)
     formTab.addSubview(View())   // spacer pushes content to the top
 
-    // "Files" tab content: the scrolling list and a real directory browser.
+    // "Files" tab content: the scrolling list, a breadcrumb path bar, and
+    // a real directory browser (selection updates the crumbs).
     let browser = DirectoryTree(root: FileManager.default.currentDirectoryPath)
+    let crumbs = PathControl(path: FileManager.default.currentDirectoryPath)
+    crumbs.onPathSelected = { status.text = "crumb: \($0)" }
+
     browser.expandRoot()
     browser.onSelectionChanged = { path in
+        crumbs.setPath(path ?? browser.rootPath)
         status.text = path.map { "path: \($0)" } ?? "path cleared"
     }
     browser.onActivate = { status.text = "OPENED \($0)" }
 
     let filesTab = VStack(spacing: 1, insets: EdgeInsets(all: 1))
-    filesTab.addSubview(Label("Files (arrows, PgUp/PgDn, Return):", style: CellStyle(flags: .bold)))
+    filesTab.addSubview(Label("Files (right-click for a context menu):", style: CellStyle(flags: .bold)))
     filesTab.addSubview(files)
+    filesTab.addSubview(crumbs)
     filesTab.addSubview(Label("Directory (lazy, real file system):", style: CellStyle(flags: .bold)))
     filesTab.addSubview(browser)
 
@@ -499,8 +552,112 @@ func runFormDemo() async throws {
     panes.anchors = .fill()
     panesPanel.content.addSubview(panes)
 
+    // "New" tab: the Controls v2 additions (PLAN Phase 6B) — a toolbar with a
+    // » overflow, a determinate progress bar plus a live spinner driven by an
+    // App timer, date/time pickers with a calendar popup, and a Miller-column
+    // browser. This is also the demo's proof of the non-blocking timer story.
+    final class DemoBrowserSource: BrowserDataSource {
+        func browserRootItems(_ browser: Browser) -> [BrowserItem] {
+            [
+                BrowserItem("Fruits", isExpandable: true),
+                BrowserItem("Veg", isExpandable: true),
+                BrowserItem("Grains", isExpandable: true),
+                BrowserItem("README"),
+            ]
+        }
+
+        func browser(_ browser: Browser, childrenOf item: BrowserItem) -> [BrowserItem] {
+            switch item.title {
+            case "Fruits":
+                return [BrowserItem("Citrus", isExpandable: true), BrowserItem("Apple"), BrowserItem("Banana")]
+            case "Citrus":
+                return [BrowserItem("Orange"), BrowserItem("Lemon"), BrowserItem("Lime")]
+            case "Veg":
+                return [BrowserItem("Carrot"), BrowserItem("Kale")]
+            case "Grains":
+                return [BrowserItem("Rice"), BrowserItem("Oats")]
+            default:
+                return []
+            }
+        }
+    }
+
+    let toolbar = Toolbar()
+    toolbar.addItem("Run", icon: "▶") { status.text = "toolbar ▸ Run" }
+    toolbar.addItem("Stop", icon: "■") { status.text = "toolbar ▸ Stop" }
+    toolbar.addItem("Reset", icon: "↺") { status.text = "toolbar ▸ Reset" }
+    toolbar.addItem("Export") { status.text = "toolbar ▸ Export" }
+    toolbar.addItem("Settings") { status.text = "toolbar ▸ Settings" }
+
+    let progress = ProgressIndicator(style: .bar, value: 40, minValue: 0, maxValue: 100)
+    progress.showsPercentage = true
+
+    let progressSlider = Slider(value: 40, in: 0...100, step: 5)
+    progressSlider.onValueChanged = {
+        progress.doubleValue = Double($0)
+        status.text = "progress: \($0)%"
+    }
+
+    let spinner = ProgressIndicator(style: .spinner)
+    spinner.caption = "idle"
+
+    var spinnerTimer: AppTimer?
+    let spinToggle = ToggleButton("Spin")
+    spinToggle.onChange = { on in
+        if on {
+            spinner.caption = "working…"
+            spinnerTimer = app.addTimer(every: .milliseconds(120)) { spinner.advance() }
+            status.text = "spinner: animating (App timer)"
+        } else {
+            spinnerTimer?.cancel()
+            spinnerTimer = nil
+            spinner.caption = "idle"
+            status.text = "spinner: stopped"
+        }
+    }
+
+    let spinRow = HStack(spacing: 2)
+    spinRow.addSubview(spinToggle)
+    spinRow.addSubview(spinner)
+    spinRow.addSubview(View())
+
+    let datePicker = DatePicker(mode: .date)
+    datePicker.onDateChanged = { _ in status.text = "date updated" }
+    let timePicker = DatePicker(mode: .time)
+    timePicker.onDateChanged = { _ in status.text = "time updated" }
+
+    let dateRow = HStack(spacing: 3)
+    dateRow.addSubview(Label("Date:", style: CellStyle(flags: .bold)))
+    dateRow.addSubview(datePicker)
+    dateRow.addSubview(Label("Time:", style: CellStyle(flags: .bold)))
+    dateRow.addSubview(timePicker)
+    dateRow.addSubview(View())
+
+    let millerBrowser = Browser(dataSource: DemoBrowserSource(), columnWidth: 14)
+    millerBrowser.maximumSize = Size(width: 9999, height: 7)
+    millerBrowser.onSelectionChanged = { (item: BrowserItem?) in
+        status.text = item.map { "browser ▸ \($0.title)" } ?? "browser cleared"
+    }
+
+    let v2Tab = VStack(spacing: 1, insets: EdgeInsets(all: 1))
+    v2Tab.addSubview(Label("Toolbar — ←/→ move, Return activates, » overflow when narrow:", style: CellStyle(flags: .dim)))
+    v2Tab.addSubview(toolbar)
+    v2Tab.addSubview(Label("Progress bar — slide to fill:", style: CellStyle(flags: .dim)))
+    v2Tab.addSubview(progressSlider)
+    v2Tab.addSubview(progress)
+    v2Tab.addSubview(Label("Spinner — toggle to animate via a non-blocking App timer:", style: CellStyle(flags: .dim)))
+    v2Tab.addSubview(spinRow)
+    v2Tab.addSubview(Label("Pickers — ↑/↓ fields, ←/→ segments, Space drops a calendar:", style: CellStyle(flags: .dim)))
+    v2Tab.addSubview(dateRow)
+    v2Tab.addSubview(Label("Browser — Miller columns, ←/→ between columns:", style: CellStyle(flags: .dim)))
+    v2Tab.addSubview(millerBrowser)
+
+    let v2Scroll = ScrollView(document: v2Tab)
+    v2Scroll.fitsDocumentWidth = true
+
     let tabs = TabView()
     tabs.addTab("Form", content: formScroll)
+    tabs.addTab("New", content: v2Scroll)
     tabs.addTab("Files", content: filesTab)
     tabs.addTab("Scroll", content: scrollTab)
     tabs.addTab("Data", content: dataTab)

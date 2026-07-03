@@ -187,10 +187,12 @@ public struct Theme: Hashable, Sendable {
     // MARK: - Built-in themes
 
     /// The terminal's own colors, selection by video inverse — TUIKit's
-    /// look before themes existed, and the root default.
+    /// look before themes existed, and the root default. The accent is a
+    /// real color (bright cyan) so focus cues that rely on recoloring
+    /// (dividers, scrollbar thumbs) work here too.
     public static let standard = Theme(
         base: CellStyle(),
-        accent: .standard,
+        accent: .named(.brightCyan),
         selection: CellStyle(flags: .inverse),
         header: CellStyle(flags: .bold),
         border: CellStyle(),
@@ -201,6 +203,7 @@ public struct Theme: Hashable, Sendable {
     /// only. For monochrome terminals and purists.
     public static let mono: Theme = {
         var theme = Theme.standard
+        theme.accent = .standard        // colorless: no recolor cues
         theme.scrollbar = CellStyle()   // colorless: video-attribute blocks
         return theme
     }()

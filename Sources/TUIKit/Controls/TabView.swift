@@ -38,9 +38,14 @@ public final class TabView: View {
     /// Rows reserved for the tab bar (titles + separator).
     public let tabBarHeight = 2
 
+    // The separator under the titles is a real connected Divider, so an
+    // enclosing Panel welds it into its border with ├ ┤ tees.
+    private let separator = Divider(axis: .horizontal)
+
     /// Creates an empty tab view.
     public init() {
         super.init(frame: .zero)
+        addSubview(separator)
     }
 
     /// Number of tabs.
@@ -96,9 +101,11 @@ public final class TabView: View {
         !tabs.isEmpty
     }
 
-    /// Positions the selected content in the content area.
+    /// Positions the separator and the selected content.
     public override func layoutSubviews() {
         updateVisibility()
+
+        separator.frame = Rect(x: 0, y: 1, width: bounds.size.width, height: 1)
 
         let contentRect = Rect(
             x: 0,
@@ -142,15 +149,6 @@ public final class TabView: View {
 
             painter.write(label, at: Point(x: x, y: 0), style: style)
             x += label.count + 1
-        }
-
-        // Separator line under the tab bar.
-        if bounds.size.height > 1, bounds.size.width > 0 {
-            painter.write(
-                String(repeating: "─", count: bounds.size.width),
-                at: Point(x: 0, y: 1),
-                style: theme.border
-            )
         }
     }
 

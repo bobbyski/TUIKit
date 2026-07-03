@@ -82,6 +82,23 @@ pure selection/scrolling core that TableView and TreeView will reuse.
 `--events` keeps the raw driver viewer. Next: the remaining Phase 6
 controls (ScrollView, Window chrome, MenuBar, Dialog, TableView, ...).
 
+## Run Loop & Timers
+
+`App.run(_:)` merges two sources into one `AsyncStream` of loop events —
+driver input and timer ticks — and presents a frame after each. Because a
+tick flows through the same path as a keypress, an animation redraws exactly
+the way input does, and the loop still only ever suspends (never blocks).
+
+Timers are the framework's one timing primitive. `App.addTimer(every:_:)`
+returns a cancellable `AppTimer` whose body runs on the `MainActor` inside
+the loop. The tick source is injectable behind `TimerSource`:
+`ClockTimerSource` uses `Task.sleep` in production (cooperative suspension,
+no blocked thread), and `ManualTimerSource.fire()` drives ticks by hand in
+tests with zero wall-clock time — so animation is headless-scriptable just
+like scripted input. `ProgressIndicator`'s indeterminate spinner is the
+first client (`app.addTimer(every:) { spinner.advance() }`); Phase 11
+tooltips will reuse it.
+
 ## RichSwift
 
 TUIKit pairs with [RichSwift](https://github.com/bobbyski/RichSwift) the way

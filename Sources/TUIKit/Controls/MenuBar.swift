@@ -116,6 +116,12 @@ public final class MenuBar: View {
     // Highlighted bar title.
     private var selectedMenuIndex = 0
 
+    // Whether the bar is in active menu navigation. A freshly focused bar
+    // (Tab, or a programmatic focus at launch) is idle: no title highlights
+    // until the user engages it with an arrow, Return/Down, or a click. The
+    // first navigation key enters this mode; losing focus or Esc leaves it.
+    private var isActive = false
+
     // Open dropdown, when any.
     private var dropdown: MenuDropdown?
 
@@ -151,7 +157,7 @@ public final class MenuBar: View {
         for (index, menu) in menus.enumerated() {
             var style = CellStyle()
 
-            if index == selectedMenuIndex, isFirstResponder || isMenuOpen {
+            if index == selectedMenuIndex, (isFirstResponder && isActive) || isMenuOpen {
                 style = theme.selection
 
                 if isMenuOpen {
@@ -164,7 +170,10 @@ public final class MenuBar: View {
         }
     }
 
-    /// `←`/`→` highlight, Return/`↓` open.
+    /// `←`/`→` highlight, Return/`↓` open, Esc leaves menu navigation.
+    ///
+    /// The first navigation key on a freshly focused bar only enters menu
+    /// mode (lighting up the current title); the next one moves.
     public override func keyDown(_ key: KeyInput) -> Bool {
         guard key.modifiers.isEmpty, !menus.isEmpty else {
             return false
@@ -172,20 +181,54 @@ public final class MenuBar: View {
 
         switch key.key {
         case .left:
+            if enterMenuModeIfNeeded() {
+                return true
+            }
+
             selectMenu(selectedMenuIndex - 1)
             return true
 
         case .right:
+            if enterMenuModeIfNeeded() {
+                return true
+            }
+
             selectMenu(selectedMenuIndex + 1)
             return true
 
         case .enter, .down:
+            isActive = true
             openMenu(at: selectedMenuIndex)
+            return true
+
+        case .escape where isActive:
+            isActive = false
+            setNeedsDisplay()
             return true
 
         default:
             return false
         }
+    }
+
+    /// Leaving focus ends menu navigation, so the bar goes idle.
+    public override func didResignFirstResponder() {
+        if isActive {
+            isActive = false
+            setNeedsDisplay()
+        }
+    }
+
+    // Enters menu navigation on the first key; returns whether it just did
+    // (so the caller stops rather than also moving the highlight).
+    private func enterMenuModeIfNeeded() -> Bool {
+        guard !isActive else {
+            return false
+        }
+
+        isActive = true
+        setNeedsDisplay()
+        return true
     }
 
     /// Item key equivalents fire from anywhere in the window.
@@ -239,6 +282,7 @@ public final class MenuBar: View {
         let view = MenuDropdown(menu: menus[index])
 
         view.onActivate = { [weak self] item in
+            self?.isActive = false   // activating an item exits menu mode
             self?.closeMenu()
             item.action()
         }
@@ -268,15 +312,23 @@ public final class MenuBar: View {
         setNeedsDisplay()
     }
 
-    /// Closes the open dropdown, returning focus to the bar.
+    /// Closes the open dropdown, returning focus to the bar when the
+    /// dropdown still held it; an outside click's new focus stands.
     public func closeMenu() {
         guard let dropdown else {
             return
         }
 
-        dropdown.removeFromSuperview()
+        let window = owningWindow
+        let dropdownHadFocus = window?.firstResponder === dropdown
+
         self.dropdown = nil
-        owningWindow?.makeFirstResponder(self)
+        dropdown.removeFromSuperview()
+
+        if dropdownHadFocus {
+            window?.makeFirstResponder(self)
+        }
+
         setNeedsDisplay()
     }
 
@@ -349,6 +401,12 @@ final class MenuDropdown: View {
 
     override var acceptsFirstResponder: Bool {
         true
+    }
+
+    /// Losing focus closes the menu — so a click anywhere else dismisses
+    /// it without the click being lost.
+    override func didResignFirstResponder() {
+        onClose()
     }
 
     override var intrinsicContentSize: Size? {

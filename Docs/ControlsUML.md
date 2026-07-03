@@ -298,6 +298,100 @@ classDiagram
         +onMoved : (Int) -> Void
     }
 
+    class ComboBox {
+        +text : String
+        +items : [String]
+        +isOpen : Bool
+        +onChanged / onSubmit : (String) -> Void
+        +onSelectionChanged : (Int) -> Void
+        +setText(String)
+    }
+
+    class Slider {
+        +value : Int
+        +range : ClosedRange~Int~
+        +step : Int
+        +onValueChanged : (Int) -> Void
+        +setValue(Int, notify)
+    }
+
+    class LevelIndicator {
+        +value : Int
+        +maximum : Int
+        +style : capacity / rating
+        +isEditable : Bool
+        +onValueChanged : (Int) -> Void
+        +setValue(Int, notify)
+    }
+
+    class PathControl {
+        +path : String
+        +onPathSelected : (String) -> Void
+        +setPath(String)
+        +prefixPath(to) String
+    }
+
+    class DisclosureGroup {
+        +title : String
+        +isExpanded : Bool
+        +content : View
+        +onExpansionChanged : (Bool) -> Void
+        +setExpanded(Bool, notify)
+        +toggle()
+    }
+
+    class ProgressIndicator {
+        +style : bar / spinner
+        +doubleValue : Double
+        +minValue / maxValue : Double
+        +fractionCompleted : Double
+        +showsPercentage : Bool
+        +caption : String
+        +spinnerFrames : [Character]
+        +advance()
+    }
+
+    class DatePicker {
+        +mode : date / time / calendar
+        +date : Date
+        +calendar : Calendar
+        +onDateChanged : (Date) -> Void
+        +setDate(Date, notify)
+    }
+
+    class ToolbarItem {
+        +title : String
+        +icon : Character?
+        +isEnabled : Bool
+        +action : () -> Void
+    }
+
+    class Toolbar {
+        +items : [ToolbarItem]
+        +addItem(title, icon, isEnabled, action) ToolbarItem
+    }
+
+    class BrowserItem {
+        <<struct>>
+        +title : String
+        +isExpandable : Bool
+        +representedValue : Any?
+    }
+
+    class BrowserDataSource {
+        <<protocol>>
+        +browserRootItems(Browser) [BrowserItem]
+        +browser(Browser, childrenOf) [BrowserItem]
+    }
+
+    class Browser {
+        +columnWidth : Int
+        +selectedItem : BrowserItem?
+        +onSelectionChanged : (BrowserItem?) -> Void
+        +onActivate : (BrowserItem) -> Void
+        +reload()
+    }
+
     class RowNavigationState {
         <<struct, pure>>
         +count : Int
@@ -379,6 +473,16 @@ classDiagram
     View <|-- ToggleButton
     View <|-- StatusBar
     View <|-- Divider
+    View <|-- ComboBox
+    View <|-- Slider
+    View <|-- LevelIndicator
+    View <|-- PathControl
+    View <|-- DisclosureGroup
+    View <|-- ProgressIndicator
+    View <|-- DatePicker
+    View <|-- Toolbar
+    View <|-- Browser
+    ComboBox *-- TextField : editing
     View <|-- StackView
     View <|-- GridView
     View <|-- Window
@@ -388,6 +492,12 @@ classDiagram
     ListView *-- RowNavigationState : uses
     TableView *-- RowNavigationState : uses
     TreeView *-- RowNavigationState : uses
+    Browser *-- RowNavigationState : per column
+    Toolbar o-- ToolbarItem : items
+    Browser o-- BrowserItem : rows
+    Browser ..> BrowserDataSource : columns via
+    BrowserDataSource <|.. FileSystemBrowserDataSource
+    FileSystemBrowserDataSource ..> FileSystemProvider : lists via
     TableView *-- TableColumn : columns
     TreeView o-- TreeNode : roots
     TreeNode o-- TreeNode : children
@@ -409,10 +519,60 @@ classDiagram
     note for RichText "Bridges RichSwift content\n(markup, tables, panels, syntax)\ninto cells via SGRDecoder."
 ```
 
-All Phase 6 controls are implemented; the diagram above is the complete
-control surface as of Controls v1.
+All Phase 6 controls are implemented, and all Phase 6B (Controls v2)
+controls now appear in the diagram above — including `ProgressIndicator`,
+`DatePicker`, `Toolbar`, and `Browser`. The diagram is the complete control
+surface as of Controls v2.
 
-## Planned (Controls v2 — PLAN Phase 6B)
+### App-layer: the timer facility
+
+A first-class TUIKit subsystem (not a control) — the framework's one timing
+primitive, used by any control or app that acts over time (animation,
+debounces, delays). It landed with `ProgressIndicator`'s spinner and will be
+reused by the Phase 11 tooltip delay.
+
+```mermaid
+classDiagram
+    direction LR
+
+    class App {
+        +addTimer(every, repeats, body) AppTimer
+        +schedule(after, body) AppTimer
+    }
+
+    class AppTimer {
+        +interval : Duration
+        +repeats : Bool
+        +isCancelled : Bool
+        +cancel()
+    }
+
+    class TimerSource {
+        <<protocol, Sendable>>
+        +ticks(every) AsyncStream~Void~
+    }
+
+    class ClockTimerSource {
+        <<Task.sleep; production>>
+    }
+
+    class ManualTimerSource {
+        <<fire(); tests, zero wall-clock>>
+        +fire()
+        +streamCount : Int
+    }
+
+    App o-- AppTimer : owns
+    App ..> TimerSource : ticks from
+    TimerSource <|.. ClockTimerSource
+    TimerSource <|.. ManualTimerSource
+
+    note for TimerSource "Input and ticks merge into one\nAsyncStream in App.run — a tick\npresents a frame like a keypress.\nNever blocks; headless-scriptable."
+```
+
+See `Architecture.md` for how the run loop merges ticks with input.
+
+## Planned (Controls v2 — PLAN Phase 6B) — COMPLETE
 
 ```mermaid
 classDiagram
