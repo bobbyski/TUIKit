@@ -119,13 +119,15 @@ public struct Painter {
         }
     }
 
-    /// Draws a single-line box on a view-local rectangle, subject to clipping.
+    /// Draws a box on a view-local rectangle, subject to clipping.
     ///
     /// - Parameters:
     ///   - rect: View-local rectangle to outline.
     ///   - style: Style for the border cells.
-    public func drawBox(_ rect: Rect, style: CellStyle = .default) {
-        guard rect.size.width >= 2, rect.size.height >= 2 else {
+    ///   - border: Box-drawing variant; `.none` draws nothing.
+    public func drawBox(_ rect: Rect, style: CellStyle = .default, border: BorderStyle = .single) {
+        guard rect.size.width >= 2, rect.size.height >= 2,
+              let characters = border.characters else {
             return
         }
 
@@ -134,19 +136,19 @@ public struct Painter {
         let y0 = rect.minY
         let y1 = rect.maxY - 1
 
-        set(TerminalCell(character: "┌", style: style), at: Point(x: x0, y: y0))
-        set(TerminalCell(character: "┐", style: style), at: Point(x: x1, y: y0))
-        set(TerminalCell(character: "└", style: style), at: Point(x: x0, y: y1))
-        set(TerminalCell(character: "┘", style: style), at: Point(x: x1, y: y1))
+        set(TerminalCell(character: characters.topLeft, style: style), at: Point(x: x0, y: y0))
+        set(TerminalCell(character: characters.topRight, style: style), at: Point(x: x1, y: y0))
+        set(TerminalCell(character: characters.bottomLeft, style: style), at: Point(x: x0, y: y1))
+        set(TerminalCell(character: characters.bottomRight, style: style), at: Point(x: x1, y: y1))
 
         for x in (x0 + 1)..<x1 {
-            set(TerminalCell(character: "─", style: style), at: Point(x: x, y: y0))
-            set(TerminalCell(character: "─", style: style), at: Point(x: x, y: y1))
+            set(TerminalCell(character: characters.horizontal, style: style), at: Point(x: x, y: y0))
+            set(TerminalCell(character: characters.horizontal, style: style), at: Point(x: x, y: y1))
         }
 
         for y in (y0 + 1)..<y1 {
-            set(TerminalCell(character: "│", style: style), at: Point(x: x0, y: y))
-            set(TerminalCell(character: "│", style: style), at: Point(x: x1, y: y))
+            set(TerminalCell(character: characters.vertical, style: style), at: Point(x: x0, y: y))
+            set(TerminalCell(character: characters.vertical, style: style), at: Point(x: x1, y: y))
         }
     }
 

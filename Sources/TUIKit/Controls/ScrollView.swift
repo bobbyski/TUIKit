@@ -57,6 +57,17 @@ public final class ScrollView: View {
         }
     }
 
+    /// Sizes the document's width to the viewport (vertical-only
+    /// scrolling) — the right mode for forms and text that should reflow
+    /// to the screen instead of scrolling sideways.
+    public var fitsDocumentWidth = false {
+        didSet {
+            if fitsDocumentWidth != oldValue {
+                setNeedsLayout()
+            }
+        }
+    }
+
     // Clip container for the document; its frame is the visible viewport,
     // excluding any indicator bars.
     private let viewport = View()
@@ -131,13 +142,18 @@ public final class ScrollView: View {
 
         // An overflowing axis reserves a bar, which shrinks the viewport,
         // which can make the other axis overflow — resolve in two passes.
+        // (Width-fitted documents never overflow horizontally.)
         var needsVBar = false
         var needsHBar = false
 
         if showsIndicators {
-            for _ in 0..<2 {
-                needsVBar = content.height > bounds.size.height - (needsHBar ? 1 : 0)
-                needsHBar = content.width > bounds.size.width - (needsVBar ? 1 : 0)
+            if fitsDocumentWidth {
+                needsVBar = content.height > bounds.size.height
+            } else {
+                for _ in 0..<2 {
+                    needsVBar = content.height > bounds.size.height - (needsHBar ? 1 : 0)
+                    needsHBar = content.width > bounds.size.width - (needsVBar ? 1 : 0)
+                }
             }
         }
 
@@ -149,7 +165,7 @@ public final class ScrollView: View {
         )
 
         offset = clampedOffset(offset)
-        documentView?.frame = Rect(origin: .zero - offset, size: content)
+        documentView?.frame = Rect(origin: .zero - offset, size: resolvedContentSize)
     }
 
     /// Draws the indicator bars in the reserved column and row.
@@ -252,8 +268,19 @@ public final class ScrollView: View {
         return true
     }
 
+    // Content size after width fitting.
+    private var resolvedContentSize: Size {
+        var size = contentSize
+
+        if fitsDocumentWidth {
+            size.width = viewport.frame.size.width
+        }
+
+        return size
+    }
+
     private func clampedOffset(_ candidate: Point) -> Point {
-        let content = contentSize
+        let content = resolvedContentSize
         let visible = viewport.frame.size
 
         return Point(
@@ -276,9 +303,13 @@ public final class ScrollView: View {
         /// Current offset on this axis.
         let offset: Int
 
-        /// Thumb length, proportional to the visible fraction, at least 1.
+        /// Thumb length: bar length × (visible ÷ total), rounded — never
+        /// thinner than two cells (one when the bar itself is that small),
+        /// and never the whole bar, so it always has travel room.
         var thumbLength: Int {
-            max(1, length * length / content)
+            let proportional = (length * length + content / 2) / content
+            let minimum = length > 2 ? 2 : 1
+            return min(max(minimum, proportional), max(1, length - 1))
         }
 
         /// Largest reachable offset.
@@ -332,26 +363,53 @@ public final class ScrollView: View {
 
         guard showsIndicators,
               visible.width > 0,
-              contentSize.width > visible.width,
+              resolvedContentSize.width > visible.width,
               bounds.size.height > visible.height else {
             return nil
         }
 
-        return BarMetrics(length: visible.width, content: contentSize.width, offset: offset.x)
+        return BarMetrics(length: visible.width, content: resolvedContentSize.width, offset: offset.x)
     }
 
     // Draws one indicator bar: a track of ░ with a proportional █ thumb.
     private func drawBar(_ painter: Painter, _ bar: BarMetrics, at position: (Int) -> Point) {
-        var style = effectiveTheme.border
-
-        if isFirstResponder {
-            style.flags.insert(.bold)
-        }
+        let (trackStyle, thumbStyle) = ScrollView.indicatorStyles(
+            for: effectiveTheme,
+            focused: isFirstResponder
+        )
 
         for cell in 0..<bar.length {
-            let character: Character = bar.containsThumb(cell) ? "█" : "░"
-            painter.set(TerminalCell(character: character, style: style), at: position(cell))
+            painter.set(
+                TerminalCell(character: " ", style: bar.containsThumb(cell) ? thumbStyle : trackStyle),
+                at: position(cell)
+            )
         }
+    }
+
+    // Solid indicator cells from the theme's scrollbar slot: track from its
+    // background, thumb from its foreground (accent while focused). A
+    // colorless slot falls back to video-attribute blocks.
+    static func indicatorStyles(for theme: Theme, focused: Bool) -> (track: CellStyle, thumb: CellStyle) {
+        let slot = theme.scrollbar
+
+        guard slot.foreground != .standard, slot.background != .standard else {
+            var track = theme.border
+            track.flags.insert(.inverse)
+            track.flags.insert(.dim)
+
+            var thumb = theme.border
+            thumb.flags.insert(.inverse)
+
+            if focused {
+                thumb.flags.insert(.bold)
+            }
+
+            return (track, thumb)
+        }
+
+        let track = CellStyle(background: slot.background)
+        let thumb = CellStyle(background: focused ? theme.accent : slot.foreground)
+        return (track, thumb)
     }
 
     // A press on a bar either grabs the thumb (starting a drag) or pages

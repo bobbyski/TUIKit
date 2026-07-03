@@ -59,6 +59,8 @@ public class Dialog: Window {
 
         super.init(frame: .zero)
 
+        isModal = true   // dialogs own all input while key
+
         panel.anchors = .fill()
         addSubview(panel)
 

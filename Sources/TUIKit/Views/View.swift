@@ -59,19 +59,70 @@ open class View {
         }
     }
 
-    /// The theme in effect for this view (nearest ancestor's, when unset).
+    // MARK: - Style identity (the CSS layer's selector hooks)
+
+    /// Unique name for stylesheet `#id` selectors.
+    public var identifier: String? {
+        didSet {
+            if identifier != oldValue {
+                setNeedsDisplay()
+            }
+        }
+    }
+
+    /// Class names for stylesheet `.class` selectors (HTML `class=`).
+    public var styleClasses: Set<String> = [] {
+        didSet {
+            if styleClasses != oldValue {
+                setNeedsDisplay()
+            }
+        }
+    }
+
+    /// Style sheet applying to this view and its subtree.
+    ///
+    /// Sheets cascade: an inner sheet's rules apply after (and can
+    /// override) an outer one's. See `StyleSheet` and
+    /// `Docs/StyleSheets.md`.
+    public var styleSheet: StyleSheet? {
+        didSet {
+            if styleSheet != oldValue {
+                setNeedsDisplay()
+            }
+        }
+    }
+
+    /// The theme in effect for this view: the nearest ancestor's theme,
+    /// with matching stylesheet rules applied when any sheets exist
+    /// (outer sheets first, then specificity, then source order).
+    ///
+    /// Style sheets are entirely optional — with none in the ancestor
+    /// chain this is exactly the inherited theme.
     public var effectiveTheme: Theme {
+        var inherited: Theme?
+        var sheetHolders: [View] = []
         var current: View? = self
 
         while let view = current {
-            if let theme = view.theme {
-                return theme
+            if inherited == nil, let theme = view.theme {
+                inherited = theme
+            }
+
+            if view.styleSheet != nil {
+                sheetHolders.append(view)
             }
 
             current = view.superview
         }
 
-        return .standard
+        var resolved = inherited ?? .standard
+
+        // Cascade: sheets from the root inward.
+        for holder in sheetHolders.reversed() {
+            holder.styleSheet?.apply(to: self, theme: &resolved)
+        }
+
+        return resolved
     }
 
     /// Whether this view needs to be redrawn.
@@ -300,10 +351,15 @@ open class View {
 
     /// Finds the deepest visible view containing a point.
     ///
+    /// Overridable: a view can decline points inside its frame to become
+    /// click-through there (a menu-bar strip window claims only its bar
+    /// row). Click-to-activate honors this — declined points fall to the
+    /// windows behind.
+    ///
     /// - Parameter point: Position in this view's local coordinates.
     /// - Returns: The deepest hit view and the point translated into its
     ///   local coordinates, or `nil` when the point is outside this view.
-    public func hitTest(_ point: Point) -> (view: View, local: Point)? {
+    open func hitTest(_ point: Point) -> (view: View, local: Point)? {
         guard !isHidden, bounds.contains(point) else {
             return nil
         }
@@ -380,8 +436,10 @@ open class View {
             return
         }
 
-        // A theme override re-bases the painter for this whole subtree.
-        let painter = theme.map { painter.withBase($0.base) } ?? painter
+        // Re-base the painter on this view's resolved theme (explicit
+        // theme override and/or stylesheet rules); a no-op when nothing
+        // applies.
+        let painter = painter.withBase(effectiveTheme.base)
 
         draw(painter)
 

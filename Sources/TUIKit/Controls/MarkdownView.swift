@@ -72,22 +72,23 @@ public final class MarkdownView: View {
             }
         }
 
-        // Proportional indicator when the document overflows.
+        // Proportional indicator when the document overflows: rounded
+        // bar × (visible ÷ total), min 2 cells, never the whole bar.
         if lines.count > height {
-            let thumbLength = max(1, height * height / lines.count)
+            let proportional = (height * height + lines.count / 2) / lines.count
+            let thumbLength = min(max(height > 2 ? 2 : 1, proportional), max(1, height - 1))
             let maxThumbStart = height - thumbLength
             let maxOffset = lines.count - height
             let thumbStart = maxOffset > 0 ? min(maxThumbStart, scrollOffset * maxThumbStart / maxOffset) : 0
-            var style = effectiveTheme.border
-
-            if isFirstResponder {
-                style.flags.insert(.bold)
-            }
+            let (trackStyle, thumbStyle) = ScrollView.indicatorStyles(
+                for: effectiveTheme,
+                focused: isFirstResponder
+            )
 
             for cell in 0..<height {
                 let inThumb = cell >= thumbStart && cell < thumbStart + thumbLength
                 painter.set(
-                    TerminalCell(character: inThumb ? "█" : "░", style: style),
+                    TerminalCell(character: " ", style: inThumb ? thumbStyle : trackStyle),
                     at: Point(x: width - 1, y: cell)
                 )
             }

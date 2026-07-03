@@ -112,9 +112,13 @@ private func renderedBuffer(_ view: TUIKit.View, size: TUIKit.Size) -> CellBuffe
     let view = MarkdownView(markdown: source)
     view.frame = Rect(x: 0, y: 0, width: 20, height: 4)
 
-    let before = renderedBuffer(view, size: TUIKit.Size(width: 20, height: 4)).textLines()
+    let beforeBuffer = renderedBuffer(view, size: TUIKit.Size(width: 20, height: 4))
+    let before = beforeBuffer.textLines()
     #expect(before[0].hasPrefix("• line 1"))
-    #expect(before[0].hasSuffix("█"), "overflowing documents show the indicator")
+    #expect(
+        beforeBuffer[TUIKit.Point(x: 19, y: 0)].style.background == .named(.white),
+        "overflowing documents show the solid indicator thumb"
+    )
 
     _ = view.keyDown(KeyInput(key: .end))
     #expect(view.scrollOffset == 16)

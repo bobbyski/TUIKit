@@ -28,6 +28,9 @@ classDiagram
         +isHidden : Bool
         +anchors : AnchorSet?
         +theme : Theme?
+        +identifier : String?
+        +styleClasses : Set~String~
+        +styleSheet : StyleSheet?
         +effectiveTheme : Theme
         +intrinsicContentSize : Size?
         +minimumSize : Size
@@ -296,10 +299,25 @@ classDiagram
     class Window {
         <<@MainActor, focus scope>>
         +firstResponder : View?
+        +isModal : Bool
         +makeFirstResponder(View?) Bool
         +focusNext() Bool
         +focusPrevious() Bool
         +route(TerminalInput) Bool
+    }
+
+    class FloatingWindow {
+        +title : String
+        +content : View
+        +isMovable : Bool
+        +isResizable : Bool
+        +minimumWindowSize : Size
+        +onCloseRequest : () -> Void
+    }
+
+    class Desktop {
+        +fillCharacter : Character
+        +fillStyle : CellStyle
     }
 
     View <|-- Label
@@ -316,7 +334,10 @@ classDiagram
     View <|-- TreeView
     View <|-- DirectoryTree
     View <|-- Panel
+    View <|-- Desktop
     Window <|-- Dialog
+    Window <|-- FloatingWindow
+    FloatingWindow *-- Panel : chrome
     Dialog <|-- FileDialog
     View <|-- SplitView
     View <|-- MenuBar

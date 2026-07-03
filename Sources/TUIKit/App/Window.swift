@@ -32,6 +32,14 @@ open class Window: View {
     /// Set automatically when a window is presented with a zero frame.
     public var fillsScreen = false
 
+    /// Whether the window captures all input while it is key.
+    ///
+    /// While a modal window is key, clicks outside it are swallowed (the
+    /// classic dialog rule). Non-modal windows participate in
+    /// click-to-activate: pressing another window raises it and makes it
+    /// key. `Dialog` is modal by default; plain windows are not.
+    public var isModal = false
+
     /// Creates a window.
     ///
     /// - Parameter frame: Position and size in screen coordinates. A zero
@@ -206,8 +214,10 @@ open class Window: View {
 
             if view.mouseEvent(localMouse) {
                 // The consumer of a left press captures the rest of the
-                // gesture (drags and the release).
-                if mouse.action == .press, mouse.button == .left, view !== self {
+                // gesture (drags and the release) — including the window
+                // itself, which is how title-bar moves and corner resizes
+                // survive fast pointer motion.
+                if mouse.action == .press, mouse.button == .left {
                     mouseGrabView = view
                 }
 

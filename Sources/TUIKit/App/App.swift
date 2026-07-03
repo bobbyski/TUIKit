@@ -20,9 +20,12 @@
 public final class App {
     private let driver: any TerminalDriver
 
-    // Screen-sized root; windows are its subviews, so z-order and
-    // compositing reuse the ordinary view system.
-    private let screenRoot = View()
+    /// Screen-sized root and background; windows are its subviews, so
+    /// z-order and compositing reuse the ordinary view system. Style it
+    /// directly (`app.desktop.theme`, `app.desktop.fillCharacter`) — its
+    /// theme is also the inherited default for every window.
+    public let desktop = Desktop()
+
     private let renderer: SceneRenderer
 
     /// Whether the run loop is active.
@@ -47,7 +50,7 @@ public final class App {
     /// - Parameter driver: Terminal driver to run against.
     public init(driver: any TerminalDriver) {
         self.driver = driver
-        self.renderer = SceneRenderer(root: screenRoot)
+        self.renderer = SceneRenderer(root: desktop)
     }
 
     // MARK: - Window Stack
@@ -64,11 +67,11 @@ public final class App {
         }
 
         if window.fillsScreen {
-            window.frame = screenRoot.bounds
+            window.frame = desktop.bounds
         }
 
         windows.append(window)
-        screenRoot.addSubview(window)
+        desktop.addSubview(window)
     }
 
     /// Removes a window from the stack.
@@ -79,6 +82,22 @@ public final class App {
     public func dismiss(_ window: Window) {
         windows.removeAll { $0 === window }
         window.removeFromSuperview()
+    }
+
+    /// Raises a presented window to the top of the stack, making it key.
+    ///
+    /// Clicking a non-modal stack does this automatically; call it directly
+    /// for keyboard-driven window cycling.
+    ///
+    /// - Parameter window: Window to raise.
+    public func activate(_ window: Window) {
+        guard windows.contains(where: { $0 === window }), keyWindow !== window else {
+            return
+        }
+
+        windows.removeAll { $0 === window }
+        windows.append(window)
+        desktop.addSubview(window)   // re-adding moves it to the front
     }
 
     // MARK: - Run Loop
@@ -99,7 +118,7 @@ public final class App {
         try await driver.begin()
         isRunning = true
 
-        screenRoot.frame = Rect(origin: .zero, size: await driver.size)
+        desktop.frame = Rect(origin: .zero, size: await driver.size)
         present(window)
         await presentFrameIfNeeded()
 
@@ -133,29 +152,50 @@ public final class App {
             keyWindow?.route(input)
 
         case .mouse(var mouse):
-            guard let window = keyWindow else {
+            guard let key = keyWindow else {
                 return
             }
 
-            // Translate screen coordinates into the key window's space; the
-            // top window owns input even for outside clicks (modal rule),
-            // which its hit test will simply reject.
+            var window = key
+
+            // Click-to-activate: in a non-modal stack, pressing a window
+            // that isn't key raises it and makes it key — the press then
+            // routes to it (activate-and-forward). A modal key window
+            // swallows outside clicks instead (the classic dialog rule).
+            //
+            // Targeting is by hit test, not frame, so windows that claim
+            // only part of their frame (a menu-bar strip window, say) are
+            // click-through everywhere else.
+            if mouse.action == .press,
+               mouse.button == .left,
+               !key.isModal,
+               let target = windows.last(where: { window in
+                   window.hitTest(mouse.position - window.frame.origin) != nil
+               }),
+               target !== key {
+                activate(target)
+                window = target
+            }
+
+            // Translate screen coordinates into the window's space; outside
+            // clicks that activated nothing are simply rejected by the hit
+            // test.
             mouse.position = mouse.position - window.frame.origin
             window.route(.mouse(mouse))
         }
     }
 
     private func applyScreenSize(_ size: Size) {
-        screenRoot.frame = Rect(origin: .zero, size: size)
+        desktop.frame = Rect(origin: .zero, size: size)
 
         for window in windows where window.fillsScreen {
-            window.frame = screenRoot.bounds
+            window.frame = desktop.bounds
         }
     }
 
     // Renders and presents a frame when anything changed.
     private func presentFrameIfNeeded() async {
-        let size = screenRoot.frame.size
+        let size = desktop.frame.size
 
         guard let frame = renderer.renderIfNeeded(size: size) else {
             return

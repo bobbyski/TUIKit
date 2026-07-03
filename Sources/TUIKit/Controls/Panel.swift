@@ -40,6 +40,17 @@ public final class Panel: View {
     /// Called when the close button is clicked.
     public var onClose: () -> Void = {}
 
+    /// Whether the bottom-right corner renders as a resize handle (`◢`).
+    ///
+    /// Visual only — `FloatingWindow` owns the actual resize interaction.
+    public var showsResizeHandle = false {
+        didSet {
+            if showsResizeHandle != oldValue {
+                setNeedsDisplay()
+            }
+        }
+    }
+
     /// Container for application content, inset by the border.
     public let content = View()
 
@@ -67,7 +78,7 @@ public final class Panel: View {
         let theme = effectiveTheme
 
         painter.fill(bounds, with: .blank)
-        painter.drawBox(bounds, style: theme.border)
+        painter.drawBox(bounds, style: theme.border, border: theme.borderStyle)
 
         let width = bounds.size.width
 
@@ -78,6 +89,14 @@ public final class Panel: View {
 
         if showsCloseButton, width >= 7 {
             painter.write("[x]", at: Point(x: closeButtonX, y: 0), style: theme.border)
+        }
+
+        if showsResizeHandle, width >= 2, bounds.size.height >= 2 {
+            painter.write(
+                "◢",
+                at: Point(x: width - 1, y: bounds.size.height - 1),
+                style: theme.border
+            )
         }
     }
 

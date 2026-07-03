@@ -148,3 +148,60 @@ private final class EchoView: View {
     await driver.send(.key(KeyInput(key: .character("c"), modifiers: .control)))
     try await session.value
 }
+
+@Test @MainActor func clickActivatesNonModalWindowsButNotPastAModal() async throws {
+    let driver = HeadlessDriver(size: Size(width: 10, height: 4))
+    let app = App(driver: driver)
+
+    // Two side-by-side non-modal windows (base is NOT full-screen).
+    let base = Window(frame: Rect(x: 0, y: 0, width: 4, height: 4))
+    base.addSubview(EchoView(frame: Rect(x: 0, y: 0, width: 4, height: 4)))
+
+    let session = Task {
+        try await app.run(base)
+    }
+
+    while await driver.presentCount == 0 {
+        await Task.yield()
+    }
+
+    let float = Window(frame: Rect(x: 4, y: 0, width: 4, height: 4))
+    float.addSubview(EchoView(frame: Rect(x: 0, y: 0, width: 4, height: 4)))
+    app.present(float)
+    #expect(app.keyWindow === float)
+
+    // A press on the base window raises and keys it (activate-and-forward).
+    await driver.send(.mouse(MouseInput(position: Point(x: 1, y: 1), action: .press, button: .left)))
+
+    while app.keyWindow !== base {
+        await Task.yield()
+    }
+
+    // And clicking the float hands key status back.
+    await driver.send(.mouse(MouseInput(position: Point(x: 5, y: 1), action: .press, button: .left)))
+
+    while app.keyWindow !== float {
+        await Task.yield()
+    }
+
+    // A modal on top swallows outside presses: key status must not move.
+    let dialog = Window(frame: Rect(x: 8, y: 0, width: 2, height: 2))
+    dialog.isModal = true
+    let dialogEcho = EchoView(frame: Rect(x: 0, y: 0, width: 2, height: 2))
+    dialog.addSubview(dialogEcho)
+    dialog.makeFirstResponder(dialogEcho)
+    app.present(dialog)
+    #expect(app.keyWindow === dialog)
+
+    await driver.send(.mouse(MouseInput(position: Point(x: 1, y: 1), action: .press, button: .left)))
+    await driver.send(.key(KeyInput(key: .character("z"))))   // fence: processed after the press
+
+    while dialogEcho.character != "z" {
+        await Task.yield()
+    }
+
+    #expect(app.keyWindow === dialog, "modal key window swallows outside clicks")
+
+    await driver.send(.key(KeyInput(key: .character("c"), modifiers: .control)))
+    try await session.value
+}

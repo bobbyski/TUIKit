@@ -360,7 +360,7 @@ final class MenuDropdown: View {
         let theme = effectiveTheme
 
         painter.fill(bounds, with: .blank)
-        painter.drawBox(bounds, style: theme.border)
+        painter.drawBox(bounds, style: theme.border, border: theme.borderStyle)
 
         let innerWidth = max(0, bounds.size.width - 4)
 

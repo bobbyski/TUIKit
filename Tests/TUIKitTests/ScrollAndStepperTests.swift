@@ -50,13 +50,17 @@ private func lines(_ window: Window) -> [String] {
         viewport: Size(width: 10, height: 4)
     )
 
-    let rendered = lines(window)
+    let buffer = SceneRenderer(root: window).render(size: window.frame.size)
+    let rendered = buffer.textLines()
 
     // Rows 0-3 visible; the reserved last column carries the indicator.
     #expect(rendered[0].hasPrefix("00000000"))
     #expect(rendered[3].hasPrefix("33333333"))
-    #expect(rendered[0].hasSuffix("█"))
-    #expect(rendered[3].hasSuffix("░"))
+
+    // Solid indicator: white thumb on top, gray track below — explicit
+    // colors, visibly distinct from the window background and each other.
+    #expect(buffer[Point(x: 9, y: 0)].style.background == .named(.white))
+    #expect(buffer[Point(x: 9, y: 3)].style.background == .named(.brightBlack))
 }
 
 @Test @MainActor func scrollViewScrollsWithKeysAndClamps() {
@@ -121,10 +125,10 @@ private func lines(_ window: Window) -> [String] {
 
     // No vertical overflow (3 content rows in a 3-row viewport after the
     // horizontal bar takes the bottom row), so the full width is content.
-    let before = lines(window)
-    #expect(before[0].hasPrefix("0000000000"))
-    #expect(before[3].contains("█"))
-    #expect(before[3].contains("░"))
+    let buffer = SceneRenderer(root: window).render(size: window.frame.size)
+    #expect(buffer.textLines()[0].hasPrefix("0000000000"))
+    #expect(buffer[Point(x: 0, y: 3)].style.background == .named(.white), "thumb at the left")
+    #expect(buffer[Point(x: 5, y: 3)].style.background == .named(.brightBlack), "track past the thumb")
 
     _ = scroll.keyDown(KeyInput(key: .right))
     #expect(scroll.contentOffset == Point(x: 1, y: 0))
@@ -140,11 +144,43 @@ private func lines(_ window: Window) -> [String] {
         viewport: Size(width: 10, height: 4)
     )
 
-    let rendered = lines(window)
-    #expect(!rendered.joined().contains("█"), "no overflow, no indicator")
+    let buffer = SceneRenderer(root: window).render(size: window.frame.size)
+    #expect(buffer[Point(x: 9, y: 0)].style.background == .standard, "no overflow, no indicator")
 
     _ = scroll.keyDown(KeyInput(key: .down))
     #expect(scroll.contentOffset == .zero, "nothing to scroll")
+}
+
+@Test @MainActor func monoThemeIndicatorFallsBackToVideoAttributes() {
+    let (scroll, window) = makeScroll(
+        content: Size(width: 8, height: 40),
+        viewport: Size(width: 10, height: 4)
+    )
+    window.theme = .mono
+
+    let buffer = SceneRenderer(root: window).render(size: window.frame.size)
+    #expect(buffer[Point(x: 9, y: 0)].style.flags.contains(.inverse), "colorless themes use attribute blocks")
+    #expect(buffer[Point(x: 9, y: 3)].style.flags.contains(.dim))
+    _ = scroll
+}
+
+@Test @MainActor func scrollViewFitsDocumentWidthScrollsVerticallyOnly() {
+    let scroll = ScrollView(document: NumberedDocument(size: Size(width: 30, height: 10)))
+    scroll.fitsDocumentWidth = true
+
+    let window = Window(frame: Rect(x: 0, y: 0, width: 12, height: 4))
+    scroll.frame = window.bounds
+    window.addSubview(scroll)
+    window.layoutIfNeeded()
+
+    // The 30-wide document reflows to the viewport (12 minus the bar).
+    #expect(scroll.documentView?.frame.size == Size(width: 11, height: 10))
+
+    _ = scroll.keyDown(KeyInput(key: .right))
+    #expect(scroll.contentOffset == .zero, "no horizontal scrolling in fitted mode")
+
+    _ = scroll.keyDown(KeyInput(key: .down))
+    #expect(scroll.contentOffset == Point(x: 0, y: 1), "vertical scrolling still works")
 }
 
 @Test @MainActor func scrollViewSilentProgrammaticOffset() {
@@ -165,7 +201,8 @@ private func lines(_ window: Window) -> [String] {
 // MARK: - Scrollbar interaction
 
 // Geometry used below: viewport 10x4 → bar column x9, bar length 4;
-// content height 40 → 1-cell thumb, maxThumbStart 3, maxOffset 36.
+// content height 40 → 2-cell thumb (rounded, min 2), maxThumbStart 2,
+// maxOffset 36.
 
 @Test @MainActor func scrollBarTrackClickPagesTowardClick() {
     let (scroll, _) = makeScroll(
@@ -176,9 +213,9 @@ private func lines(_ window: Window) -> [String] {
     _ = scroll.mouseEvent(MouseInput(position: Point(x: 9, y: 3), action: .press, button: .left))
     #expect(scroll.contentOffset.y == 3, "click below the thumb pages down")
 
-    scroll.setOffset(Point(x: 0, y: 12))   // thumb now sits at bar cell 1
+    scroll.setOffset(Point(x: 0, y: 18))   // thumb now sits at bar cells 1-2
     _ = scroll.mouseEvent(MouseInput(position: Point(x: 9, y: 0), action: .press, button: .left))
-    #expect(scroll.contentOffset.y == 9, "click above the thumb pages up")
+    #expect(scroll.contentOffset.y == 15, "click above the thumb pages up")
 }
 
 @Test @MainActor func scrollBarThumbDragsProportionally() {
@@ -190,8 +227,8 @@ private func lines(_ window: Window) -> [String] {
     _ = scroll.mouseEvent(MouseInput(position: Point(x: 9, y: 0), action: .press, button: .left))
     #expect(scroll.contentOffset.y == 0, "grabbing the thumb does not scroll")
 
-    _ = scroll.mouseEvent(MouseInput(position: Point(x: 9, y: 2), action: .drag, button: .left))
-    #expect(scroll.contentOffset.y == 24, "thumb cell 2 of 3 maps to offset 24 of 36")
+    _ = scroll.mouseEvent(MouseInput(position: Point(x: 9, y: 1), action: .drag, button: .left))
+    #expect(scroll.contentOffset.y == 18, "thumb start 1 of 2 maps to offset 18 of 36")
 
     _ = scroll.mouseEvent(MouseInput(position: Point(x: 9, y: 9), action: .drag, button: .left))
     #expect(scroll.contentOffset.y == 36, "dragging past the end clamps to the bottom")
@@ -208,12 +245,12 @@ private func lines(_ window: Window) -> [String] {
     )
 
     window.route(.mouse(MouseInput(position: Point(x: 9, y: 0), action: .press, button: .left)))
-    window.route(.mouse(MouseInput(position: Point(x: 3, y: 2), action: .drag, button: .left)))
-    #expect(scroll.contentOffset.y == 24, "the drag stays captured even off the bar column")
+    window.route(.mouse(MouseInput(position: Point(x: 3, y: 1), action: .drag, button: .left)))
+    #expect(scroll.contentOffset.y == 18, "the drag stays captured even off the bar column")
 
-    window.route(.mouse(MouseInput(position: Point(x: 3, y: 2), action: .release, button: .left)))
+    window.route(.mouse(MouseInput(position: Point(x: 3, y: 1), action: .release, button: .left)))
     window.route(.mouse(MouseInput(position: Point(x: 9, y: 0), action: .drag, button: .left)))
-    #expect(scroll.contentOffset.y == 24, "release ends the capture")
+    #expect(scroll.contentOffset.y == 18, "release ends the capture")
 }
 
 @Test @MainActor func buttonReleaseOutsideCancelsThroughCapture() {

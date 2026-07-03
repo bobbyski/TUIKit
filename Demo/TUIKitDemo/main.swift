@@ -20,32 +20,38 @@ if CommandLine.arguments.contains("--interactive") {
     runStaticGallery()
 }
 
-/// Form window with an always-visible Exit affordance: a top-right Exit
-/// button pinned directly to the window (so it survives even if the content
-/// area is short), plus Esc as a quit accelerator.
+/// Full-screen root window that draws only its top row — the menu bar
+/// strip. Everything below stays desktop, with floating windows overlapping
+/// freely; menu dropdowns still open below the bar because they are this
+/// window's subviews.
 @MainActor
-final class FormWindow: Window {
-    var onQuit: () -> Void = {} {
-        didSet { exitButton.onActivate = onQuit }
-    }
+final class MenuBarWindow: Window {
+    var onQuit: () -> Void = {}
 
-    let exitButton = Button("Exit")
-
-    /// The window's menu bar; while one of its menus is open, Esc closes
-    /// the menu instead of quitting.
+    /// While one of its menus is open, Esc closes the menu instead of
+    /// quitting.
     weak var menuBar: MenuBar?
 
-    override init(frame: Rect = .zero) {
-        super.init(frame: frame)
-        exitButton.anchors = AnchorSet(trailing: 1, top: 0)
+    /// Only the bar row gets chrome; the desktop shows through the rest.
+    override func draw(_ painter: Painter) {
+        painter.fill(
+            Rect(x: 0, y: 0, width: bounds.size.width, height: 1),
+            with: .blank
+        )
     }
 
-    /// Installs the Exit button as the front-most child.
-    ///
-    /// Call this after adding content so the button is hit-tested first
-    /// (clicks reach it, not the content behind it) and drawn on top.
-    func installExitButton() {
-        addSubview(exitButton)
+    /// Claim only the bar row and open dropdowns; everywhere else is
+    /// click-through, so clicks reach the floating windows behind.
+    override func hitTest(_ point: Point) -> (view: View, local: Point)? {
+        guard let hit = super.hitTest(point) else {
+            return nil
+        }
+
+        if hit.view === self, point.y > 0 {
+            return nil
+        }
+
+        return hit
     }
 
     /// Esc quits from anywhere via the hot-key pass (before focused views),
@@ -70,10 +76,31 @@ final class FormWindow: Window {
 @MainActor
 func runFormDemo() async throws {
     let app = App(driver: ANSIDriver())
-    let window = FormWindow()
-    window.onQuit = { app.stop() }
 
-    let status = Label("Tab moves focus — Esc, Exit, or Quit to leave.", style: CellStyle(flags: .dim))
+    // The desktop is the stylable background behind every window:
+    // a solid middle gray.
+    app.desktop.fillStyle = CellStyle(background: .rgb(red: 128, green: 128, blue: 128))
+    app.desktop.theme = .dark   // inherited default for un-themed windows
+
+    // Menu bar strip across the top (the root window).
+    let menuWindow = MenuBarWindow()
+    menuWindow.onQuit = { app.stop() }
+
+    // All demo controls live in this floating window; closing it quits.
+    let controls = FloatingWindow(
+        title: "TUIKit Controls",
+        frame: Rect(x: 3, y: 2, width: 74, height: 22)
+    )
+    controls.theme = .standard   // keeps the terminal look inside
+    controls.onCloseRequest = { app.stop() }
+
+    let status = Label("Click windows to focus them — drag titles to move, ◢ to resize.", style: CellStyle(flags: .dim))
+
+    // The status line carries a style class so the CSS theme can target it.
+    status.styleClasses = ["status"]
+
+    // Whether Theme ▸ CSS is active (the Code tab's stylesheet applies live).
+    var cssThemeActive = false
 
     let name = TextField(placeholder: "type a name, Return to submit")
     name.maximumSize = Size(width: 999, height: 1)
@@ -113,7 +140,7 @@ func runFormDemo() async throws {
                 app.dismiss(dialog)
             }
         }
-        dialog.sizeToFit(in: window.frame.size)
+        dialog.sizeToFit(in: app.desktop.bounds.size)
         app.present(dialog)
         status.text = "modal dialog open — Esc cancels, Return confirms"
     }
@@ -126,7 +153,7 @@ func runFormDemo() async throws {
                 app.dismiss(dialog)
             }
         }
-        dialog.sizeToFit(in: window.frame.size)
+        dialog.sizeToFit(in: app.desktop.bounds.size)
         app.present(dialog)
     }
 
@@ -270,21 +297,34 @@ func runFormDemo() async throws {
     dataTab.addSubview(Label("SplitView: drag the ─ divider, or focus it and use ↑/↓", style: CellStyle(flags: .bold)))
     dataTab.addSubview(dataSplit)
 
-    // "Code" tab content: the syntax-highlighted editor.
+    // "Code" tab content: the syntax editor, holding this window's
+    // stylesheet. With Theme ▸ CSS active, edits re-style the window live.
     let editor = SyntaxTextView(
         text: """
-        func greet(name: String) {
-            // Everyone gets a hello
-            let excitement = 1
-            print("Hello, \\(name)!")
-        }
+        /* TUIKit stylesheet — pick Theme > CSS,
+           then edit me and watch the window restyle */
+        Panel { border: rounded; border-color: brightCyan; }
+        .status { color: brightCyan; }
+        Button { bold: true; }
+        TableView { header-color: brightYellow;
+                    selection-background: #aa5500; }
+        ListView { selection-background: #2266aa;
+                   selection-color: brightWhite; }
+        TextField:focused { underline: true; }
         """,
-        language: "swift"
+        language: "css"
     )
-    editor.onChanged = { _ in status.text = "editing — \(editor.lineCount) lines" }
+    editor.onChanged = { source in
+        if cssThemeActive {
+            controls.styleSheet = StyleSheet(source)
+            status.text = "CSS re-applied — \(editor.lineCount) lines"
+        } else {
+            status.text = "editing — \(editor.lineCount) lines (Theme ▸ CSS applies this)"
+        }
+    }
 
     let codeTab = VStack(spacing: 1, insets: EdgeInsets(all: 1))
-    codeTab.addSubview(RichText(markup: "[bold]SyntaxTextView[/] — type away; [cyan]Tab[/] indents, [cyan]Return[/] splits"))
+    codeTab.addSubview(RichText(markup: "[bold]SyntaxTextView[/] — the window's [cyan]stylesheet[/]; live with Theme ▸ CSS"))
     codeTab.addSubview(editor)
 
     // "Docs" tab content: a scrolling markdown reader.
@@ -312,19 +352,24 @@ func runFormDemo() async throws {
     docsTab.addSubview(Label("MarkdownView (read-only, wraps to width):", style: CellStyle(flags: .bold)))
     docsTab.addSubview(docsView)
 
+    // The form scrolls vertically so every control stays reachable on
+    // small screens; the document reflows to the viewport width.
+    let formScroll = ScrollView(document: formTab)
+    formScroll.fitsDocumentWidth = true
+
     let tabs = TabView()
-    tabs.addTab("Form", content: formTab)
+    tabs.addTab("Form", content: formScroll)
     tabs.addTab("Files", content: filesTab)
     tabs.addTab("Scroll", content: scrollTab)
     tabs.addTab("Data", content: dataTab)
     tabs.addTab("Code", content: codeTab)
     tabs.addTab("Docs", content: docsTab)
     tabs.onSelectionChanged = { status.text = "tab: \(tabs.title(at: $0) ?? "?")" }
-    // Fill the window, leaving the top row for Exit and the bottom for status.
-    tabs.anchors = AnchorSet(leading: 1, trailing: 8, top: 1, bottom: 1)
+    // Fill the controls window, leaving the bottom row for status.
+    tabs.anchors = AnchorSet(leading: 0, trailing: 0, top: 0, bottom: 1)
 
-    // Status pinned to the bottom row.
-    status.anchors = AnchorSet(leading: 1, trailing: 1, bottom: 0, height: 1)
+    // Status pinned to the bottom row of the controls window.
+    status.anchors = AnchorSet(leading: 0, trailing: 0, bottom: 0, height: 1)
 
     // Menu bar on the top row: hot keys work from anywhere (^O, ^Q).
     let fileMenu = Menu("File")
@@ -344,31 +389,102 @@ func runFormDemo() async throws {
         }
     }
 
-    // Live theme switching across the whole window.
+    // Overlapping, non-modal windows: spawn floats, click between them.
+    var floatingWindows: [FloatingWindow] = []
+    var floatingCount = 0
+
+    let windowMenu = Menu("Window")
+    windowMenu.addItem("New Floating Window", keyEquivalent: KeyInput(key: .character("n"), modifiers: .control)) {
+        floatingCount += 1
+        let id = floatingCount
+        let pick = TUIKit.Theme.builtIn[id % TUIKit.Theme.builtIn.count]
+
+        let float = FloatingWindow(
+            title: "Float \(id) — \(pick.name)",
+            frame: Rect(x: 4 + (id % 5) * 6, y: 2 + (id % 4) * 2, width: 36, height: 10)
+        )
+        float.theme = pick.theme
+        float.onCloseRequest = { [weak float] in
+            if let float {
+                floatingWindows.removeAll { $0 === float }
+                app.dismiss(float)
+            }
+        }
+
+        let list = ListView(items: (1...8).map { "Row \($0) of \(pick.name)" })
+        list.onSelectionChanged = { index in
+            status.text = index.map { "float \(id): row \($0 + 1)" } ?? "float \(id)"
+        }
+
+        let column = VStack(spacing: 1)
+        column.addSubview(Label("Click another window to activate it.", style: CellStyle(flags: .dim)))
+        column.addSubview(list)
+        column.anchors = .fill()
+        float.content.addSubview(column)
+
+        floatingWindows.append(float)
+        app.present(float)
+        float.makeFirstResponder(list)
+        status.text = "float \(id): drag the title to move, ◢ to resize, click windows to switch"
+    }
+    windowMenu.addItem("Activate Controls Window") {
+        app.activate(controls)
+        status.text = "controls window is key"
+    }
+    windowMenu.addItem("Raise All Floating Windows") {
+        for float in floatingWindows {
+            app.activate(float)
+        }
+
+        status.text = floatingWindows.isEmpty
+            ? "no floating windows — File ▸ New Floating Window"
+            : "raised \(floatingWindows.count) floating window(s) above the main window"
+    }
+
+    // Live theme switching for the controls window.
     let themeMenu = Menu("Theme")
 
     for (name, theme) in TUIKit.Theme.builtIn {   // qualified: RichSwift also has a Theme
         themeMenu.addItem(name) {
-            window.theme = theme
+            cssThemeActive = false
+            controls.styleSheet = nil
+            controls.theme = theme
             status.text = "theme: \(name)"
         }
+    }
+
+    themeMenu.addSeparator()
+    themeMenu.addItem("CSS") {
+        cssThemeActive = true
+        controls.theme = .standard
+        controls.styleSheet = StyleSheet(editor.text)
+        tabs.select(4, notify: true)   // jump to the Code tab: the source
+        status.text = "theme: CSS — edit the stylesheet here, changes apply live"
     }
 
     let menuBar = MenuBar()
     menuBar.addMenu(fileMenu)
     menuBar.addMenu(viewMenu)
+    menuBar.addMenu(windowMenu)
     menuBar.addMenu(themeMenu)
     menuBar.anchors = AnchorSet(leading: 0, top: 0, height: 1)
 
-    window.addSubview(tabs)
-    window.addSubview(status)
-    window.addSubview(menuBar)
-    window.menuBar = menuBar
-    window.installExitButton()   // front-most: clickable and drawn on top
-    window.makeFirstResponder(tabs)   // Left/Right switches tabs; Tab enters content
+    // Assemble: controls in their floating window, the menu bar in the
+    // root strip window.
+    controls.content.addSubview(tabs)
+    controls.content.addSubview(status)
+    controls.makeFirstResponder(tabs)   // ←/→ switches tabs; Tab enters content
+
+    menuWindow.addSubview(menuBar)
+    menuWindow.menuBar = menuBar
+    menuWindow.makeFirstResponder(menuBar)
+
+    // The controls float goes onto the desktop first; running presents the
+    // menu window above it. Click either to make it key.
+    app.present(controls)
 
     do {
-        try await app.run(window)
+        try await app.run(menuWindow)
     } catch {
         print("Interactive mode needs a real terminal (\(error)).")
         return
