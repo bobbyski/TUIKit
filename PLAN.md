@@ -23,14 +23,14 @@ Docs: `Docs/Architecture.md` (layers/ownership), `Docs/ControlsUML.md`
 ## Dashboard
 
 ```
-Overall Progress  ██████████████████░░░░░░░░░░░░░░  58%   (29 / 50 items)
+Overall Progress  ██████████████████░░░░░░░░░░░░░░  60%   (31 / 52 items)
 
 Phase 1 · Package Scaffold & Docs     ██████████████████████████  100%  ✅ Complete
 Phase 2 · Terminal Drivers            ██████████████████████████  100%  ✅ Complete (44 tests green 2026-07-01; interactive demo check pending)
 Phase 3 · View System & Rendering     ██████████████████████████  100%  🔄 Code complete, unverified
 Phase 4 · Run Loop & Responder Chain  ██████████████████████████  100%  🔄 Code complete, unverified
 Phase 5 · Layout                      ██████████████████████████  100%  🔄 Code complete, unverified
-Phase 6 · Controls v1                 █████████░░░░░░░░░░░░░░░░░   35%  🔄 In Progress (6 of 17 controls)
+Phase 6 · Controls v1                 ███████████░░░░░░░░░░░░░░░   42%  🔄 In Progress (8 of 19 controls)
 Phase 7 · Styling & Theming           ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending
 Phase 8 · Demo & Polish               ███░░░░░░░░░░░░░░░░░░░░░░░   12%  🔄 Demo gallery started early
 ```
@@ -138,7 +138,7 @@ Layout per the AICoding rules framework structure.
 | 5.4 | `Grid` | ✅ Done | GridView: fixed/fitContent/flexible(weight) tracks both axes, auto-growing rows, column+row spans, spacing/insets. |
 | 5.5 | Geometry-only layout tests | ✅ Done | 16 tests assert frames via layoutIfNeeded, no rendering; plus render-runs-layout integration checks. |
 
-## Phase 6 — Controls v1 🔄 35%
+## Phase 6 — Controls v1 🔄 42%
 
 Each control owns its interaction state, keyboard model, and mouse behavior.
 
@@ -150,6 +150,8 @@ Each control owns its interaction state, keyboard model, and mouse behavior.
 | 6.3 | TextField | ✅ Done | Cursor movement/editing keys, horizontal scrolling, click-to-place-cursor, placeholder; `onChanged`/`onSubmit`. (Text selection deferred to SyntaxTextView work.) |
 | 6.4 | Checkbox / RadioGroup | ✅ Done | Toggle via Space/Return/click, arrows+click selection; silent programmatic setters, typed events; RadioGroup inverts the full current row when focused (visible focus even with no selection). |
 | 6.5 | List | ✅ Done | `ListView` on the shared `RowNavigationState` core (pure, unit-tested): arrows/Home/End/PgUp/PgDn, viewport scrolling, wheel scroll without selection change, click select, Return activate, selects first row on focus for a visible highlight; `onSelectionChanged`/`onActivate`. The 6.10 design answer: TableView will be a multi-column consumer of the same core. |
+| 6.5a | `SegmentedControl` | ✅ Done | Horizontal button-style exclusive selection; arrows/Home/End/click, selected inverted, focus bold; silent programmatic select; typed event. |
+| 6.5b | `TabView` (folder tabs) | ✅ Done | Tab bar selects which content view shows below; ←/→ + click switch tabs; non-selected content hidden (drops from focus order); addTab/select/title API. |
 | 6.6 | ScrollView | ⏳ Pending | Viewport + offset; owns scroll keys/wheel. |
 | 6.7 | Window / Panel chrome | ⏳ Pending | Title, border, close; drag/resize later. |
 | 6.8 | MenuBar / Menu | ⏳ Pending | Hot keys, submenu navigation. |

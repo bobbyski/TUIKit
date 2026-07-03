@@ -76,6 +76,9 @@ func runFormDemo() async throws {
     let mode = RadioGroup(["Fast", "Balanced", "Accurate"], selectedIndex: 1)
     mode.onSelectionChanged = { status.text = "mode: \(mode.options[$0])" }
 
+    let density = SegmentedControl(["Compact", "Cozy", "Roomy"], selectedIndex: 1)
+    density.onSelectionChanged = { status.text = "density: \(density.segments[$0])" }
+
     let files = ListView(items: (1...30).map { "Document-\($0).txt" })
     files.onSelectionChanged = { index in
         status.text = index.map { "selected \(files.items[$0])" } ?? "selection cleared"
@@ -96,21 +99,40 @@ func runFormDemo() async throws {
     nameRow.addSubview(Label("Name:", style: CellStyle(flags: .bold)))
     nameRow.addSubview(name)
 
-    // Leave the top row clear for the pinned Exit button.
-    let form = VStack(spacing: 1, insets: EdgeInsets(top: 1, left: 1, bottom: 1, right: 8))
-    form.anchors = .fill()
-    form.addSubview(Label("TUIKit control form — Esc/Exit/Quit or Ctrl+C", style: CellStyle(flags: .bold)))
-    form.addSubview(nameRow)
-    form.addSubview(wrap)
-    form.addSubview(mode)
-    form.addSubview(Label("Files (arrows, PgUp/PgDn, Return):", style: CellStyle(flags: .bold)))
-    form.addSubview(files)   // flexible: takes the leftover height
-    form.addSubview(status)
-    form.addSubview(buttons)
+    // "Form" tab content: the input controls.
+    let formTab = VStack(spacing: 1, insets: EdgeInsets(all: 1))
+    formTab.addSubview(nameRow)
+    formTab.addSubview(wrap)
+    formTab.addSubview(Label("Mode (radio):", style: CellStyle(flags: .bold)))
+    formTab.addSubview(mode)
+    formTab.addSubview(Label("Density (segmented):", style: CellStyle(flags: .bold)))
+    formTab.addSubview(density)
+    formTab.addSubview(buttons)
+    formTab.addSubview(View())   // spacer pushes content to the top
 
-    window.addSubview(form)
+    // "Files" tab content: the scrolling list.
+    let filesTab = VStack(spacing: 1, insets: EdgeInsets(all: 1))
+    filesTab.addSubview(Label("Files (arrows, PgUp/PgDn, Return):", style: CellStyle(flags: .bold)))
+    filesTab.addSubview(files)
+
+    let tabs = TabView()
+    tabs.addTab("Form", content: formTab)
+    tabs.addTab("Files", content: filesTab)
+    tabs.onSelectionChanged = { status.text = "tab: \(tabs.title(at: $0) ?? "?")" }
+    // Fill the window, leaving the top row for Exit and the bottom for status.
+    tabs.anchors = AnchorSet(leading: 1, trailing: 8, top: 1, bottom: 1)
+
+    // Status pinned to the bottom row.
+    status.anchors = AnchorSet(leading: 1, trailing: 1, bottom: 0, height: 1)
+
+    let title = Label("TUIKit controls — ←/→ switch tabs, Tab to move focus", style: CellStyle(flags: .bold))
+    title.anchors = AnchorSet(leading: 1, top: 0, height: 1)
+
+    window.addSubview(tabs)
+    window.addSubview(status)
+    window.addSubview(title)
     window.installExitButton()   // front-most: clickable and drawn on top
-    window.makeFirstResponder(name)
+    window.makeFirstResponder(tabs)   // Left/Right switches tabs; Tab enters content
 
     do {
         try await app.run(window)
@@ -458,7 +480,7 @@ Remaining controls arrive through Phase 6: ScrollView, Window chrome,
 MenuBar, Dialog, TableView, TreeView, SplitView, Stepper, color picker,
 file dialogs, RichText (RichSwift), and SyntaxTextView.
 
-Live demos:  swift run TUIKitDemo --interactive   (control form)
+Live demos:  swift run TUIKitDemo --interactive   (tabbed control form)
              swift run TUIKitDemo --events        (driver event viewer)
 """)
 }

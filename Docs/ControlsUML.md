@@ -87,6 +87,23 @@ classDiagram
         +select(Int?, notify)
     }
 
+    class SegmentedControl {
+        +segments : [String]
+        +selectedIndex : Int?
+        +onSelectionChanged : (Int) -> Void
+        +select(Int, notify)
+    }
+
+    class TabView {
+        +selectedIndex : Int
+        +tabCount : Int
+        +tabBarHeight : Int
+        +onSelectionChanged : (Int) -> Void
+        +addTab(String, content : View)
+        +select(Int, notify)
+        +title(at : Int) String?
+    }
+
     class RowNavigationState {
         <<struct, pure>>
         +count : Int
@@ -130,6 +147,8 @@ classDiagram
     View <|-- Checkbox
     View <|-- RadioGroup
     View <|-- ListView
+    View <|-- SegmentedControl
+    View <|-- TabView
     View <|-- StackView
     View <|-- GridView
     View <|-- Window
@@ -137,6 +156,7 @@ classDiagram
     StackView <|-- VStack
 
     ListView *-- RowNavigationState : uses
+    TabView o-- View : content per tab
 
     note for RowNavigationState "Shared selection/scroll core.\nFuture TableView & TreeView\nwill reuse this."
 ```
