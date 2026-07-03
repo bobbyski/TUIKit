@@ -23,14 +23,14 @@ Docs: `Docs/Architecture.md` (layers/ownership), `Docs/ControlsUML.md`
 ## Dashboard
 
 ```
-Overall Progress  █████████████████░░░░░░░░░░░░░░░  54%   (36 / 67 items)
+Overall Progress  ██████████████████░░░░░░░░░░░░░░  57%   (39 / 68 items)
 
 Phase 1 · Package Scaffold & Docs     ██████████████████████████  100%  ✅ Complete
 Phase 2 · Terminal Drivers            ██████████████████████████  100%  ✅ Complete (44 tests green 2026-07-01; interactive demo check pending)
 Phase 3 · View System & Rendering     ██████████████████████████  100%  🔄 Code complete, unverified
 Phase 4 · Run Loop & Responder Chain  ██████████████████████████  100%  🔄 Code complete, unverified
 Phase 5 · Layout                      ██████████████████████████  100%  🔄 Code complete, unverified
-Phase 6 · Controls v1                 ████████████████░░░░░░░░░░   63%  🔄 In Progress (12 of 19 controls)
+Phase 6 · Controls v1                 ████████████████████░░░░░░   75%  🔄 In Progress (15 of 20 controls)
 Phase 7 · Styling & Theming           ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending
 Phase 8 · Demo & Polish               ███░░░░░░░░░░░░░░░░░░░░░░░   12%  🔄 Demo gallery started early
 Phase 9 · Tutorial                    ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending
@@ -155,14 +155,15 @@ Each control owns its interaction state, keyboard model, and mouse behavior.
 | 6.5a | `SegmentedControl` | ✅ Done | Horizontal button-style exclusive selection; arrows/Home/End/click, selected inverted, focus bold; silent programmatic select; typed event. |
 | 6.5b | `TabView` (folder tabs) | ✅ Done | Tab bar selects which content view shows below; ←/→ + click switch tabs; non-selected content hidden (drops from focus order); addTab/select/title API. |
 | 6.6 | ScrollView | ✅ Done | Viewport + document view at full content size; offset clamps both axes; arrows/PgUp-PgDn/Home/End when focused, wheel anytime; proportional ░/█ indicator bars in reserved column/row (two-pass reservation) that are live — track click pages toward the click, thumb drags (via window mouse capture); silent `setOffset`, `onOffsetChanged`. Clipping needs nothing special — the Painter contract already contains the document. Note: focus traversal can still reach controls scrolled out of view; revisit with 6.16. |
-| 6.7 | Window / Panel chrome | ⏳ Pending | Title, border, close; drag/resize later. |
+| 6.7 | Window / Panel chrome | ✅ Done | `Panel`: single-line border, bold title in the top border, optional `[x]` close affordance emitting `onClose` (the app decides what closing means); application content lives in the inset `content` view. Drag/resize still later. |
 | 6.8 | MenuBar / Menu | ⏳ Pending | Hot keys, submenu navigation. |
-| 6.9 | Dialog / Alert | ⏳ Pending | Modal focus capture, default/cancel actions. |
+| 6.9 | Dialog / Alert | ✅ Done | `Dialog`: a `Window` wearing `Panel` chrome, so modality is the existing stack rule (top window is key). Default button (initial focus; Return via cold-key pass when something else holds focus) and cancel button (Esc via hot-key pass); every button runs its action then `onDismiss`; multiline message; `preferredSize` + `sizeToFit(in:)` centering. |
 | 6.10 | `TableView` | ✅ Done | The multi-column consumer of `RowNavigationState`, as designed in 6.5: identical keyboard model to ListView below a fixed bold+underline header; `TableColumn` fixed/flexible(weight) widths (stack-style deterministic remainders, 1-cell separators); selection inverts the full row; header click emits `onSortRequested(column)` — the app owns data and sort order; `onSelectionChanged`/`onActivate`, silent `select`. |
-| 6.11 | `TreeView` | ✅ Done | `TreeNode` model (parent links, `childProvider` loads lazily exactly once on first expansion); expanded nodes flatten onto `RowNavigationState`, so navigation is ListView's; `→` expands then steps into children, `←` collapses then steps to the parent; disclosure-triangle clicks toggle; selection survives rebuilds by node identity; `onSelectionChanged`/`onActivate`, silent `select`. |
+| 6.11 | `TreeView` | ✅ Done | `TreeNode` model (parent links, `representedValue`, `childProvider` loads lazily exactly once on first expansion); expanded nodes flatten onto `RowNavigationState`, so navigation is ListView's; `→` expands then steps into children, `←` collapses then steps to the parent; disclosure-triangle clicks toggle; selection survives rebuilds by node identity; `onSelectionChanged`/`onActivate`, silent `select`. |
+| 6.11b | `DirectoryTree` | ✅ Done | File-system outline composed over `TreeView` behind the `FileSystemProvider` protocol (AICoding rule 30; `LocalFileSystem` for the real disk, fake providers in tests — no test touches the disk). Lazy per-directory listing on first expansion, directories-first case-insensitive sort, `showsFiles` filter, `setRoot`/`reload`/`expandRoot`; path-typed events (`onSelectionChanged(String?)`, `onActivate(String)`). Standalone control now; becomes the tree half of 6.14. |
 | 6.12 | `SplitView` | ⏳ Pending | H/V panes, keyboard- and mouse-draggable divider, min sizes, collapse. |
 | 6.13 | `Stepper` | ✅ Done | `[-] 42 [+]`: Up/`+` and Down/`-` step (clamped to `range`, custom `step`), Home/End jump to bounds, clicking a bracket steps; field width sized to the range's widest value; silent `setValue`, `onValueChanged`; steps at a bound emit nothing. |
-| 6.14 | Open/Save dialog | ⏳ Pending | File and directory choosing (open/save/select-folder modes) behind a `FileSystemProvider` protocol (AICoding rule 30) so tests use a fake file system; builds on TableView + TextField + Dialog. |
+| 6.14 | Open/Save dialog | ⏳ Pending | File and directory choosing (open/save/select-folder modes); reuses `FileSystemProvider` and `DirectoryTree` (6.11b) so tests use a fake file system; builds on DirectoryTree + TextField + Dialog. |
 | 6.15 | Color picker | ⏳ Pending | Named/palette/RGB selection matching `TerminalColor`; preview swatches; typed color events. |
 | 6.16 | `SyntaxTextView` | ⏳ Pending | Editable text view with syntax highlighting rendered through RichSwift `Syntax` (see RichSwift Integration); line numbers, scroll; builds on TextField/ScrollView internals. |
 

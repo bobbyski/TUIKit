@@ -144,7 +144,41 @@ classDiagram
         +parent : TreeNode?
         +isExpanded : Bool
         +isExpandable : Bool
+        +representedValue : Any?
         +addChild(TreeNode)
+    }
+
+    class FileSystemProvider {
+        <<protocol>>
+        +entries(at path) [FileSystemEntry]
+    }
+
+    class DirectoryTree {
+        +rootPath : String
+        +showsFiles : Bool
+        +selectedPath : String?
+        +onSelectionChanged : (String?) -> Void
+        +onActivate : (String) -> Void
+        +setRoot(String)
+        +reload()
+        +expandRoot()
+    }
+
+    class Panel {
+        +title : String
+        +showsCloseButton : Bool
+        +content : View
+        +onClose : () -> Void
+    }
+
+    class Dialog {
+        +buttons : [Button]
+        +defaultButton : Button?
+        +cancelButton : Button?
+        +onDismiss : () -> Void
+        +preferredSize : Size
+        +addButton(title, isDefault, isCancel, action) Button
+        +sizeToFit(in : Size)
     }
 
     class TreeView {
@@ -206,6 +240,9 @@ classDiagram
     View <|-- Stepper
     View <|-- TableView
     View <|-- TreeView
+    View <|-- DirectoryTree
+    View <|-- Panel
+    Window <|-- Dialog
     View <|-- StackView
     View <|-- GridView
     View <|-- Window
@@ -218,6 +255,11 @@ classDiagram
     TableView *-- TableColumn : columns
     TreeView o-- TreeNode : roots
     TreeNode o-- TreeNode : children
+    DirectoryTree *-- TreeView : composes
+    DirectoryTree ..> FileSystemProvider : lists via
+    Panel o-- View : content
+    Dialog *-- Panel : chrome
+    Dialog o-- Button : actions
     TabView o-- View : content per tab
     ScrollView o-- View : documentView
 
@@ -241,7 +283,6 @@ classDiagram
         +dividerPosition : Int
     }
     class MenuBar
-    class Dialog
     class ColorPicker {
         +color : TerminalColor
         +onChange
@@ -259,5 +300,4 @@ classDiagram
     View <|-- ColorPicker
     View <|-- RichText
     ScrollView <|-- SyntaxTextView
-    Window <|-- Dialog
 ```

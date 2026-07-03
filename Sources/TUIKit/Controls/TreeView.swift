@@ -21,6 +21,12 @@ public final class TreeNode {
     /// Whether the node shows its children.
     public var isExpanded = false
 
+    /// Arbitrary value the node stands for (a path, a model object, …).
+    ///
+    /// The tree never touches this; controls built on `TreeView` (like
+    /// `DirectoryTree`) use it to map nodes back to their domain.
+    public var representedValue: Any?
+
     // Lazy loader, consumed on first expansion.
     private var childProvider: (() -> [TreeNode])?
 

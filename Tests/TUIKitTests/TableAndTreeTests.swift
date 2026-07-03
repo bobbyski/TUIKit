@@ -243,6 +243,116 @@ private func makeTree() -> (TreeView, TreeNode, TreeNode, TreeNode) {
     #expect(selections == ["Controls"], "selection changed once; the toggles kept it")
 }
 
+// MARK: - DirectoryTree
+
+// In-memory file system: listings by path, with a request log proving
+// laziness. Nothing in these tests touches the real disk.
+private final class FakeFileSystem: FileSystemProvider {
+    var listings: [String: [FileSystemEntry]] = [:]
+    private(set) var requests: [String] = []
+
+    func entries(at path: String) -> [FileSystemEntry] {
+        requests.append(path)
+        return listings[path] ?? []
+    }
+}
+
+@MainActor
+private func makeDirectoryTree() -> (DirectoryTree, FakeFileSystem, Window) {
+    let disk = FakeFileSystem()
+    disk.listings["/root"] = [
+        FileSystemEntry(name: "README.md", isDirectory: false),
+        FileSystemEntry(name: "src", isDirectory: true),
+        FileSystemEntry(name: "docs", isDirectory: true),
+    ]
+    disk.listings["/root/src"] = [
+        FileSystemEntry(name: "main.swift", isDirectory: false),
+    ]
+
+    let directory = DirectoryTree(root: "/root", fileSystem: disk)
+    let window = Window(frame: Rect(x: 0, y: 0, width: 24, height: 8))
+    directory.frame = window.bounds
+    window.addSubview(directory)
+    window.layoutIfNeeded()
+    return (directory, disk, window)
+}
+
+@Test @MainActor func directoryTreeStartsCollapsedAndListsNothing() {
+    let (directory, disk, window) = makeDirectoryTree()
+
+    #expect(disk.requests.isEmpty, "creation reads nothing from the file system")
+    #expect(directory.selectedPath == nil)
+
+    let lines = SceneRenderer(root: window).render(size: window.frame.size).textLines()
+    #expect(lines[0].hasPrefix("▸ root"))
+}
+
+@Test @MainActor func directoryTreeExpandsLazilyAndSortsDirectoriesFirst() {
+    let (directory, disk, window) = makeDirectoryTree()
+
+    directory.expandRoot()
+    #expect(disk.requests == ["/root"], "expansion lists exactly the expanded directory")
+
+    let lines = SceneRenderer(root: window).render(size: window.frame.size).textLines()
+    #expect(lines[0].hasPrefix("▾ root"))
+    #expect(lines[1].hasPrefix("  ▸ docs"), "directories first, alphabetical")
+    #expect(lines[2].hasPrefix("  ▸ src"))
+    #expect(lines[3].hasPrefix("    README.md"), "files after directories")
+}
+
+@Test @MainActor func directoryTreeSelectsAndActivatesPaths() {
+    let (directory, disk, window) = makeDirectoryTree()
+    directory.expandRoot()
+
+    var selections: [String?] = []
+    var activated: [String] = []
+    directory.onSelectionChanged = { selections.append($0) }
+    directory.onActivate = { activated.append($0) }
+
+    // Click the "src" row, then its disclosure triangle.
+    window.route(.mouse(MouseInput(position: Point(x: 6, y: 2), action: .press, button: .left)))
+    #expect(directory.selectedPath == "/root/src")
+
+    window.route(.mouse(MouseInput(position: Point(x: 2, y: 2), action: .press, button: .left)))
+    #expect(disk.requests == ["/root", "/root/src"], "each directory lists once, on first expansion")
+
+    let lines = SceneRenderer(root: window).render(size: window.frame.size).textLines()
+    #expect(lines[3].hasPrefix("      main.swift"))
+
+    window.route(.key(KeyInput(key: .enter)))
+    #expect(activated == ["/root/src"])
+    #expect(
+        selections == ["/root", "/root/src"],
+        "click-focus selects the root row first, then the click selects src"
+    )
+}
+
+@Test @MainActor func directoryTreeCanHideFiles() {
+    let (directory, disk, window) = makeDirectoryTree()
+    directory.showsFiles = false
+    directory.expandRoot()
+
+    let lines = SceneRenderer(root: window).render(size: window.frame.size).textLines()
+    #expect(lines[1].hasPrefix("  ▸ docs"))
+    #expect(lines[2].hasPrefix("  ▸ src"))
+    #expect(!lines.joined().contains("README.md"))
+    _ = disk
+}
+
+@Test @MainActor func directoryTreeSetRootReloads() {
+    let (directory, disk, window) = makeDirectoryTree()
+    disk.listings["/other"] = [FileSystemEntry(name: "thing.txt", isDirectory: false)]
+
+    directory.setRoot("/other")
+    directory.expandRoot()
+
+    #expect(directory.rootPath == "/other")
+
+    let lines = SceneRenderer(root: window).render(size: window.frame.size).textLines()
+    #expect(lines[0].hasPrefix("▾ other"))
+    #expect(lines[1].hasPrefix("    thing.txt"))
+}
+
 @Test @MainActor func treeActivatesTheSelectedNode() {
     let (tree, sources, _, _) = makeTree()
     tree.frame = Rect(x: 0, y: 0, width: 26, height: 8)

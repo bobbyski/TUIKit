@@ -1,3 +1,4 @@
+import Foundation
 import TUIKit
 
 // TUIKitDemo — the living gallery of TUIKit capabilities.
@@ -91,7 +92,19 @@ func runFormDemo() async throws {
     let summary = Button("Summary") {
         status.text = "name='\(name.text)' wrap=\(wrap.isChecked) mode=\(mode.selectedIndex ?? -1)"
     }
-    let quit = Button("Quit") { app.stop() }
+    let quit = Button("Quit") {
+        let dialog = Dialog(title: "Quit?", message: "Leave the TUIKit demo?")
+        dialog.addButton("Cancel", isCancel: true)
+        dialog.addButton("Quit", isDefault: true) { app.stop() }
+        dialog.onDismiss = { [weak dialog] in
+            if let dialog {
+                app.dismiss(dialog)
+            }
+        }
+        dialog.sizeToFit(in: window.frame.size)
+        app.present(dialog)
+        status.text = "modal dialog open — Esc cancels, Return confirms"
+    }
 
     let buttons = HStack(spacing: 2)
     buttons.addSubview(summary)
@@ -120,10 +133,19 @@ func runFormDemo() async throws {
     formTab.addSubview(buttons)
     formTab.addSubview(View())   // spacer pushes content to the top
 
-    // "Files" tab content: the scrolling list.
+    // "Files" tab content: the scrolling list and a real directory browser.
+    let browser = DirectoryTree(root: FileManager.default.currentDirectoryPath)
+    browser.expandRoot()
+    browser.onSelectionChanged = { path in
+        status.text = path.map { "path: \($0)" } ?? "path cleared"
+    }
+    browser.onActivate = { status.text = "OPENED \($0)" }
+
     let filesTab = VStack(spacing: 1, insets: EdgeInsets(all: 1))
     filesTab.addSubview(Label("Files (arrows, PgUp/PgDn, Return):", style: CellStyle(flags: .bold)))
     filesTab.addSubview(files)
+    filesTab.addSubview(Label("Directory (lazy, real file system):", style: CellStyle(flags: .bold)))
+    filesTab.addSubview(browser)
 
     // "Scroll" tab content: a document taller than any terminal, inside a
     // ScrollView (arrows/PgUp/PgDn/Home/End when focused; wheel anytime).
@@ -606,14 +628,32 @@ galleryTree.frame = Rect(x: 0, y: 0, width: 46, height: 4)
 show(SceneRenderer(root: galleryTree).render(size: Size(width: 46, height: 4)))
 print("(one selection/scroll core drives List, Table, and Tree)")
 
+heading("Panel & Dialog — window chrome and modals")
+
+let galleryPanel = Panel("Inspector")
+galleryPanel.showsCloseButton = true
+let panelBody = Label("Content lives inside the border")
+panelBody.anchors = .fill()
+galleryPanel.content.addSubview(panelBody)
+galleryPanel.frame = Rect(x: 0, y: 0, width: 46, height: 4)
+
+show(SceneRenderer(root: galleryPanel).render(size: Size(width: 46, height: 4)))
+
+let galleryDialog = Dialog(title: "Delete file?", message: "This cannot be undone.")
+galleryDialog.addButton("Cancel", isCancel: true)
+galleryDialog.addButton("Delete", isDefault: true)
+galleryDialog.frame = Rect(origin: .zero, size: galleryDialog.preferredSize)
+
+show(SceneRenderer(root: galleryDialog).render(size: galleryDialog.frame.size))
+print("(present with app.present — the window stack makes it modal)")
+
 // MARK: - Coming Soon
 
 heading("Coming soon")
 
 print("""
-Remaining controls arrive through Phase 6: Window chrome, MenuBar, Dialog,
-SplitView, color picker, file dialogs, RichText (RichSwift), and
-SyntaxTextView.
+Remaining controls arrive through Phase 6: MenuBar, SplitView, color
+picker, file dialogs, RichText (RichSwift), and SyntaxTextView.
 
 Live demos:  swift run TUIKitDemo --interactive   (tabbed control form)
              swift run TUIKitDemo --events        (driver event viewer)
