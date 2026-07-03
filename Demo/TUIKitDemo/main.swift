@@ -148,10 +148,72 @@ func runFormDemo() async throws {
     scrollTab.addSubview(Label("Scroll (arrows, PgUp/PgDn, wheel):", style: CellStyle(flags: .bold)))
     scrollTab.addSubview(scroller)
 
+    // "Data" tab content: a sortable table above a lazily-loading tree.
+    var tableRows = [
+        ("Button.swift", 4, "control"),
+        ("ListView.swift", 9, "control"),
+        ("Painter.swift", 5, "views"),
+        ("StackView.swift", 10, "layout"),
+        ("TableView.swift", 12, "control"),
+        ("Window.swift", 7, "app"),
+    ]
+
+    let table = TableView(
+        columns: [
+            TableColumn("Name"),
+            TableColumn("KB", width: .fixed(4)),
+            TableColumn("Layer", width: .fixed(8)),
+        ]
+    )
+
+    func reloadTable() {
+        table.rows = tableRows.map { [$0.0, "\($0.1)", $0.2] }
+    }
+
+    reloadTable()
+    table.onSelectionChanged = { row in
+        status.text = row.map { "table row: \(tableRows[$0].0)" } ?? "table selection cleared"
+    }
+    table.onActivate = { status.text = "OPENED \(tableRows[$0].0)" }
+    table.onSortRequested = { column in
+        switch column {
+        case 0: tableRows.sort { $0.0 < $1.0 }
+        case 1: tableRows.sort { $0.1 < $1.1 }
+        default: tableRows.sort { $0.2 < $1.2 }
+        }
+
+        reloadTable()
+        status.text = "sorted by \(table.columns[column].title)"
+    }
+
+    let sources = TreeNode("Sources", childProvider: {
+        [
+            TreeNode("Controls", children: tableRows.map { TreeNode($0.0) }),
+            TreeNode("TUIKit.swift"),
+        ]
+    })
+    let docs = TreeNode("Docs", children: [
+        TreeNode("Architecture.md"),
+        TreeNode("ControlsUML.md"),
+    ])
+
+    let tree = TreeView(roots: [sources, docs])
+    tree.onSelectionChanged = { node in
+        status.text = node.map { "tree node: \($0.title)" } ?? "tree selection cleared"
+    }
+    tree.onActivate = { status.text = "OPENED \($0.title)" }
+
+    let dataTab = VStack(spacing: 1, insets: EdgeInsets(all: 1))
+    dataTab.addSubview(Label("Table (click headers to sort):", style: CellStyle(flags: .bold)))
+    dataTab.addSubview(table)
+    dataTab.addSubview(Label("Tree (←/→ disclose, lazy Sources):", style: CellStyle(flags: .bold)))
+    dataTab.addSubview(tree)
+
     let tabs = TabView()
     tabs.addTab("Form", content: formTab)
     tabs.addTab("Files", content: filesTab)
     tabs.addTab("Scroll", content: scrollTab)
+    tabs.addTab("Data", content: dataTab)
     tabs.onSelectionChanged = { status.text = "tab: \(tabs.title(at: $0) ?? "?")" }
     // Fill the window, leaving the top row for Exit and the bottom for status.
     tabs.anchors = AnchorSet(leading: 1, trailing: 8, top: 1, bottom: 1)
@@ -521,14 +583,37 @@ galleryScroll.setOffset(Point(x: 0, y: 4))
 show(SceneRenderer(root: galleryScroll).render(size: Size(width: 46, height: 5)))
 print("(scrolled to row 4 of 12; the right column is the indicator)")
 
+heading("TableView & TreeView — the row-navigation family")
+
+let galleryTable = TableView(
+    columns: [TableColumn("Name"), TableColumn("KB", width: .fixed(4))],
+    rows: [["Button.swift", "4"], ["ListView.swift", "9"], ["Painter.swift", "5"]]
+)
+galleryTable.select(1)
+galleryTable.frame = Rect(x: 0, y: 0, width: 46, height: 4)
+
+show(SceneRenderer(root: galleryTable).render(size: Size(width: 46, height: 4)))
+
+let galleryRoot = TreeNode("Sources", children: [
+    TreeNode("Controls", children: [TreeNode("Button.swift")]),
+    TreeNode("TUIKit.swift"),
+])
+let galleryTree = TreeView(roots: [galleryRoot])
+galleryTree.expand(galleryRoot)
+galleryTree.expand(galleryRoot.children[0])
+galleryTree.frame = Rect(x: 0, y: 0, width: 46, height: 4)
+
+show(SceneRenderer(root: galleryTree).render(size: Size(width: 46, height: 4)))
+print("(one selection/scroll core drives List, Table, and Tree)")
+
 // MARK: - Coming Soon
 
 heading("Coming soon")
 
 print("""
 Remaining controls arrive through Phase 6: Window chrome, MenuBar, Dialog,
-TableView, TreeView, SplitView, color picker, file dialogs, RichText
-(RichSwift), and SyntaxTextView.
+SplitView, color picker, file dialogs, RichText (RichSwift), and
+SyntaxTextView.
 
 Live demos:  swift run TUIKitDemo --interactive   (tabbed control form)
              swift run TUIKitDemo --events        (driver event viewer)

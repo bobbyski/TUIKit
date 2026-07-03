@@ -23,17 +23,18 @@ Docs: `Docs/Architecture.md` (layers/ownership), `Docs/ControlsUML.md`
 ## Dashboard
 
 ```
-Overall Progress  ██████████████████░░░░░░░░░░░░░░  58%   (34 / 59 items)
+Overall Progress  █████████████████░░░░░░░░░░░░░░░  54%   (36 / 67 items)
 
 Phase 1 · Package Scaffold & Docs     ██████████████████████████  100%  ✅ Complete
 Phase 2 · Terminal Drivers            ██████████████████████████  100%  ✅ Complete (44 tests green 2026-07-01; interactive demo check pending)
 Phase 3 · View System & Rendering     ██████████████████████████  100%  🔄 Code complete, unverified
 Phase 4 · Run Loop & Responder Chain  ██████████████████████████  100%  🔄 Code complete, unverified
 Phase 5 · Layout                      ██████████████████████████  100%  🔄 Code complete, unverified
-Phase 6 · Controls v1                 ██████████████░░░░░░░░░░░░   53%  🔄 In Progress (10 of 19 controls)
+Phase 6 · Controls v1                 ████████████████░░░░░░░░░░   63%  🔄 In Progress (12 of 19 controls)
 Phase 7 · Styling & Theming           ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending
 Phase 8 · Demo & Polish               ███░░░░░░░░░░░░░░░░░░░░░░░   12%  🔄 Demo gallery started early
 Phase 9 · Tutorial                    ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending
+Phase 10 · VTG Vector Graphics        ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending (rev 2)
 ```
 
 **Status key:** ✅ Done &nbsp;|&nbsp; 🔄 In Progress &nbsp;|&nbsp; ⏳ Pending &nbsp;|&nbsp; 🚫 Blocked
@@ -157,8 +158,8 @@ Each control owns its interaction state, keyboard model, and mouse behavior.
 | 6.7 | Window / Panel chrome | ⏳ Pending | Title, border, close; drag/resize later. |
 | 6.8 | MenuBar / Menu | ⏳ Pending | Hot keys, submenu navigation. |
 | 6.9 | Dialog / Alert | ⏳ Pending | Modal focus capture, default/cancel actions. |
-| 6.10 | `TableView` | ⏳ Pending | Columns, headers, sorting hooks, row selection, keyboard navigation; `onSelectionChanged`. Design note: may unify with `List` (6.5) — a List is plausibly a single-column TableView (or TableView a multi-column List); decide when 6.5 is implemented and share the selection/navigation core either way. |
-| 6.11 | `TreeView` | ⏳ Pending | Expand/collapse, disclosure keys (←/→), lazy children, selection events. |
+| 6.10 | `TableView` | ✅ Done | The multi-column consumer of `RowNavigationState`, as designed in 6.5: identical keyboard model to ListView below a fixed bold+underline header; `TableColumn` fixed/flexible(weight) widths (stack-style deterministic remainders, 1-cell separators); selection inverts the full row; header click emits `onSortRequested(column)` — the app owns data and sort order; `onSelectionChanged`/`onActivate`, silent `select`. |
+| 6.11 | `TreeView` | ✅ Done | `TreeNode` model (parent links, `childProvider` loads lazily exactly once on first expansion); expanded nodes flatten onto `RowNavigationState`, so navigation is ListView's; `→` expands then steps into children, `←` collapses then steps to the parent; disclosure-triangle clicks toggle; selection survives rebuilds by node identity; `onSelectionChanged`/`onActivate`, silent `select`. |
 | 6.12 | `SplitView` | ⏳ Pending | H/V panes, keyboard- and mouse-draggable divider, min sizes, collapse. |
 | 6.13 | `Stepper` | ✅ Done | `[-] 42 [+]`: Up/`+` and Down/`-` step (clamped to `range`, custom `step`), Home/End jump to bounds, clicking a bracket steps; field width sized to the range's widest value; silent `setValue`, `onValueChanged`; steps at a bound emit nothing. |
 | 6.14 | Open/Save dialog | ⏳ Pending | File and directory choosing (open/save/select-folder modes) behind a `FileSystemProvider` protocol (AICoding rule 30) so tests use a fake file system; builds on TableView + TextField + Dialog. |
@@ -200,6 +201,41 @@ forever — a tutorial that drifts from the API is worse than none.
 | 9.5 | Ch. 4 — Focus, keys & mouse | ⏳ Pending | Responder chain, Tab traversal, hot/cold keys, mouse routing; add app-level shortcuts. |
 | 9.6 | Ch. 5 — Testing your app | ⏳ Pending | Drive the finished app through the headless driver: scripted input, buffer snapshots, resize. |
 | 9.7 | `TUIKitTutorial` target + CI test | ⏳ Pending | Per-chapter milestones runnable via `swift run TUIKitTutorial ch3`; a test renders each milestone headlessly so chapters can never rot. |
+
+## Phase 10 — VTG Vector Graphics Mode ⏳ 0% (rev 2)
+
+**Rev 2 — starts only after Phases 1-9 ship as TUIKit 1.0.** Adds optional
+vector graphics inside the terminal via the VectorTerminal Graphics (VTG)
+protocol, wrapped by the in-house `VectorTerminalSDK`
+(`AIResearch/GraphicalTerminal/Code/VectorTerminalSDK`; APC escape
+sequences, retained scene with object ids, layers under/over the text
+plane, pixel/cell mouse events, hit regions, capability query). In-house
+dependency, same policy as RichSwift.
+
+**Goal: attractive chrome, not a control set.** VTG makes the *existing*
+windows and controls beautiful — rounded panel borders, shadows, focus
+glows, pill buttons behind ordinary text, smooth scrollbar thumbs — drawn
+mostly on the under-text layer beneath the same cell-rendered controls.
+There is no app-facing vector drawing API and no new vector controls; the
+public control surface and semantic events do not change. VTG is purely a
+presentation upgrade the framework applies when the terminal supports it.
+
+Ground rules carried over from rev 1: raw VTG/APC sequences live only in
+the driver layer; chrome is drawn through a typed internal surface; every
+feature has a headless/fake-transport testing story; cell rendering must
+remain the universal fallback — a TUIKit app never *requires* VTG, and
+apps cannot tell (except visually) which mode they are running in.
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| 10.1 | Capability detection & fallback contract | ⏳ Pending | Probe `capabilities?` (typed `VTGCapabilities`) during driver `begin`; expose `driver.graphics` as optional. The fallback rule is uniform: no VTG → today's cell rendering, exactly as it is in rev 1; never a crash, never a behavior difference. |
+| 10.2 | VTG driver integration | ⏳ Pending | Extend `TerminalDriver` with an optional graphics surface backed by `VectorTerminalCanvas`; one output path so VTG APC writes interleave safely with cell present (frames via `startFrame`/`endFrame` for tear-free updates). Raw sequences stay in the driver, per the Phase 2 contract. |
+| 10.3 | Cell↔pixel geometry | ⏳ Pending | `glyphSize?`-based metrics: view-local cell coordinates ↔ canvas pixel coordinates conversion owned by the framework (one mapper, tested), so views position vector art in their own coordinate space. |
+| 10.4 | Internal chrome surface | ⏳ Pending | A framework-internal (not public) typed decoration surface controls draw chrome through, in local coordinates, alongside their cell `draw(_:)`: rounded rects, fills, shadows, pill shapes, focus glows. Framework composes translation and VTG layer `clip` so the Painter clipping contract holds for chrome too; object ids are view-scoped and reclaimed when views move/disappear. |
+| 10.5 | Control & window chrome pass | ⏳ Pending | Apply the surface across the set: window/panel borders and shadows, button and segmented pills behind text, rounded text-field wells, smooth scrollbar thumb, tab folder shapes, focus glow. Chrome hooks into the Phase 7 theme cascade (themes may define both cell and VTG styling); zero public API change to any control. |
+| 10.6 | VTG input routing | ⏳ Pending | VTG-native pixel mouse events decoded in the driver and routed through the existing responder chain as the same typed `MouseInput` in cell coords — chrome never changes hit-testing semantics, it only looks better. |
+| 10.7 | Headless VTG testing | ⏳ Pending | Closure-backed `VTGOutput` transport recording sequences + scripted event injection: assert emitted VTG chrome commands and unchanged input routing deterministically, no terminal required (same discipline as the headless cell driver). |
+| 10.8 | Demo & fallback proof | ⏳ Pending | The *same* demo app, untouched, runs twice: in a VTG terminal with full chrome, and in a plain terminal with cell rendering — identical behavior, focus order, and events in both. That equivalence is the phase exit criterion. |
 
 ---
 

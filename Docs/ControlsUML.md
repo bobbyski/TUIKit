@@ -122,6 +122,41 @@ classDiagram
         +stepValue(Int)
     }
 
+    class TableColumn {
+        <<struct>>
+        +title : String
+        +width : Width (fixed/flexible)
+    }
+
+    class TableView {
+        +columns : [TableColumn]
+        +rows : [[String]]
+        +selectedIndex : Int?
+        +onSelectionChanged : (Int?) -> Void
+        +onActivate : (Int) -> Void
+        +onSortRequested : (Int) -> Void
+        +select(Int?, notify)
+    }
+
+    class TreeNode {
+        +title : String
+        +children : [TreeNode]
+        +parent : TreeNode?
+        +isExpanded : Bool
+        +isExpandable : Bool
+        +addChild(TreeNode)
+    }
+
+    class TreeView {
+        +roots : [TreeNode]
+        +selectedNode : TreeNode?
+        +onSelectionChanged : (TreeNode?) -> Void
+        +onActivate : (TreeNode) -> Void
+        +select(TreeNode?, notify)
+        +expand(TreeNode)
+        +collapse(TreeNode)
+    }
+
     class RowNavigationState {
         <<struct, pure>>
         +count : Int
@@ -169,6 +204,8 @@ classDiagram
     View <|-- TabView
     View <|-- ScrollView
     View <|-- Stepper
+    View <|-- TableView
+    View <|-- TreeView
     View <|-- StackView
     View <|-- GridView
     View <|-- Window
@@ -176,10 +213,15 @@ classDiagram
     StackView <|-- VStack
 
     ListView *-- RowNavigationState : uses
+    TableView *-- RowNavigationState : uses
+    TreeView *-- RowNavigationState : uses
+    TableView *-- TableColumn : columns
+    TreeView o-- TreeNode : roots
+    TreeNode o-- TreeNode : children
     TabView o-- View : content per tab
     ScrollView o-- View : documentView
 
-    note for RowNavigationState "Shared selection/scroll core.\nFuture TableView & TreeView\nwill reuse this."
+    note for RowNavigationState "Shared selection/scroll core\ndriving List, Table, and Tree."
 ```
 
 ## Planned (Phase 6 remainder)
@@ -191,19 +233,9 @@ classDiagram
     direction TB
 
     class View
-    class ListView
-    class RowNavigationState
-
     class ScrollView
-    class TableView {
-        +columns : [Column]
-        +rows : [[String]]
-        +onSelectionChanged
-    }
-    class TreeView {
-        +roots : [Node]
-        +onSelectionChanged
-    }
+    class TableView
+
     class SplitView {
         +axis
         +dividerPosition : Int
@@ -222,14 +254,10 @@ classDiagram
         +language : String
     }
 
-    View <|-- TableView
-    View <|-- TreeView
     View <|-- SplitView
     View <|-- MenuBar
     View <|-- ColorPicker
     View <|-- RichText
     ScrollView <|-- SyntaxTextView
     Window <|-- Dialog
-    TableView *-- RowNavigationState : uses
-    TreeView *-- RowNavigationState : uses
 ```
