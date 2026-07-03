@@ -80,11 +80,15 @@ public actor ANSIDriver: TerminalDriver {
         let flags = fcntl(inputDescriptor, F_GETFL)
         _ = fcntl(inputDescriptor, F_SETFL, flags | O_NONBLOCK)
 
-        currentSize = Self.probeSize(descriptor: outputDescriptor) ?? currentSize
         isActive = true
 
         // Alternate screen, hidden cursor, SGR mouse reporting.
         await write("\u{1B}[?1049h\u{1B}[?25l\u{1B}[?1002h\u{1B}[?1006h\u{1B}[2J\u{1B}[H")
+
+        // Probe AFTER switching to the alternate screen: it reflects the full
+        // window, whereas a probe on a normal screen with heavy scrollback can
+        // report a reduced content area.
+        currentSize = Self.probeSize(descriptor: outputDescriptor) ?? currentSize
 
         startReadSource()
         startResizeSource()

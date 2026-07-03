@@ -19,15 +19,51 @@ if CommandLine.arguments.contains("--interactive") {
     runStaticGallery()
 }
 
+/// Form window with an always-visible Exit affordance: a top-right Exit
+/// button pinned directly to the window (so it survives even if the content
+/// area is short), plus Esc as a quit accelerator.
+@MainActor
+final class FormWindow: Window {
+    var onQuit: () -> Void = {} {
+        didSet { exitButton.onActivate = onQuit }
+    }
+
+    let exitButton = Button("Exit")
+
+    override init(frame: Rect = .zero) {
+        super.init(frame: frame)
+        exitButton.anchors = AnchorSet(trailing: 1, top: 0)
+    }
+
+    /// Installs the Exit button as the front-most child.
+    ///
+    /// Call this after adding content so the button is hit-tested first
+    /// (clicks reach it, not the content behind it) and drawn on top.
+    func installExitButton() {
+        addSubview(exitButton)
+    }
+
+    /// Esc quits from anywhere via the hot-key pass (before focused views).
+    override func handleHotKey(_ key: KeyInput) -> Bool {
+        if key.key == .escape, key.modifiers.isEmpty {
+            onQuit()
+            return true
+        }
+
+        return false
+    }
+}
+
 /// Interactive form dogfooding every Phase 6 control on the real driver:
 /// Tab/Shift+Tab move focus, all controls answer keys and mouse, and the
 /// status line narrates the semantic events the app receives.
 @MainActor
 func runFormDemo() async throws {
     let app = App(driver: ANSIDriver())
-    let window = Window()
+    let window = FormWindow()
+    window.onQuit = { app.stop() }
 
-    let status = Label("Tab moves focus — every change lands here.", style: CellStyle(flags: .dim))
+    let status = Label("Tab moves focus — Esc, Exit, or Quit to leave.", style: CellStyle(flags: .dim))
 
     let name = TextField(placeholder: "type a name, Return to submit")
     name.maximumSize = Size(width: 999, height: 1)
@@ -60,9 +96,10 @@ func runFormDemo() async throws {
     nameRow.addSubview(Label("Name:", style: CellStyle(flags: .bold)))
     nameRow.addSubview(name)
 
-    let form = VStack(spacing: 1, insets: EdgeInsets(all: 1))
+    // Leave the top row clear for the pinned Exit button.
+    let form = VStack(spacing: 1, insets: EdgeInsets(top: 1, left: 1, bottom: 1, right: 8))
     form.anchors = .fill()
-    form.addSubview(Label("TUIKit control form — Ctrl+C or Quit to exit", style: CellStyle(flags: .bold)))
+    form.addSubview(Label("TUIKit control form — Esc/Exit/Quit or Ctrl+C", style: CellStyle(flags: .bold)))
     form.addSubview(nameRow)
     form.addSubview(wrap)
     form.addSubview(mode)
@@ -72,6 +109,7 @@ func runFormDemo() async throws {
     form.addSubview(buttons)
 
     window.addSubview(form)
+    window.installExitButton()   // front-most: clickable and drawn on top
     window.makeFirstResponder(name)
 
     do {
@@ -89,16 +127,29 @@ func runFormDemo() async throws {
 /// system, responder routing, resize handling, and graceful stop together.
 @MainActor
 final class EventLogWindow: Window {
-    var onQuit: () -> Void = {}
+    var onQuit: () -> Void = {} {
+        didSet {
+            exitButton.onActivate = onQuit
+        }
+    }
+
+    /// Clickable exit — anchored to the top-right of the title bar.
+    let exitButton = Button("Exit")
 
     private var events: [String] = []
+
+    override init(frame: Rect = .zero) {
+        super.init(frame: frame)
+        exitButton.anchors = AnchorSet(trailing: 1, top: 0)
+        addSubview(exitButton)
+    }
 
     override func draw(_ painter: Painter) {
         let title = CellStyle(foreground: .named(.brightWhite), background: .named(.blue), flags: .bold)
 
         painter.fill(bounds, with: .blank)
         painter.fill(Rect(x: 0, y: 0, width: bounds.size.width, height: 1), with: TerminalCell(character: " ", style: title))
-        painter.write(" TUIKit interactive demo — press q to quit ", at: .zero, style: title)
+        painter.write(" TUIKit event viewer — q or the Exit button quits ", at: .zero, style: title)
         painter.write(
             "window \(bounds.size.width)x\(bounds.size.height) — type, use arrows, click, scroll, resize",
             at: Point(x: 1, y: 2),
