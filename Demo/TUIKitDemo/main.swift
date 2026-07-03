@@ -7,15 +7,81 @@ import TUIKit
 // for each control as it lands so it can be used for eyeball testing.
 //
 // Modes:
-//   swift run TUIKitDemo                 static gallery (cells/styles/encoder)
-//   swift run TUIKitDemo --interactive   live ANSIDriver event viewer
-//
-// Controls join the gallery in Phase 6.
+//   swift run TUIKitDemo                 static gallery (cells/views/layout)
+//   swift run TUIKitDemo --interactive   live control form (Phase 6)
+//   swift run TUIKitDemo --events        live driver event viewer
 
 if CommandLine.arguments.contains("--interactive") {
-    try await runInteractiveDemo()
+    try await runFormDemo()
+} else if CommandLine.arguments.contains("--events") {
+    try await runEventViewer()
 } else {
     runStaticGallery()
+}
+
+/// Interactive form dogfooding every Phase 6 control on the real driver:
+/// Tab/Shift+Tab move focus, all controls answer keys and mouse, and the
+/// status line narrates the semantic events the app receives.
+@MainActor
+func runFormDemo() async throws {
+    let app = App(driver: ANSIDriver())
+    let window = Window()
+
+    let status = Label("Tab moves focus — every change lands here.", style: CellStyle(flags: .dim))
+
+    let name = TextField(placeholder: "type a name, Return to submit")
+    name.maximumSize = Size(width: 999, height: 1)
+    name.onChanged = { status.text = "name draft: '\($0)'" }
+    name.onSubmit = { status.text = "name submitted: '\($0)'" }
+
+    let wrap = Checkbox("Wrap lines")
+    wrap.onChange = { status.text = "wrap lines: \($0)" }
+
+    let mode = RadioGroup(["Fast", "Balanced", "Accurate"], selectedIndex: 1)
+    mode.onSelectionChanged = { status.text = "mode: \(mode.options[$0])" }
+
+    let files = ListView(items: (1...30).map { "Document-\($0).txt" })
+    files.onSelectionChanged = { index in
+        status.text = index.map { "selected \(files.items[$0])" } ?? "selection cleared"
+    }
+    files.onActivate = { status.text = "OPENED \(files.items[$0])" }
+
+    let summary = Button("Summary") {
+        status.text = "name='\(name.text)' wrap=\(wrap.isChecked) mode=\(mode.selectedIndex ?? -1)"
+    }
+    let quit = Button("Quit") { app.stop() }
+
+    let buttons = HStack(spacing: 2)
+    buttons.addSubview(summary)
+    buttons.addSubview(quit)
+    buttons.addSubview(View())   // flexible spacer keeps buttons leading
+
+    let nameRow = HStack(spacing: 1)
+    nameRow.addSubview(Label("Name:", style: CellStyle(flags: .bold)))
+    nameRow.addSubview(name)
+
+    let form = VStack(spacing: 1, insets: EdgeInsets(all: 1))
+    form.anchors = .fill()
+    form.addSubview(Label("TUIKit control form — Ctrl+C or Quit to exit", style: CellStyle(flags: .bold)))
+    form.addSubview(nameRow)
+    form.addSubview(wrap)
+    form.addSubview(mode)
+    form.addSubview(Label("Files (arrows, PgUp/PgDn, Return):", style: CellStyle(flags: .bold)))
+    form.addSubview(files)   // flexible: takes the leftover height
+    form.addSubview(status)
+    form.addSubview(buttons)
+
+    window.addSubview(form)
+    window.makeFirstResponder(name)
+
+    do {
+        try await app.run(window)
+    } catch {
+        print("Interactive mode needs a real terminal (\(error)).")
+        return
+    }
+
+    print("Restored terminal.")
 }
 
 /// Full-screen event viewer, now built the way real TUIKit apps are: a
@@ -69,7 +135,7 @@ final class EventLogWindow: Window {
 
 /// Runs the interactive event viewer on the real terminal.
 @MainActor
-func runInteractiveDemo() async throws {
+func runEventViewer() async throws {
     let app = App(driver: ANSIDriver())
     let window = EventLogWindow()
 
@@ -301,16 +367,47 @@ grid.setRow(1, .flexible())
 show(SceneRenderer(root: grid).render(size: Size(width: 46, height: 7)))
 print("(fixed 8-cell column, then flexible columns weighted 2:1)")
 
+// MARK: - Controls (Phase 6)
+
+heading("Controls — first set (static render; --interactive for live)")
+
+let controlsWindow = Window(frame: Rect(x: 0, y: 0, width: 46, height: 12))
+let controlsForm = VStack(spacing: 1, insets: EdgeInsets(all: 1))
+controlsForm.anchors = .fill()
+
+let galleryField = TextField(text: "Bobby")
+let galleryRow = HStack(spacing: 1)
+galleryRow.addSubview(Label("Name:", style: CellStyle(flags: .bold)))
+galleryRow.addSubview(galleryField)
+
+let galleryButtons = HStack(spacing: 2)
+let galleryOK = Button("OK")
+galleryButtons.addSubview(galleryOK)
+galleryButtons.addSubview(Button("Cancel"))
+galleryButtons.addSubview(View())
+
+controlsForm.addSubview(galleryRow)
+controlsForm.addSubview(Checkbox("Wrap lines", isChecked: true))
+controlsForm.addSubview(RadioGroup(["Fast", "Balanced", "Accurate"], selectedIndex: 1))
+controlsForm.addSubview(ListView(items: ["Document-1.txt", "Document-2.txt"]))
+controlsForm.addSubview(galleryButtons)
+
+controlsWindow.addSubview(controlsForm)
+controlsWindow.makeFirstResponder(galleryOK)
+
+show(SceneRenderer(root: controlsWindow).render(size: Size(width: 46, height: 12)))
+print("(the focused OK button renders inverted)")
+
 // MARK: - Coming Soon
 
 heading("Coming soon")
 
 print("""
-Responder chain, layout, and controls arrive in Phases 4-6; each control
-will add an interactive section here (Label, Button, TextField, Checkbox,
-RadioGroup, List, TableView, TreeView, SplitView, ScrollView, Window,
-MenuBar, Dialog, Stepper, color picker, file dialogs, SyntaxTextView).
+Remaining controls arrive through Phase 6: ScrollView, Window chrome,
+MenuBar, Dialog, TableView, TreeView, SplitView, Stepper, color picker,
+file dialogs, RichText (RichSwift), and SyntaxTextView.
 
-Try the live driver:  swift run TUIKitDemo --interactive
+Live demos:  swift run TUIKitDemo --interactive   (control form)
+             swift run TUIKitDemo --events        (driver event viewer)
 """)
 }

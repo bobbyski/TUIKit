@@ -20,14 +20,14 @@ testable, demos read as tutorials).
 ## Dashboard
 
 ```
-Overall Progress  ████████████████░░░░░░░░░░░░░░░░  50%   (25 / 50 items)
+Overall Progress  ██████████████████░░░░░░░░░░░░░░  58%   (29 / 50 items)
 
 Phase 1 · Package Scaffold & Docs     ██████████████████████████  100%  ✅ Complete
 Phase 2 · Terminal Drivers            ██████████████████████████  100%  ✅ Complete (44 tests green 2026-07-01; interactive demo check pending)
 Phase 3 · View System & Rendering     ██████████████████████████  100%  🔄 Code complete, unverified
 Phase 4 · Run Loop & Responder Chain  ██████████████████████████  100%  🔄 Code complete, unverified
 Phase 5 · Layout                      ██████████████████████████  100%  🔄 Code complete, unverified
-Phase 6 · Controls v1                 ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending
+Phase 6 · Controls v1                 █████████░░░░░░░░░░░░░░░░░   35%  🔄 In Progress (6 of 17 controls)
 Phase 7 · Styling & Theming           ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending
 Phase 8 · Demo & Polish               ███░░░░░░░░░░░░░░░░░░░░░░░   12%  🔄 Demo gallery started early
 ```
@@ -135,18 +135,18 @@ Layout per the AICoding rules framework structure.
 | 5.4 | `Grid` | ✅ Done | GridView: fixed/fitContent/flexible(weight) tracks both axes, auto-growing rows, column+row spans, spacing/insets. |
 | 5.5 | Geometry-only layout tests | ✅ Done | 16 tests assert frames via layoutIfNeeded, no rendering; plus render-runs-layout integration checks. |
 
-## Phase 6 — Controls v1 ⏳ 0%
+## Phase 6 — Controls v1 🔄 35%
 
 Each control owns its interaction state, keyboard model, and mouse behavior.
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 6.1 | Label | ⏳ Pending | Truncation, alignment. |
+| 6.1 | Label | ✅ Done | Alignment (leading/center/trailing), ellipsis truncation, intrinsic size. |
 | 6.1b | RichText view (RichSwift) | ⏳ Pending | Renders RichSwift markup and `RichRenderable`s (tables/panels/markdown/syntax) into cells; see RichSwift Integration section. |
-| 6.2 | Button | ⏳ Pending | Activation via Return/Space/click; `onActivate`. |
-| 6.3 | TextField | ⏳ Pending | Cursor, selection, editing keys; `onChanged`/`onSubmit`. |
-| 6.4 | Checkbox / RadioGroup | ⏳ Pending | Typed selection events. |
-| 6.5 | List | ⏳ Pending | Selection modes, keyboard navigation, `onSelectionChanged`. See 6.10 design note — List and TableView likely share one selection/navigation core. |
+| 6.2 | Button | ✅ Done | Return/Space + press/release-inside activation with pressed feedback; focus inverts; `onActivate`. |
+| 6.3 | TextField | ✅ Done | Cursor movement/editing keys, horizontal scrolling, click-to-place-cursor, placeholder; `onChanged`/`onSubmit`. (Text selection deferred to SyntaxTextView work.) |
+| 6.4 | Checkbox / RadioGroup | ✅ Done | Toggle via Space/Return/click, arrows+click selection; silent programmatic setters, typed events. |
+| 6.5 | List | ✅ Done | `ListView` on the shared `RowNavigationState` core (pure, unit-tested): arrows/Home/End/PgUp/PgDn, viewport scrolling, wheel scroll without selection change, click select, Return activate; `onSelectionChanged`/`onActivate`. The 6.10 design answer: TableView will be a multi-column consumer of the same core. |
 | 6.6 | ScrollView | ⏳ Pending | Viewport + offset; owns scroll keys/wheel. |
 | 6.7 | Window / Panel chrome | ⏳ Pending | Title, border, close; drag/resize later. |
 | 6.8 | MenuBar / Menu | ⏳ Pending | Hot keys, submenu navigation. |
@@ -172,7 +172,7 @@ Each control owns its interaction state, keyboard model, and mouse behavior.
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 8.1 | Demo app | 🔄 In Progress | `swift run TUIKitDemo` gallery (colors, emphasis, composition, RGB) + `--interactive` live driver/event viewer; grows a section per control as each lands (AICoding rule 40). |
+| 8.1 | Demo app | 🔄 In Progress | Gallery (cells, view tree, layout, controls) + `--interactive` live control form + `--events` driver viewer; grows with each control (AICoding rule 40). |
 | 8.2 | Headless demo test | ⏳ Pending | The demo renders identically through the headless driver — the phase exit criterion. |
 | 8.3 | API review pass | ⏳ Pending | Swift API Design Guidelines; public surface smaller than implementation. |
 | 8.4 | Docs complete | ⏳ Pending | Doc comments on all public API; Architecture.md current. |

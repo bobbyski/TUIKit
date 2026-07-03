@@ -73,8 +73,13 @@ Tab → cold key routing, hit-tested mouse delivery in local coordinates), and
 (`setNeedsLayout`/`layoutIfNeeded`, run by the renderer before drawing),
 `AnchorSet` edge/center pinning applied by the default `layoutSubviews`,
 `HStack`/`VStack` with flexible-space distribution, and `GridView` with
-fixed/fit/flexible tracks and spans. The interactive demo is a real TUIKit
-app (`swift run TUIKitDemo --interactive`). Next: controls (Phase 6).
+fixed/fit/flexible tracks and spans. Phase 6 is underway: Label, Button,
+TextField, Checkbox, RadioGroup, and ListView are in, each owning its
+interaction state and emitting semantic events; `RowNavigationState` is the
+pure selection/scrolling core that TableView and TreeView will reuse.
+`swift run TUIKitDemo --interactive` is a live form exercising all of them;
+`--events` keeps the raw driver viewer. Next: the remaining Phase 6
+controls (ScrollView, Window chrome, MenuBar, Dialog, TableView, ...).
 
 ## RichSwift
 
