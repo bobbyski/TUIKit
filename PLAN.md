@@ -15,6 +15,9 @@ golden rules (components own their interaction state, semantic events out,
 raw input at framework edges, focus owned by scopes, layout declarative and
 testable, demos read as tutorials).
 
+Docs: `Docs/Architecture.md` (layers/ownership), `Docs/ControlsUML.md`
+(maintained control class diagram — update it with every control change).
+
 ---
 
 ## Dashboard
@@ -145,8 +148,8 @@ Each control owns its interaction state, keyboard model, and mouse behavior.
 | 6.1b | RichText view (RichSwift) | ⏳ Pending | Renders RichSwift markup and `RichRenderable`s (tables/panels/markdown/syntax) into cells; see RichSwift Integration section. |
 | 6.2 | Button | ✅ Done | Return/Space + press/release-inside activation with pressed feedback; focus inverts; `onActivate`. |
 | 6.3 | TextField | ✅ Done | Cursor movement/editing keys, horizontal scrolling, click-to-place-cursor, placeholder; `onChanged`/`onSubmit`. (Text selection deferred to SyntaxTextView work.) |
-| 6.4 | Checkbox / RadioGroup | ✅ Done | Toggle via Space/Return/click, arrows+click selection; silent programmatic setters, typed events. |
-| 6.5 | List | ✅ Done | `ListView` on the shared `RowNavigationState` core (pure, unit-tested): arrows/Home/End/PgUp/PgDn, viewport scrolling, wheel scroll without selection change, click select, Return activate; `onSelectionChanged`/`onActivate`. The 6.10 design answer: TableView will be a multi-column consumer of the same core. |
+| 6.4 | Checkbox / RadioGroup | ✅ Done | Toggle via Space/Return/click, arrows+click selection; silent programmatic setters, typed events; RadioGroup inverts the full current row when focused (visible focus even with no selection). |
+| 6.5 | List | ✅ Done | `ListView` on the shared `RowNavigationState` core (pure, unit-tested): arrows/Home/End/PgUp/PgDn, viewport scrolling, wheel scroll without selection change, click select, Return activate, selects first row on focus for a visible highlight; `onSelectionChanged`/`onActivate`. The 6.10 design answer: TableView will be a multi-column consumer of the same core. |
 | 6.6 | ScrollView | ⏳ Pending | Viewport + offset; owns scroll keys/wheel. |
 | 6.7 | Window / Panel chrome | ⏳ Pending | Title, border, close; drag/resize later. |
 | 6.8 | MenuBar / Menu | ⏳ Pending | Hot keys, submenu navigation. |

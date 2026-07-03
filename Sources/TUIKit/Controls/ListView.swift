@@ -137,6 +137,14 @@ public final class ListView: View {
         true
     }
 
+    /// Selects the first row on focus when nothing is selected yet, so a
+    /// focused list always shows a highlighted row.
+    public override func didBecomeFirstResponder() {
+        if navigation.selectedIndex == nil, !items.isEmpty {
+            select(0, notify: true)
+        }
+    }
+
     /// Selects a row programmatically.
     ///
     /// - Parameters:

@@ -2,7 +2,8 @@
 
 TUIKit is an AppKit-inspired terminal UI framework. This document describes
 its layers and the ownership rules between them; the build plan and progress
-live in [`../PLAN.md`](../PLAN.md).
+live in [`../PLAN.md`](../PLAN.md), and the control class hierarchy is
+diagrammed in [`ControlsUML.md`](ControlsUML.md).
 
 ## Layers
 

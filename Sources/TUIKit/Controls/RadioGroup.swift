@@ -69,17 +69,22 @@ public final class RadioGroup: View {
     }
 
     /// Draws one `( )` / `(•)` row per option.
+    ///
+    /// When focused, the current row (the selection, or the first row when
+    /// nothing is selected yet) is fully inverted so focus is always visible.
     public override func draw(_ painter: Painter) {
+        let focusRow = selectedIndex ?? 0
+
         for (index, option) in options.enumerated() {
             let isSelected = index == selectedIndex
-            let markStyle = CellStyle(
-                flags: isFirstResponder && isSelected ? .inverse : []
-            )
+            let isFocusRow = isFirstResponder && index == focusRow
+            let rowStyle = CellStyle(flags: isFocusRow ? .inverse : [])
 
-            painter.write(isSelected ? "(•)" : "( )", at: Point(x: 0, y: index), style: markStyle)
+            painter.write(isSelected ? "(•)" : "( )", at: Point(x: 0, y: index), style: rowStyle)
             painter.write(
                 Label.truncated(option, width: max(0, bounds.size.width - 4)),
-                at: Point(x: 4, y: index)
+                at: Point(x: 4, y: index),
+                style: rowStyle
             )
         }
     }

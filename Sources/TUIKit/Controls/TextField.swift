@@ -73,14 +73,16 @@ public final class TextField: View {
             return
         }
 
-        // Underline marks the editable area.
-        painter.write(String(repeating: " ", count: width), at: .zero, style: CellStyle(flags: .underline))
-
         if text.isEmpty, !placeholder.isEmpty, !isFirstResponder {
-            let visible = Label.truncated(placeholder, width: width)
-            painter.write(visible, at: .zero, style: CellStyle(flags: [.dim, .underline]))
+            // Placeholder state: dim the whole line, not just the text.
+            let dim = CellStyle(flags: [.dim, .underline])
+            painter.write(String(repeating: " ", count: width), at: .zero, style: dim)
+            painter.write(Label.truncated(placeholder, width: width), at: .zero, style: dim)
             return
         }
+
+        // Underline marks the editable area.
+        painter.write(String(repeating: " ", count: width), at: .zero, style: CellStyle(flags: .underline))
 
         adjustScroll(width: width)
 

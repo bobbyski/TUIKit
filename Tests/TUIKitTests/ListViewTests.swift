@@ -132,6 +132,35 @@ private func makeList(_ count: Int, height: Int) -> ListView {
     #expect(lines == ["item 2    ", "item 3    "])
 }
 
+@Test @MainActor func focusSelectsFirstRowWhenEmpty() {
+    let window = Window(frame: Rect(x: 0, y: 0, width: 10, height: 3))
+    let list = makeList(5, height: 3)
+    window.addSubview(list)
+
+    var selections: [Int?] = []
+    list.onSelectionChanged = { selections.append($0) }
+
+    window.makeFirstResponder(list)
+
+    #expect(list.selectedIndex == 0, "focus highlights the first row")
+    #expect(selections == [0])
+}
+
+@Test @MainActor func focusKeepsExistingSelection() {
+    let window = Window(frame: Rect(x: 0, y: 0, width: 10, height: 3))
+    let list = makeList(5, height: 3)
+    list.select(3)
+    window.addSubview(list)
+
+    var selections: [Int?] = []
+    list.onSelectionChanged = { selections.append($0) }
+
+    window.makeFirstResponder(list)
+
+    #expect(list.selectedIndex == 3, "existing selection is preserved on focus")
+    #expect(selections.isEmpty)
+}
+
 @Test @MainActor func shrinkingItemsClampsSelection() {
     let list = makeList(5, height: 3)
     list.select(4)
