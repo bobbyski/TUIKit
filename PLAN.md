@@ -124,7 +124,7 @@ Layout per the AICoding rules framework structure.
 | # | Item | Status | Notes |
 |---|------|--------|-------|
 | 4.1 | `App`/run loop on `MainActor` | ✅ Done | for-await over driver input (pure suspension); stop() returns control to caller with terminal restored; Ctrl+C default (opt-out); dirty-gated presents. |
-| 4.2 | Responder chain | ✅ Done | View responder surface (keyDown/hot/cold/mouse + focus hooks); routing hot → focused chain (bubbling) → Tab traversal → cold. |
+| 4.2 | Responder chain | ✅ Done | View responder surface (keyDown/hot/cold/mouse + focus hooks); routing hot → focused chain (bubbling) → Tab traversal → cold. Mouse capture: the view that consumes a left press receives the drags and the release (scrollbar thumbs keep dragging off the bar; buttons cancel on release-outside). |
 | 4.3 | Focus scopes | ✅ Done | Window owns firstResponder + depth-first tab order with wraparound; hidden views skipped; composite-scope nesting later with composites. |
 | 4.4 | Semantic event surface | ✅ Done | Views receive typed KeyInput/MouseInput in local coords only; per-control typed callbacks (onActivate etc.) land with each Phase 6 control. |
 | 4.5 | Window stack | ✅ Done | App present/dismiss stack; top window is key (modal input rule); z-order via subview compositing; fillsScreen windows follow resize. |
@@ -153,7 +153,7 @@ Each control owns its interaction state, keyboard model, and mouse behavior.
 | 6.5 | List | ✅ Done | `ListView` on the shared `RowNavigationState` core (pure, unit-tested): arrows/Home/End/PgUp/PgDn, viewport scrolling, wheel scroll without selection change, click select, Return activate, selects first row on focus for a visible highlight; `onSelectionChanged`/`onActivate`. The 6.10 design answer: TableView will be a multi-column consumer of the same core. |
 | 6.5a | `SegmentedControl` | ✅ Done | Horizontal button-style exclusive selection; arrows/Home/End/click, selected inverted, focus bold; silent programmatic select; typed event. |
 | 6.5b | `TabView` (folder tabs) | ✅ Done | Tab bar selects which content view shows below; ←/→ + click switch tabs; non-selected content hidden (drops from focus order); addTab/select/title API. |
-| 6.6 | ScrollView | ✅ Done | Viewport + document view at full content size; offset clamps both axes; arrows/PgUp-PgDn/Home/End when focused, wheel anytime; proportional ░/█ indicator bars in reserved column/row (two-pass reservation); silent `setOffset`, `onOffsetChanged`. Clipping needs nothing special — the Painter contract already contains the document. Note: focus traversal can still reach controls scrolled out of view; revisit with 6.16. |
+| 6.6 | ScrollView | ✅ Done | Viewport + document view at full content size; offset clamps both axes; arrows/PgUp-PgDn/Home/End when focused, wheel anytime; proportional ░/█ indicator bars in reserved column/row (two-pass reservation) that are live — track click pages toward the click, thumb drags (via window mouse capture); silent `setOffset`, `onOffsetChanged`. Clipping needs nothing special — the Painter contract already contains the document. Note: focus traversal can still reach controls scrolled out of view; revisit with 6.16. |
 | 6.7 | Window / Panel chrome | ⏳ Pending | Title, border, close; drag/resize later. |
 | 6.8 | MenuBar / Menu | ⏳ Pending | Hot keys, submenu navigation. |
 | 6.9 | Dialog / Alert | ⏳ Pending | Modal focus capture, default/cancel actions. |

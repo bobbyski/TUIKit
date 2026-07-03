@@ -16,7 +16,9 @@
 ///
 /// Mouse events hit-test to the deepest visible view, arrive in that view's
 /// local coordinates, focus it on press when it accepts focus, and bubble up
-/// the superview chain until consumed.
+/// the superview chain until consumed. The view that consumes a left press
+/// captures the gesture: the following drags and the release go straight to
+/// it (in its local coordinates), wherever the pointer moves.
 ///
 /// Window chrome (title bars, borders, dragging) is a later phase; this
 /// class is the focus/routing scope.
@@ -158,7 +160,25 @@ open class Window: View {
         return traverseVisible { $0.handleColdKey(key) }
     }
 
+    // The view that consumed the current left press, when any. While set,
+    // drags and the release route straight to it (mouse capture) — this is
+    // what lets a scrollbar thumb keep dragging after the pointer leaves the
+    // one-cell bar, and a button cancel when released outside itself.
+    private weak var mouseGrabView: View?
+
     private func routeMouse(_ mouse: MouseInput) -> Bool {
+        // A captured drag or release bypasses hit testing entirely.
+        if let grabbed = mouseGrabView, mouse.action == .drag || mouse.action == .release {
+            var localMouse = mouse
+            localMouse.position = mouse.position - windowOrigin(of: grabbed)
+
+            if mouse.action == .release {
+                mouseGrabView = nil
+            }
+
+            return grabbed.mouseEvent(localMouse)
+        }
+
         guard let hit = hitTest(mouse.position) else {
             return false
         }
@@ -177,6 +197,12 @@ open class Window: View {
             localMouse.position = localPosition
 
             if view.mouseEvent(localMouse) {
+                // The consumer of a left press captures the rest of the
+                // gesture (drags and the release).
+                if mouse.action == .press, mouse.button == .left, view !== self {
+                    mouseGrabView = view
+                }
+
                 return true
             }
 
@@ -189,5 +215,19 @@ open class Window: View {
         }
 
         return false
+    }
+
+    // The view's origin in window coordinates (sum of frame origins up the
+    // superview chain).
+    private func windowOrigin(of view: View) -> Point {
+        var origin = Point.zero
+        var current: View? = view
+
+        while let ancestor = current, ancestor !== self {
+            origin = origin + ancestor.frame.origin
+            current = ancestor.superview
+        }
+
+        return origin
     }
 }

@@ -162,6 +162,76 @@ private func lines(_ window: Window) -> [String] {
     #expect(lines(window)[3].hasPrefix("99999999"))
 }
 
+// MARK: - Scrollbar interaction
+
+// Geometry used below: viewport 10x4 → bar column x9, bar length 4;
+// content height 40 → 1-cell thumb, maxThumbStart 3, maxOffset 36.
+
+@Test @MainActor func scrollBarTrackClickPagesTowardClick() {
+    let (scroll, _) = makeScroll(
+        content: Size(width: 8, height: 40),
+        viewport: Size(width: 10, height: 4)
+    )
+
+    _ = scroll.mouseEvent(MouseInput(position: Point(x: 9, y: 3), action: .press, button: .left))
+    #expect(scroll.contentOffset.y == 3, "click below the thumb pages down")
+
+    scroll.setOffset(Point(x: 0, y: 12))   // thumb now sits at bar cell 1
+    _ = scroll.mouseEvent(MouseInput(position: Point(x: 9, y: 0), action: .press, button: .left))
+    #expect(scroll.contentOffset.y == 9, "click above the thumb pages up")
+}
+
+@Test @MainActor func scrollBarThumbDragsProportionally() {
+    let (scroll, _) = makeScroll(
+        content: Size(width: 8, height: 40),
+        viewport: Size(width: 10, height: 4)
+    )
+
+    _ = scroll.mouseEvent(MouseInput(position: Point(x: 9, y: 0), action: .press, button: .left))
+    #expect(scroll.contentOffset.y == 0, "grabbing the thumb does not scroll")
+
+    _ = scroll.mouseEvent(MouseInput(position: Point(x: 9, y: 2), action: .drag, button: .left))
+    #expect(scroll.contentOffset.y == 24, "thumb cell 2 of 3 maps to offset 24 of 36")
+
+    _ = scroll.mouseEvent(MouseInput(position: Point(x: 9, y: 9), action: .drag, button: .left))
+    #expect(scroll.contentOffset.y == 36, "dragging past the end clamps to the bottom")
+
+    _ = scroll.mouseEvent(MouseInput(position: Point(x: 9, y: 9), action: .release, button: .left))
+    _ = scroll.mouseEvent(MouseInput(position: Point(x: 9, y: 0), action: .drag, button: .left))
+    #expect(scroll.contentOffset.y == 36, "after release the drag is over")
+}
+
+@Test @MainActor func windowCapturesTheDragForTheGrabbedThumb() {
+    let (scroll, window) = makeScroll(
+        content: Size(width: 8, height: 40),
+        viewport: Size(width: 10, height: 4)
+    )
+
+    window.route(.mouse(MouseInput(position: Point(x: 9, y: 0), action: .press, button: .left)))
+    window.route(.mouse(MouseInput(position: Point(x: 3, y: 2), action: .drag, button: .left)))
+    #expect(scroll.contentOffset.y == 24, "the drag stays captured even off the bar column")
+
+    window.route(.mouse(MouseInput(position: Point(x: 3, y: 2), action: .release, button: .left)))
+    window.route(.mouse(MouseInput(position: Point(x: 9, y: 0), action: .drag, button: .left)))
+    #expect(scroll.contentOffset.y == 24, "release ends the capture")
+}
+
+@Test @MainActor func buttonReleaseOutsideCancelsThroughCapture() {
+    var activated = false
+    let button = Button("OK") { activated = true }
+    button.frame = Rect(x: 0, y: 0, width: 8, height: 1)
+
+    let window = Window(frame: Rect(x: 0, y: 0, width: 20, height: 5))
+    window.addSubview(button)
+
+    window.route(.mouse(MouseInput(position: Point(x: 1, y: 0), action: .press, button: .left)))
+    #expect(button.isPressed)
+
+    window.route(.mouse(MouseInput(position: Point(x: 15, y: 3), action: .release, button: .left)))
+    #expect(!activated, "a release outside the button cancels the press")
+    #expect(!button.isPressed)
+}
+
 // MARK: - Stepper
 
 @MainActor
