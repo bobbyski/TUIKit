@@ -158,7 +158,7 @@ Slots become **flat, self-describing keys** so a palette is a plain dictionary
 | `scrollbar` | `scrollbarThumb`, `scrollbarTrack` |
 | `placeholder` | `placeholderForeground`, `placeholderBackground` |
 | *(new — see 8.13)* | `fieldForeground`, `fieldBackground` — the editable "well" |
-| *(new — buttons)* | `buttonForeground`, `buttonBackground` (ordinary buttons — set the background to the window's own for the minimal "accent text" look, or a distinct fill like Turbo's gray pill) · `defaultButtonForeground`, `defaultButtonBackground` (the Return/highlighted button) · `destructiveButtonForeground`, `destructiveButtonBackground` (dangerous actions) |
+| *(new — buttons)* | `buttonForeground`, `buttonBackground` (ordinary buttons — set the background to the window's own for the minimal "accent text" look, or a distinct fill like Turbo's gray pill) · `buttonShadowColor` (drop shadow *below* every button face, shifted one right — Borland-style; pressing animates the face down onto it — `standard`/omitted = no shadow, flat one-row buttons) · `defaultButtonForeground`, `defaultButtonBackground` (the Return/highlighted button) · `destructiveButtonForeground`, `destructiveButtonBackground` (dangerous actions) |
 
 **Text attributes** (bold / dim / inverse / underline) that some slots carry are
 kept out of the color grid as small per-role sets, defaulting to empty:
@@ -203,6 +203,7 @@ is `→ base`). Hex uses the EGA/VGA palette.
 | `fieldBackground` | Blue `#0000AA` |
 | `buttonForeground` | White `#FFFFFF` |
 | `buttonBackground` | Dark Gray `#555555` *(ordinary buttons — a raised pill, distinct from the green default)* |
+| `buttonShadowColor` | Black `#000000` *(all buttons cast a shadow below, shifted one right; a press sinks the face onto it)* |
 | `defaultButtonForeground` | White `#FFFFFF` |
 | `defaultButtonBackground` | Green `#00AA00` *(Borland default/OK button)* |
 | `destructiveButtonForeground` | White `#FFFFFF` |
@@ -279,6 +280,7 @@ attributes, and **every context inherits `base`** (no per-context styling).
 | `placeholderForeground` / `placeholderBackground` | — ; `placeholderAttributes = [dim]` |
 | `fieldForeground` / `fieldBackground` | — ; `fieldAttributes = [underline]` |
 | `buttonForeground` / `buttonBackground` | Bright Cyan `#00FFFF` / — *(accent text on the terminal surface — the minimal look, no pill; `Mono` drops both to `.standard`, resting on the underline)* |
+| `buttonShadowColor` | — *(no shadow — flat one-row buttons; only Turbo sets one)* |
 | `defaultButton` fg / bg | Bright Green `#00FF00` / — *(named fg; buttons stay bordered/tinted)* |
 | `destructiveButton` fg / bg | Bright Red `#FF0000` / — *(named)* |
 
@@ -319,6 +321,7 @@ required and complete; the five contexts are optional and sparse.
     "fieldBackground": "#0000AA",
     "buttonForeground": "#FFFFFF",
     "buttonBackground": "#555555",
+    "buttonShadowColor": "#000000",
     "defaultButtonForeground": "#FFFFFF",
     "defaultButtonBackground": "#00AA00",
     "destructiveButtonForeground": "#FFFFFF",

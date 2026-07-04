@@ -50,11 +50,13 @@ open class TUIView {
     /// Theme override for this view and its subtree.
     ///
     /// `nil` (the default) inherits the nearest ancestor's theme; the root
-    /// fallback is `Theme.standard`. Setting a theme repaints the subtree.
+    /// fallback is `Theme.standard`. Setting a theme relayouts and repaints
+    /// the subtree — intrinsic sizes can be theme-dependent (a button grows
+    /// for its drop shadow under Turbo), so display alone is not enough.
     public var theme: Theme? {
         didSet {
             if theme != oldValue {
-                setNeedsDisplay()
+                invalidateThemeDependentLayout()
             }
         }
     }
@@ -68,8 +70,19 @@ open class TUIView {
     public var themeContext: ThemeContext? {
         didSet {
             if themeContext != oldValue {
-                setNeedsDisplay()
+                invalidateThemeDependentLayout()
             }
+        }
+    }
+
+    // A theme (or context) change can move intrinsic sizes, so every container
+    // in the subtree re-measures — marking only display would leave controls
+    // drawing into stale frames (e.g. a shadowed button truncating its label).
+    private func invalidateThemeDependentLayout() {
+        setNeedsLayout()
+
+        for subview in subviews {
+            subview.invalidateThemeDependentLayout()
         }
     }
 

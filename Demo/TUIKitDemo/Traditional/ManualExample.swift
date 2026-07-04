@@ -164,8 +164,12 @@ extension DemoApp {
                     app.dismiss(dialog)
                 }
             }
+            // Size once for a non-zero frame, present (so the dialog inherits
+            // the app theme), then size again — chrome like Turbo's button
+            // drop shadows only measures correctly once themed in the tree.
             dialog.sizeToFit(in: app.desktop.bounds.size)
             app.present(dialog)
+            dialog.sizeToFit(in: app.desktop.bounds.size)
             status.text = "modal dialog open — Esc cancels, Return confirms"
         }
 

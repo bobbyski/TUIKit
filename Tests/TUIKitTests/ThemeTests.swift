@@ -189,3 +189,44 @@ import Testing
     #expect(standard.selection == CellStyle(flags: .inverse))
     #expect(standard.base == CellStyle())
 }
+
+@Test @MainActor func themeSwitchRelayoutsThemeDependentIntrinsics() {
+    // Switching the app theme must re-run layout, not just repaint: intrinsic
+    // sizes are theme-dependent (Turbo buttons grow a column + row for their
+    // drop shadow), and stale frames truncate labels ("Res…") and lose the
+    // red mnemonics — the regression from the 2026-07-04 screenshot.
+    let desktop = Desktop()
+    desktop.frame = Rect(x: 0, y: 0, width: 60, height: 20)
+    desktop.theme = .dark
+
+    let window = FloatingWindow(title: "Form", frame: Rect(x: 0, y: 0, width: 40, height: 10))
+    window.themeContext = .secondaryWindows
+    let reset = Button("&Reset")
+    let save = Button("&Save")
+    save.role = .default
+    let row = HStack(spacing: 2) { reset; save }
+    row.anchors = AnchorSet(leading: 2, trailing: 2, top: 2, height: 2)
+    window.content.addSubview(row)
+    desktop.addSubview(window)
+
+    let renderer = SceneRenderer(root: desktop)
+    _ = renderer.render(size: Size(width: 60, height: 20))
+    #expect(reset.frame.size == Size(width: 7, height: 2), "dark: flat intrinsic width")
+
+    // The demo's Theme menu: desktop theme changes, window overrides clear.
+    desktop.theme = .turbo
+    window.theme = nil
+    let buffer = renderer.render(size: Size(width: 60, height: 20))
+
+    // Frames grew for the shadow — so the labels render whole, not "Res…".
+    #expect(reset.frame.size == Size(width: 8, height: 2), "turbo: +1 column, shadow row")
+    #expect(save.frame.size == Size(width: 7, height: 2))
+
+    let faceRow = (0..<60).map { String(buffer[Point(x: $0, y: 3)].character) }.joined()
+    #expect(faceRow.contains("Reset"), "no truncation after the switch")
+    #expect(faceRow.contains("Save"))
+
+    // The red mnemonics survived the switch too.
+    let rColumn = faceRow.distance(from: faceRow.startIndex, to: faceRow.firstIndex(of: "R")!)
+    #expect(buffer[Point(x: rColumn, y: 3)].style.foreground == .rgb(red: 255, green: 85, blue: 85))
+}

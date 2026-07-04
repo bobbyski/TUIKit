@@ -323,6 +323,7 @@ extension Theme {
         base.fieldBackground = .rgb(red: 0, green: 0, blue: 170)         // blue well
         base.buttonForeground = .rgb(red: 255, green: 255, blue: 255)    // white
         base.buttonBackground = .rgb(red: 85, green: 85, blue: 85)       // dark gray pill
+        base.buttonShadowColor = .rgb(red: 0, green: 0, blue: 0)         // drop shadow + press animation
         base.defaultButtonForeground = .rgb(red: 255, green: 255, blue: 255)
         base.defaultButtonBackground = .rgb(red: 0, green: 170, blue: 0)  // green
         base.destructiveButtonForeground = .rgb(red: 255, green: 255, blue: 255)

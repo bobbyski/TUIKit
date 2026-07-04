@@ -138,8 +138,13 @@ public class Dialog: Window {
         // the title needs its border decoration too.
         let width = max(max(messageWidth, buttonsWidth) + 4, panel.title.count + 8)
 
+        // The button row is as tall as its tallest button — 2 under a theme
+        // with button drop shadows, 1 otherwise. (Theme-dependent, so call
+        // `sizeToFit` after presenting when the app theme differs.)
+        let buttonRowHeight = buttons.compactMap { $0.intrinsicContentSize?.height }.max() ?? 1
+
         // Border (2) + message lines + one blank gap row + button row.
-        let height = 2 + messageLineCount + (messageLineCount > 0 ? 1 : 0) + 1
+        let height = 2 + messageLineCount + (messageLineCount > 0 ? 1 : 0) + buttonRowHeight
 
         return Size(width: width, height: height)
     }

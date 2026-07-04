@@ -88,9 +88,17 @@ public final class Button: TUIView {
         Accelerator(title)
     }
 
-    /// One row at the decorated title width (excluding any `&` markers).
+    /// One row at the decorated title width (excluding any `&` markers) — or,
+    /// when the theme gives buttons a drop shadow, one extra column and row
+    /// for it (the shadow sits offset (1, 1) behind the face).
     public override var intrinsicContentSize: Size? {
-        Size(width: accelerator.display.count + style.horizontalPadding, height: 1)
+        let width = accelerator.display.count + style.horizontalPadding
+
+        guard effectiveTheme.buttonShadow != nil else {
+            return Size(width: width, height: 1)
+        }
+
+        return Size(width: width + 1, height: 2)
     }
 
     /// Activates the button, exactly as user interaction would.
@@ -102,16 +110,30 @@ public final class Button: TUIView {
     /// style when focused, and emphasized while pressed. A `.default` or
     /// `.destructive` role fills as a pill from its theme slot, keeping that
     /// color through focus (bold) and press (inverse).
+    ///
+    /// When the theme sets `buttonShadowColor` (Turbo: black), the face casts
+    /// a drop shadow one cell right and one row below — and a press animates
+    /// the face *onto* the shadow position, popping back on release, so the
+    /// motion itself is the pressed cue (no inverse/selection recolor).
     public override func draw(_ painter: Painter) {
         let theme = effectiveTheme
+
+        // Shadow only when the theme asks for one AND the frame has the extra
+        // column/row (a hand-framed 1-row button just renders flat).
+        let shadowColor = theme.buttonShadow
+        let hasShadow = shadowColor != nil
+            && bounds.size.height >= 2
+            && bounds.size.width > style.horizontalPadding
+        let pressedOntoShadow = isPressed && hasShadow
+
         var cellStyle: CellStyle
 
         switch role {
         case .normal:
-            if isPressed {
+            if isPressed, !hasShadow {
                 cellStyle = theme.selection
                 cellStyle.flags.insert(.bold)
-            } else if isFirstResponder {
+            } else if isFirstResponder, !pressedOntoShadow {
                 cellStyle = theme.selection
             } else {
                 cellStyle = style.restingStyle(theme: theme)
@@ -119,27 +141,40 @@ public final class Button: TUIView {
 
         case .default, .destructive:
             cellStyle = role == .default ? theme.defaultButton : theme.destructiveButton
-            if isPressed {
+            if isPressed, !hasShadow {
                 cellStyle.flags.insert(.inverse)
-            } else if isFirstResponder {
+            } else if isFirstResponder, !pressedOntoShadow {
                 cellStyle.flags.insert(.bold)
             }
         }
 
         let accelerator = self.accelerator
-        let innerWidth = max(0, bounds.size.width - style.horizontalPadding)
+        let faceWidth = bounds.size.width - (hasShadow ? 1 : 0)
+        let faceOrigin = pressedOntoShadow ? Point(x: 1, y: 1) : Point.zero
+        let innerWidth = max(0, faceWidth - style.horizontalPadding)
         let inner = Label.truncated(accelerator.display, width: innerWidth)
-        painter.write(style.decorate(inner), at: .zero, style: cellStyle)
+        painter.write(style.decorate(inner), at: faceOrigin, style: cellStyle)
 
         // Paint the mnemonic letter in the accelerator color (red in Turbo),
         // keeping the surrounding button's background. `decorate` adds a
         // symmetric pad, so the letter sits `horizontalPadding / 2` in.
         if let index = accelerator.index, index < inner.count {
-            let column = style.horizontalPadding / 2 + index
+            let column = faceOrigin.x + style.horizontalPadding / 2 + index
             painter.set(
                 TerminalCell(character: Array(inner)[index], style: theme.accelerator(over: cellStyle)),
-                at: Point(x: column, y: 0)
+                at: Point(x: column, y: faceOrigin.y)
             )
+        }
+
+        // The resting shadow: below the face, shifted one right (the Borland
+        // look — see the Turbo reference dialogs). Pressing hides it (the
+        // face is there).
+        if hasShadow, let shadowColor, !isPressed {
+            let shadow = CellStyle(background: shadowColor)
+
+            for x in 1...faceWidth {
+                painter.set(TerminalCell(character: " ", style: shadow), at: Point(x: x, y: 1))
+            }
         }
     }
 

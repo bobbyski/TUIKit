@@ -175,6 +175,7 @@ public struct ThemePalette: Codable, Hashable, Sendable {
 
     public var buttonForeground: TerminalColor?
     public var buttonBackground: TerminalColor?
+    public var buttonShadowColor: TerminalColor?
 
     public var defaultButtonForeground: TerminalColor?
     public var defaultButtonBackground: TerminalColor?
@@ -241,6 +242,11 @@ public struct ResolvedTheme: Hashable, Sendable {
     public var buttonForeground: TerminalColor
     public var buttonBackground: TerminalColor
 
+    /// Drop-shadow color for buttons — `.standard` (the default) means no
+    /// shadow. When set (Turbo: black), buttons render a shadow one cell
+    /// right and one row below, and pressing animates the face onto it.
+    public var buttonShadowColor: TerminalColor
+
     public var defaultButtonForeground: TerminalColor
     public var defaultButtonBackground: TerminalColor
 
@@ -281,6 +287,11 @@ public struct ResolvedTheme: Hashable, Sendable {
     /// An ordinary (non-default) button's resting fill.
     public var button: CellStyle {
         CellStyle(foreground: buttonForeground, background: buttonBackground)
+    }
+
+    /// The button drop-shadow color, or `nil` when the theme has none.
+    public var buttonShadow: TerminalColor? {
+        buttonShadowColor == .standard ? nil : buttonShadowColor
     }
 
     /// The default (Return/highlighted) button.
@@ -400,6 +411,7 @@ public struct Theme: Codable, Hashable, Sendable {
             fieldAttributes: flags(\.fieldAttributes),
             buttonForeground: color(\.buttonForeground),
             buttonBackground: color(\.buttonBackground),
+            buttonShadowColor: color(\.buttonShadowColor),
             defaultButtonForeground: color(\.defaultButtonForeground),
             defaultButtonBackground: color(\.defaultButtonBackground),
             destructiveButtonForeground: color(\.destructiveButtonForeground),
