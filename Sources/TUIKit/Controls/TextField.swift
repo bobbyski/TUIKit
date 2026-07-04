@@ -12,7 +12,7 @@
 ///
 /// The cursor renders as an inverted cell while the field is focused.
 @MainActor
-public final class TextField: View {
+public final class TextField: TUIView {
     /// Current text.
     public private(set) var text: String = ""
 

@@ -10,7 +10,7 @@
 /// crumbs.onPathSelected = { prefix in browser.setRoot(prefix) }
 /// ```
 @MainActor
-public final class PathControl: View {
+public final class PathControl: TUIView {
     /// The full path shown.
     public private(set) var path: String
 

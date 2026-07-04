@@ -5,7 +5,7 @@ import Testing
 
 /// Focusable view that records everything routed to it.
 @MainActor
-private final class RecordingView: View {
+private final class RecordingView: TUIView {
     var accepts = true
     var handlesKeys = false
     var handlesHotKeys = false

@@ -3,7 +3,7 @@ import Foundation
 /// Month-grid calendar (framework-internal), used inline by `DatePicker`'s
 /// `.calendar` mode and as its date-mode popup.
 @MainActor
-final class CalendarView: View {
+final class CalendarView: TUIView {
     var onDateChanged: (Date) -> Void = { _ in }
     var onChoose: (Date) -> Void = { _ in }
     var onDismiss: () -> Void = {}
@@ -40,10 +40,10 @@ final class CalendarView: View {
     }
 
     /// Creates, places, and focuses a popup grid anchored to a view.
-    static func present(date: Date, calendar: Calendar, anchor: View) -> CalendarView? {
+    static func present(date: Date, calendar: Calendar, anchor: TUIView) -> CalendarView? {
         var window: Window?
         var origin = Point.zero
-        var current: View? = anchor
+        var current: TUIView? = anchor
 
         while let view = current {
             if let found = view as? Window {

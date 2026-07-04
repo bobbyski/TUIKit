@@ -21,7 +21,7 @@
 /// mode.onSelectionChanged = { index in engine.mode = index }
 /// ```
 @MainActor
-public final class PopUpButton: View {
+public final class PopUpButton: TUIView {
     /// Choices shown in the popup.
     public var items: [String] {
         didSet {
@@ -209,7 +209,7 @@ public final class PopUpButton: View {
 
     // Nearest ancestor window.
     private var owningWindow: Window? {
-        var current: View? = self
+        var current: TUIView? = self
 
         while let view = current {
             if let window = view as? Window {
@@ -227,17 +227,17 @@ public final class PopUpButton: View {
 /// (framework-internal). Dismisses itself when it loses focus, so a click
 /// anywhere else closes the popup.
 @MainActor
-final class PopUpList: View {
+final class PopUpList: TUIView {
     var onChoose: (Int) -> Void = { _ in }
     var onDismiss: () -> Void = {}
 
     /// Creates, places, and focuses a list attached to an anchor view's
     /// window — below the anchor when it fits, above when tighter. Wire
     /// `onChoose`/`onDismiss` on the returned list.
-    static func present(items: [String], highlightedIndex: Int, anchor: View) -> PopUpList? {
+    static func present(items: [String], highlightedIndex: Int, anchor: TUIView) -> PopUpList? {
         var window: Window?
         var origin = Point.zero
-        var current: View? = anchor
+        var current: TUIView? = anchor
 
         while let view = current {
             if let found = view as? Window {

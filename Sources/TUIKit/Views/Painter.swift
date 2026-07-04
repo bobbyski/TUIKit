@@ -68,7 +68,7 @@ public struct Painter {
     ///
     /// - Parameters:
     ///   - cell: Cell to write.
-    ///   - point: View-local position.
+    ///   - point: TUIView-local position.
     public func set(_ cell: TerminalCell, at point: Point) {
         let destination = point + origin
 
@@ -95,7 +95,7 @@ public struct Painter {
     ///
     /// - Parameters:
     ///   - text: Text to write.
-    ///   - point: View-local position of the first character.
+    ///   - point: TUIView-local position of the first character.
     ///   - style: Style applied to every written cell.
     public func write(_ text: String, at point: Point, style: CellStyle = .default) {
         var x = point.x
@@ -109,7 +109,7 @@ public struct Painter {
     /// Fills a view-local rectangle, subject to clipping.
     ///
     /// - Parameters:
-    ///   - rect: View-local rectangle to fill.
+    ///   - rect: TUIView-local rectangle to fill.
     ///   - cell: Cell to fill with.
     public func fill(_ rect: Rect, with cell: TerminalCell) {
         for y in rect.minY..<rect.maxY {
@@ -122,7 +122,7 @@ public struct Painter {
     /// Draws a box on a view-local rectangle, subject to clipping.
     ///
     /// - Parameters:
-    ///   - rect: View-local rectangle to outline.
+    ///   - rect: TUIView-local rectangle to outline.
     ///   - style: Style for the border cells.
     ///   - border: Box-drawing variant; `.none` draws nothing.
     public func drawBox(_ rect: Rect, style: CellStyle = .default, border: BorderStyle = .single) {

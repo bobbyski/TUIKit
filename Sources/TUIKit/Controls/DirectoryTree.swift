@@ -76,7 +76,7 @@ public struct LocalFileSystem: FileSystemProvider {
 /// All navigation, disclosure, and mouse behavior is `TreeView`'s; this
 /// control only supplies the nodes and translates events into paths.
 @MainActor
-public final class DirectoryTree: View {
+public final class DirectoryTree: TUIView {
     /// Absolute path of the root directory.
     public private(set) var rootPath: String
 

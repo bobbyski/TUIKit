@@ -22,7 +22,7 @@ import Foundation
 /// due.onDateChanged = { date in task.dueDate = date }
 /// ```
 @MainActor
-public final class DatePicker: View {
+public final class DatePicker: TUIView {
     /// Editing modes.
     public enum Mode: Sendable {
         /// `YYYY-MM-DD` segments with a calendar popup.
@@ -306,7 +306,7 @@ public final class DatePicker: View {
     }
 
     private var owningWindow: Window? {
-        var current: View? = self
+        var current: TUIView? = self
 
         while let view = current {
             if let window = view as? Window {

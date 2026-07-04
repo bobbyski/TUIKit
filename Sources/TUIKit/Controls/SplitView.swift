@@ -20,15 +20,15 @@
 /// split.onDividerMoved = { position in save(position) }
 /// ```
 @MainActor
-public final class SplitView: View {
+public final class SplitView: TUIView {
     /// Direction panes flow (`.horizontal` = side by side).
     public let axis: StackView.Axis
 
     /// Leading/top pane.
-    public let first: View
+    public let first: TUIView
 
     /// Trailing/bottom pane.
-    public let second: View
+    public let second: TUIView
 
     /// Smallest length of the first pane, in cells.
     public var minimumFirstLength = 0 {
@@ -63,8 +63,8 @@ public final class SplitView: View {
     ///   - dividerPosition: Initial first-pane length. Defaults to half.
     public init(
         axis: StackView.Axis = .horizontal,
-        first: View,
-        second: View,
+        first: TUIView,
+        second: TUIView,
         dividerPosition: Int = -1
     ) {
         self.axis = axis

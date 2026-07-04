@@ -8,7 +8,7 @@
 /// mode.onSelectionChanged = { index in engine.mode = index }
 /// ```
 @MainActor
-public final class RadioGroup: View {
+public final class RadioGroup: TUIView {
     /// Option titles, one per row.
     public var options: [String] {
         didSet {

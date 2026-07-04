@@ -11,7 +11,7 @@
 /// stars.onValueChanged = { rating in review.stars = rating }
 /// ```
 @MainActor
-public final class LevelIndicator: View {
+public final class LevelIndicator: TUIView {
     /// Symbol families.
     public enum IndicatorStyle: Sendable {
         /// `▮` filled / `▯` empty capacity cells.

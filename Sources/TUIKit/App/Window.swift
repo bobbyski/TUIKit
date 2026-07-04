@@ -23,9 +23,9 @@
 /// Window chrome (title bars, borders, dragging) is a later phase; this
 /// class is the focus/routing scope.
 @MainActor
-open class Window: View {
+open class Window: TUIView {
     /// The view holding keyboard focus, when any.
-    public private(set) var firstResponder: View?
+    public private(set) var firstResponder: TUIView?
 
     /// Whether the window should track the screen size.
     ///
@@ -60,11 +60,11 @@ open class Window: View {
 
     /// Moves keyboard focus to a view in this window's subtree.
     ///
-    /// - Parameter view: View to focus, or `nil` to clear focus.
+    /// - Parameter view: TUIView to focus, or `nil` to clear focus.
     /// - Returns: `true` when focus changed; `false` when the view refuses
     ///   focus or is not in this window's subtree.
     @discardableResult
-    public func makeFirstResponder(_ view: View?) -> Bool {
+    public func makeFirstResponder(_ view: TUIView?) -> Bool {
         if let view {
             guard view.acceptsFirstResponder, view.isDescendant(of: self) else {
                 return false
@@ -180,13 +180,13 @@ open class Window: View {
     // drags and the release route straight to it (mouse capture) — this is
     // what lets a scrollbar thumb keep dragging after the pointer leaves the
     // one-cell bar, and a button cancel when released outside itself.
-    private weak var mouseGrabView: View?
+    private weak var mouseGrabView: TUIView?
 
     private func routeMouse(_ mouse: MouseInput) -> Bool {
         // Right-click: walk the hit chain for a context menu.
         if mouse.action == .press, mouse.button == .right,
            let hit = hitTest(mouse.position) {
-            var current: View? = hit.view
+            var current: TUIView? = hit.view
 
             while let view = current {
                 if let menu = view.contextMenu {
@@ -220,7 +220,7 @@ open class Window: View {
 
         // Deliver in local coordinates, bubbling up toward the window with
         // the position translated at each step.
-        var target: View? = hit.view
+        var target: TUIView? = hit.view
         var localPosition = hit.local
 
         while let view = target {
@@ -312,9 +312,9 @@ open class Window: View {
 
     // The view's origin in window coordinates (sum of frame origins up the
     // superview chain).
-    private func windowOrigin(of view: View) -> Point {
+    private func windowOrigin(of view: TUIView) -> Point {
         var origin = Point.zero
-        var current: View? = view
+        var current: TUIView? = view
 
         while let ancestor = current, ancestor !== self {
             origin = origin + ancestor.frame.origin

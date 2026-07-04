@@ -2,7 +2,7 @@ import Testing
 @testable import TUIKit   // re-exports RichSwift
 
 @MainActor
-private func renderedBuffer(_ view: TUIKit.View, size: TUIKit.Size) -> CellBuffer {
+private func renderedBuffer(_ view: TUIKit.TUIView, size: TUIKit.Size) -> CellBuffer {
     let window = Window(frame: Rect(origin: .zero, size: size))
     view.frame = Rect(origin: .zero, size: size)
     window.addSubview(view)

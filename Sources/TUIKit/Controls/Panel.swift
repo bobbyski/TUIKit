@@ -18,7 +18,7 @@
 /// The optional close button emits `onClose`; the panel never removes
 /// itself — the application decides what closing means.
 @MainActor
-public final class Panel: View {
+public final class Panel: TUIView {
     /// Title shown in the top border.
     public var title: String {
         didSet {
@@ -52,7 +52,7 @@ public final class Panel: View {
     }
 
     /// Container for application content, inset by the border.
-    public let content = View()
+    public let content = TUIView()
 
     /// Creates a panel.
     ///
@@ -112,7 +112,7 @@ public final class Panel: View {
 
         let contentSize = content.frame.size
 
-        func visit(_ view: View, offset: Point) {
+        func visit(_ view: TUIView, offset: Point) {
             for subview in view.subviews where !subview.isHidden {
                 if let divider = subview as? Divider, divider.isConnected {
                     join(divider, at: offset + divider.frame.origin)

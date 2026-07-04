@@ -8,7 +8,7 @@
 /// wrap.onChange = { enabled in editor.wraps = enabled }
 /// ```
 @MainActor
-public final class Checkbox: View {
+public final class Checkbox: TUIView {
     /// Text shown beside the box.
     public var label: String {
         didSet {

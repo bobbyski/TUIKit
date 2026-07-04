@@ -16,7 +16,7 @@
 /// advanced.onExpansionChanged = { open in settings.advancedOpen = open }
 /// ```
 @MainActor
-public final class DisclosureGroup: View {
+public final class DisclosureGroup: TUIView {
     /// Header text.
     public var title: String {
         didSet {
@@ -31,7 +31,7 @@ public final class DisclosureGroup: View {
     public private(set) var isExpanded: Bool
 
     /// Container for the collapsible content.
-    public let content = View()
+    public let content = TUIView()
 
     /// Called when expansion changes through interaction or
     /// `setExpanded(_:notify:)`.
@@ -118,7 +118,7 @@ public final class DisclosureGroup: View {
     // the stack that sizes this group, the scroll view that sizes the
     // stack, and so on.
     private func invalidateAncestorLayout() {
-        var view: View? = superview
+        var view: TUIView? = superview
 
         while let current = view {
             current.setNeedsLayout()

@@ -1,7 +1,7 @@
 /// Viewport onto a document view larger than the visible area.
 ///
 /// The scroll view owns the offset, the scroll keys, the wheel, and the
-/// indicator bars; the document view is an ordinary `View` laid out at its
+/// indicator bars; the document view is an ordinary `TUIView` laid out at its
 /// full content size and translated by the offset. Clipping needs no special
 /// handling — the painter's clipping contract already guarantees the
 /// document cannot draw outside the viewport.
@@ -26,12 +26,12 @@
 /// the thumb drags (the window's mouse capture keeps the drag alive even
 /// when the pointer leaves the one-cell bar).
 @MainActor
-public final class ScrollView: View {
+public final class ScrollView: TUIView {
     /// The scrolled content, laid out at its full content size.
     ///
     /// Setting a new document replaces the previous one and resets the
     /// offset to zero.
-    public var documentView: View? {
+    public var documentView: TUIView? {
         didSet {
             oldValue?.removeFromSuperview()
 
@@ -70,7 +70,7 @@ public final class ScrollView: View {
 
     // Clip container for the document; its frame is the visible viewport,
     // excluding any indicator bars.
-    private let viewport = View()
+    private let viewport = TUIView()
 
     // Current scroll offset in cells (top-left of the visible region).
     private var offset: Point = .zero
@@ -87,7 +87,7 @@ public final class ScrollView: View {
     /// Creates a scroll view.
     ///
     /// - Parameter document: The content view to scroll, when already known.
-    public init(document: View? = nil) {
+    public init(document: TUIView? = nil) {
         super.init(frame: .zero)
         addSubview(viewport)
 

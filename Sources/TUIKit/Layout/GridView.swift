@@ -13,7 +13,7 @@
 /// and fill their spanned cell area. The grid owns its children's frames;
 /// child `anchors` are ignored.
 @MainActor
-public final class GridView: View {
+public final class GridView: TUIView {
     /// Sizing behavior for one column or row.
     public enum Track: Hashable, Sendable {
         /// Exactly this many cells.
@@ -28,7 +28,7 @@ public final class GridView: View {
 
     // One placed child.
     private struct Placement {
-        let view: View
+        let view: TUIView
         let column: Int
         let row: Int
         let columnSpan: Int
@@ -117,7 +117,7 @@ public final class GridView: View {
     ///   - columnSpan: Number of columns covered.
     ///   - rowSpan: Number of rows covered.
     public func place(
-        _ view: View,
+        _ view: TUIView,
         column: Int,
         row: Int,
         columnSpan: Int = 1,

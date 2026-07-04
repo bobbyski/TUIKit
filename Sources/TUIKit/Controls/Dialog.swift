@@ -28,7 +28,7 @@ public class Dialog: Window {
     ///
     /// Empty in a plain alert; dialog subclasses (like `FileDialog`) put
     /// their content here.
-    public let body = View()
+    public let body = TUIView()
 
     /// Buttons in the order added (rendered left to right).
     public private(set) var buttons: [Button] = []
@@ -69,7 +69,7 @@ public class Dialog: Window {
         }
 
         stack.addSubview(body)   // flexible: absorbs extra height between message and buttons
-        buttonRow.addSubview(View())   // flexible spacer right-aligns buttons
+        buttonRow.addSubview(TUIView())   // flexible spacer right-aligns buttons
         stack.addSubview(buttonRow)
 
         stack.anchors = .fill()

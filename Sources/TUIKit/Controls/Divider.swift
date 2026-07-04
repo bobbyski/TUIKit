@@ -24,7 +24,7 @@
 /// a `│` column (1 cell wide). Both report an intrinsic size of 1×1 so
 /// stacks give them exactly one cell on the stacking axis.
 @MainActor
-public final class Divider: View {
+public final class Divider: TUIView {
     /// Line direction: `.horizontal` is a `─` row, `.vertical` a `│` column.
     public let axis: StackView.Axis
 

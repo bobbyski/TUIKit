@@ -1,9 +1,9 @@
 import Testing
 @testable import TUIKit
 
-/// View with a declared natural size, for fit-content layout tests.
+/// TUIView with a declared natural size, for fit-content layout tests.
 @MainActor
-private final class SizedView: View {
+private final class SizedView: TUIView {
     var natural: Size?
 
     init(natural: Size? = nil) {
@@ -19,8 +19,8 @@ private final class SizedView: View {
 // MARK: - Anchors
 
 @Test @MainActor func anchorsFillStretchesWithInsets() {
-    let parent = View(frame: Rect(x: 0, y: 0, width: 20, height: 10))
-    let child = View()
+    let parent = TUIView(frame: Rect(x: 0, y: 0, width: 20, height: 10))
+    let child = TUIView()
 
     child.anchors = .fill(inset: 2)
     parent.addSubview(child)
@@ -30,8 +30,8 @@ private final class SizedView: View {
 }
 
 @Test @MainActor func anchorsPinToOneEdgeWithFixedLength() {
-    let parent = View(frame: Rect(x: 0, y: 0, width: 20, height: 10))
-    let sidebar = View()
+    let parent = TUIView(frame: Rect(x: 0, y: 0, width: 20, height: 10))
+    let sidebar = TUIView()
 
     sidebar.anchors = AnchorSet(trailing: 1, top: 0, bottom: 0, width: 6)
     parent.addSubview(sidebar)
@@ -41,7 +41,7 @@ private final class SizedView: View {
 }
 
 @Test @MainActor func anchorsCenterUsesPreferredSize() {
-    let parent = View(frame: Rect(x: 0, y: 0, width: 20, height: 10))
+    let parent = TUIView(frame: Rect(x: 0, y: 0, width: 20, height: 10))
     let badge = SizedView(natural: Size(width: 6, height: 2))
 
     badge.anchors = .centered()
@@ -52,8 +52,8 @@ private final class SizedView: View {
 }
 
 @Test @MainActor func underConstrainedAxesKeepCurrentValues() {
-    let parent = View(frame: Rect(x: 0, y: 0, width: 20, height: 10))
-    let child = View(frame: Rect(x: 3, y: 2, width: 5, height: 4))
+    let parent = TUIView(frame: Rect(x: 0, y: 0, width: 20, height: 10))
+    let child = TUIView(frame: Rect(x: 3, y: 2, width: 5, height: 4))
 
     // Horizontal is fully pinned; vertical says nothing.
     child.anchors = AnchorSet(leading: 1, trailing: 1)
@@ -67,8 +67,8 @@ private final class SizedView: View {
 
 @Test @MainActor func vstackSplitsSpaceAmongFlexibleChildren() {
     let stack = VStack(frame: Rect(x: 0, y: 0, width: 10, height: 9), spacing: 1)
-    let top = View()
-    let bottom = View()
+    let top = TUIView()
+    let bottom = TUIView()
 
     stack.addSubview(top)
     stack.addSubview(bottom)
@@ -81,7 +81,7 @@ private final class SizedView: View {
 @Test @MainActor func hstackFixedChildrenKeepNaturalWidths() {
     let stack = HStack(frame: Rect(x: 0, y: 0, width: 20, height: 3), spacing: 1)
     let label = SizedView(natural: Size(width: 5, height: 1))
-    let field = View()
+    let field = TUIView()
     let button = SizedView(natural: Size(width: 4, height: 1))
 
     stack.addSubview(label)
@@ -97,9 +97,9 @@ private final class SizedView: View {
 
 @Test @MainActor func stackRemainderGoesToEarliestFlexibleChildren() {
     let stack = HStack(frame: Rect(x: 0, y: 0, width: 10, height: 1))
-    let first = View()
-    let second = View()
-    let third = View()
+    let first = TUIView()
+    let second = TUIView()
+    let third = TUIView()
 
     stack.addSubview(first)
     stack.addSubview(second)
@@ -115,8 +115,8 @@ private final class SizedView: View {
 
 @Test @MainActor func stackSkipsHiddenChildren() {
     let stack = HStack(frame: Rect(x: 0, y: 0, width: 12, height: 1))
-    let visible = View()
-    let hidden = View()
+    let visible = TUIView()
+    let hidden = TUIView()
 
     stack.addSubview(visible)
     stack.addSubview(hidden)
@@ -145,8 +145,8 @@ private final class SizedView: View {
 
 @Test @MainActor func stackRespectsMinimumAndMaximumSizes() {
     let stack = HStack(frame: Rect(x: 0, y: 0, width: 20, height: 1))
-    let capped = View()
-    let open = View()
+    let capped = TUIView()
+    let open = TUIView()
 
     capped.maximumSize = Size(width: 4, height: 1)
     stack.addSubview(capped)
@@ -173,9 +173,9 @@ private final class SizedView: View {
         frame: Rect(x: 0, y: 0, width: 20, height: 3)
     )
 
-    let a = View()
+    let a = TUIView()
     let b = SizedView(natural: Size(width: 6, height: 1))
-    let c = View()
+    let c = TUIView()
 
     grid.place(a, column: 0, row: 0)
     grid.place(b, column: 1, row: 0)
@@ -195,9 +195,9 @@ private final class SizedView: View {
         columnSpacing: 2
     )
 
-    let header = View()
-    let left = View()
-    let right = View()
+    let header = TUIView()
+    let left = TUIView()
+    let right = TUIView()
 
     grid.place(header, column: 0, row: 0, columnSpan: 2)
     grid.place(left, column: 0, row: 1)
@@ -236,8 +236,8 @@ private final class SizedView: View {
         frame: Rect(x: 0, y: 0, width: 16, height: 1)
     )
 
-    let narrow = View()
-    let wide = View()
+    let narrow = TUIView()
+    let wide = TUIView()
 
     grid.place(narrow, column: 0, row: 0)
     grid.place(wide, column: 1, row: 0)
@@ -251,8 +251,8 @@ private final class SizedView: View {
 // MARK: - Layout Pass Integration
 
 @Test @MainActor func renderRunsPendingLayout() {
-    let root = View(frame: Rect(x: 0, y: 0, width: 8, height: 2))
-    let child = View()
+    let root = TUIView(frame: Rect(x: 0, y: 0, width: 8, height: 2))
+    let child = TUIView()
     child.anchors = .fill(inset: 1)
     root.addSubview(child)
 
@@ -263,7 +263,7 @@ private final class SizedView: View {
 
 @Test @MainActor func sizeChangeTriggersRelayout() {
     let stack = HStack(frame: Rect(x: 0, y: 0, width: 10, height: 1))
-    let child = View()
+    let child = TUIView()
     stack.addSubview(child)
     stack.layoutIfNeeded()
 

@@ -24,7 +24,7 @@ import RichSwift
 /// The view is display-only (no focus, no input) and never wraps — content
 /// wider than the view truncates, taller content clips.
 @MainActor
-public final class RichText: View {
+public final class RichText: TUIView {
     // What the view shows.
     private enum Content {
         case markup(String)

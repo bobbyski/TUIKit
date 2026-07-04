@@ -44,7 +44,7 @@ public struct TableColumn: Sendable {
 /// table.onActivate = { row in open(row) }
 /// ```
 @MainActor
-public final class TableView: View {
+public final class TableView: TUIView {
     /// Column definitions.
     public var columns: [TableColumn] {
         didSet {

@@ -4,7 +4,7 @@ import Testing
 // A fixed-size document that paints its row number on every line, so tests
 // can read which part of the content is visible.
 @MainActor
-private final class NumberedDocument: View {
+private final class NumberedDocument: TUIView {
     let size: Size
 
     init(size: Size) {

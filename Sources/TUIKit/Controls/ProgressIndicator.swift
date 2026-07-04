@@ -21,7 +21,7 @@
 /// Progress indicators are display-only: they never take focus and handle no
 /// input.
 @MainActor
-public final class ProgressIndicator: View {
+public final class ProgressIndicator: TUIView {
     /// Presentation modes.
     public enum Style: Sendable {
         /// Determinate bar filled to `fractionCompleted`.

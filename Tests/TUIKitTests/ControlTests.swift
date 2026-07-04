@@ -3,7 +3,7 @@ import Testing
 
 // Renders a single control inside a window and returns the text projection.
 @MainActor
-private func renderedLines(_ view: View, size: Size, focused: Bool = false) -> [String] {
+private func renderedLines(_ view: TUIView, size: Size, focused: Bool = false) -> [String] {
     let window = Window(frame: Rect(origin: .zero, size: size))
     view.frame = Rect(origin: .zero, size: size)
     window.addSubview(view)

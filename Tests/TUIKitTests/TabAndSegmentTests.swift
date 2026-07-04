@@ -2,7 +2,7 @@ import Testing
 @testable import TUIKit
 
 @MainActor
-private func renderedLines(_ view: View, size: Size, focused: Bool = false) -> [String] {
+private func renderedLines(_ view: TUIView, size: Size, focused: Bool = false) -> [String] {
     let window = Window(frame: Rect(origin: .zero, size: size))
     view.frame = Rect(origin: .zero, size: size)
     window.addSubview(view)

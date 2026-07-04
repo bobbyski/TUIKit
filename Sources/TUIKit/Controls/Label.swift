@@ -20,7 +20,7 @@ public enum TextAlignment: Hashable, Sendable {
 /// let title = Label("Report", style: CellStyle(flags: .bold))
 /// ```
 @MainActor
-public final class Label: View {
+public final class Label: TUIView {
     /// Text shown by the label.
     public var text: String {
         didSet {

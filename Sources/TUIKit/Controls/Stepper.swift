@@ -10,7 +10,7 @@
 /// size.onValueChanged = { points in editor.fontSize = points }
 /// ```
 @MainActor
-public final class Stepper: View {
+public final class Stepper: TUIView {
     /// Current value, always within `range`.
     public private(set) var value: Int
 

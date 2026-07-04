@@ -5,7 +5,7 @@ import Testing
 
 /// Fills its bounds with one character.
 @MainActor
-private final class FillView: View {
+private final class FillView: TUIView {
     var character: Character
 
     init(frame: Rect, character: Character) {
@@ -21,7 +21,7 @@ private final class FillView: View {
 /// Writes text at a local position — including deliberately out-of-bounds
 /// positions, to prove the painter clips them.
 @MainActor
-private final class TextView: View {
+private final class TextView: TUIView {
     var text: String
     var position: Point
 
@@ -39,8 +39,8 @@ private final class TextView: View {
 // MARK: - Hierarchy
 
 @Test @MainActor func addSubviewLinksParentAndChild() {
-    let parent = View(frame: Rect(x: 0, y: 0, width: 10, height: 10))
-    let child = View(frame: Rect(x: 1, y: 1, width: 2, height: 2))
+    let parent = TUIView(frame: Rect(x: 0, y: 0, width: 10, height: 10))
+    let child = TUIView(frame: Rect(x: 1, y: 1, width: 2, height: 2))
 
     parent.addSubview(child)
 
@@ -50,9 +50,9 @@ private final class TextView: View {
 }
 
 @Test @MainActor func addSubviewReparentsFromPreviousParent() {
-    let first = View(frame: Rect(x: 0, y: 0, width: 5, height: 5))
-    let second = View(frame: Rect(x: 0, y: 0, width: 5, height: 5))
-    let child = View()
+    let first = TUIView(frame: Rect(x: 0, y: 0, width: 5, height: 5))
+    let second = TUIView(frame: Rect(x: 0, y: 0, width: 5, height: 5))
+    let child = TUIView()
 
     first.addSubview(child)
     second.addSubview(child)
@@ -62,8 +62,8 @@ private final class TextView: View {
 }
 
 @Test @MainActor func removeFromSuperviewDetaches() {
-    let parent = View(frame: Rect(x: 0, y: 0, width: 5, height: 5))
-    let child = View()
+    let parent = TUIView(frame: Rect(x: 0, y: 0, width: 5, height: 5))
+    let child = TUIView()
 
     parent.addSubview(child)
     child.removeFromSuperview()
@@ -75,8 +75,8 @@ private final class TextView: View {
 // MARK: - Local Coordinates
 
 @Test @MainActor func childrenDrawInLocalCoordinates() {
-    let root = View(frame: Rect(x: 0, y: 0, width: 10, height: 4))
-    let panel = View(frame: Rect(x: 2, y: 1, width: 6, height: 2))
+    let root = TUIView(frame: Rect(x: 0, y: 0, width: 10, height: 4))
+    let panel = TUIView(frame: Rect(x: 2, y: 1, width: 6, height: 2))
     let label = TextView(frame: Rect(x: 1, y: 0, width: 4, height: 1), text: "hi")
 
     root.addSubview(panel)
@@ -99,7 +99,7 @@ private final class TextView: View {
 // MARK: - Clipping Contract
 
 @Test @MainActor func childCannotDrawOutsideItsOwnFrame() {
-    let root = View(frame: Rect(x: 0, y: 0, width: 10, height: 3))
+    let root = TUIView(frame: Rect(x: 0, y: 0, width: 10, height: 3))
     // The view is 3 wide but writes 8 characters.
     let child = TextView(frame: Rect(x: 1, y: 1, width: 3, height: 1), text: "TOOLONG!")
 
@@ -111,8 +111,8 @@ private final class TextView: View {
 }
 
 @Test @MainActor func childCannotDrawOutsideItsParentViewport() {
-    let root = View(frame: Rect(x: 0, y: 0, width: 10, height: 4))
-    let panel = View(frame: Rect(x: 2, y: 1, width: 4, height: 2))
+    let root = TUIView(frame: Rect(x: 0, y: 0, width: 10, height: 4))
+    let panel = TUIView(frame: Rect(x: 2, y: 1, width: 4, height: 2))
     // Child frame extends past the panel's right edge; the panel clips it.
     let child = FillView(frame: Rect(x: 2, y: 0, width: 6, height: 1), character: "#")
 
@@ -126,8 +126,8 @@ private final class TextView: View {
 }
 
 @Test @MainActor func negativeChildPositionsClipAtParentOrigin() {
-    let root = View(frame: Rect(x: 0, y: 0, width: 8, height: 3))
-    let panel = View(frame: Rect(x: 3, y: 1, width: 4, height: 1))
+    let root = TUIView(frame: Rect(x: 0, y: 0, width: 8, height: 3))
+    let panel = TUIView(frame: Rect(x: 3, y: 1, width: 4, height: 1))
     let child = TextView(frame: Rect(x: -2, y: 0, width: 6, height: 1), text: "abcdef")
 
     root.addSubview(panel)
@@ -143,7 +143,7 @@ private final class TextView: View {
 // MARK: - Compose Order and Visibility
 
 @Test @MainActor func laterSiblingsOverdrawEarlierOnes() {
-    let root = View(frame: Rect(x: 0, y: 0, width: 6, height: 1))
+    let root = TUIView(frame: Rect(x: 0, y: 0, width: 6, height: 1))
     let back = FillView(frame: Rect(x: 0, y: 0, width: 4, height: 1), character: "a")
     let front = FillView(frame: Rect(x: 2, y: 0, width: 4, height: 1), character: "b")
 
@@ -156,7 +156,7 @@ private final class TextView: View {
 }
 
 @Test @MainActor func hiddenViewsAndTheirSubtreesAreSkipped() {
-    let root = View(frame: Rect(x: 0, y: 0, width: 4, height: 1))
+    let root = TUIView(frame: Rect(x: 0, y: 0, width: 4, height: 1))
     let panel = FillView(frame: Rect(x: 0, y: 0, width: 4, height: 1), character: "x")
     let child = FillView(frame: Rect(x: 0, y: 0, width: 4, height: 1), character: "y")
 
@@ -170,7 +170,7 @@ private final class TextView: View {
 }
 
 @Test @MainActor func renderingIsDeterministic() {
-    let root = View(frame: Rect(x: 0, y: 0, width: 8, height: 2))
+    let root = TUIView(frame: Rect(x: 0, y: 0, width: 8, height: 2))
     root.addSubview(FillView(frame: Rect(x: 1, y: 0, width: 3, height: 2), character: "z"))
 
     let renderer = SceneRenderer(root: root)
@@ -184,7 +184,7 @@ private final class TextView: View {
 // MARK: - Dirty Tracking
 
 @Test @MainActor func renderClearsDirtinessUntilNextChange() {
-    let root = View(frame: Rect(x: 0, y: 0, width: 4, height: 2))
+    let root = TUIView(frame: Rect(x: 0, y: 0, width: 4, height: 2))
     let child = FillView(frame: Rect(x: 0, y: 0, width: 2, height: 1), character: "c")
     root.addSubview(child)
 
@@ -204,7 +204,7 @@ private final class TextView: View {
 }
 
 @Test @MainActor func frameChangeMarksDirty() {
-    let view = View(frame: Rect(x: 0, y: 0, width: 2, height: 2))
+    let view = TUIView(frame: Rect(x: 0, y: 0, width: 2, height: 2))
     let renderer = SceneRenderer(root: view)
     _ = renderer.render(size: Size(width: 4, height: 4))
 
@@ -215,7 +215,7 @@ private final class TextView: View {
 }
 
 @Test @MainActor func sizeChangeForcesRenderEvenWhenClean() {
-    let root = View(frame: Rect(x: 0, y: 0, width: 4, height: 2))
+    let root = TUIView(frame: Rect(x: 0, y: 0, width: 4, height: 2))
     let renderer = SceneRenderer(root: root)
 
     _ = renderer.render(size: Size(width: 4, height: 2))
@@ -227,9 +227,9 @@ private final class TextView: View {
 // MARK: - Painter Primitives
 
 @Test @MainActor func drawBoxRendersBorders() {
-    let root = View(frame: Rect(x: 0, y: 0, width: 5, height: 3))
+    let root = TUIView(frame: Rect(x: 0, y: 0, width: 5, height: 3))
 
-    final class BoxView: View {
+    final class BoxView: TUIView {
         override func draw(_ painter: Painter) {
             painter.drawBox(bounds)
         }

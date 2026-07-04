@@ -12,7 +12,7 @@
 /// picker.onColorChanged = { color in theme.accent = color }
 /// ```
 @MainActor
-public final class ColorPicker: View {
+public final class ColorPicker: TUIView {
     /// Current color.
     public private(set) var color: TerminalColor
 
@@ -47,7 +47,7 @@ public final class ColorPicker: View {
         let paletteRow = HStack(spacing: 1)
         paletteRow.addSubview(Label("Index:", style: CellStyle(flags: .bold)))
         paletteRow.addSubview(paletteStepper)
-        paletteRow.addSubview(View())
+        paletteRow.addSubview(TUIView())
 
         paletteStepper.onValueChanged = { [weak self] value in
             self?.apply(.palette(UInt8(value)))
@@ -66,7 +66,7 @@ public final class ColorPicker: View {
             }
         }
 
-        rgbRow.addSubview(View())
+        rgbRow.addSubview(TUIView())
 
         tabs.addTab("Named", content: swatches)
         tabs.addTab("Palette", content: paletteRow)
@@ -152,7 +152,7 @@ public final class ColorPicker: View {
 
 /// 8×2 grid of the 16 named ANSI colors (framework-internal).
 @MainActor
-final class NamedSwatchGrid: View {
+final class NamedSwatchGrid: TUIView {
     var onSelectionChanged: (TerminalColor.NamedColor) -> Void = { _ in }
 
     private(set) var selectedIndex = 0
@@ -261,7 +261,7 @@ final class NamedSwatchGrid: View {
 
 /// Swatch + description of the current color (framework-internal).
 @MainActor
-final class ColorPreview: View {
+final class ColorPreview: TUIView {
     private var color: TerminalColor = .standard
     private var text = ""
 

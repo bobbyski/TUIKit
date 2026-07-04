@@ -59,10 +59,10 @@ public struct StyleSheet: Hashable, Sendable {
     /// cascade (specificity, then source order).
     ///
     /// - Parameters:
-    ///   - view: View being resolved.
+    ///   - view: TUIView being resolved.
     ///   - theme: Theme the declarations write into.
     @MainActor
-    func apply(to view: View, theme: inout Theme) {
+    func apply(to view: TUIView, theme: inout Theme) {
         var matched: [(specificity: Int, order: Int, rule: StyleRule)] = []
 
         for (order, rule) in rules.enumerated() {
@@ -333,7 +333,7 @@ public struct StyleSelector: Hashable, Sendable {
         public var focused = false
 
         @MainActor
-        func matches(_ view: View) -> Bool {
+        func matches(_ view: TUIView) -> Bool {
             if let type, String(describing: Swift.type(of: view)) != type {
                 return false
             }
@@ -386,7 +386,7 @@ public struct StyleSelector: Hashable, Sendable {
     /// Whether the selector matches a view (walking ancestors for
     /// descendant compounds).
     @MainActor
-    public func matches(_ view: View) -> Bool {
+    public func matches(_ view: TUIView) -> Bool {
         var compounds = chain
 
         guard let last = compounds.popLast(), last.matches(view) else {

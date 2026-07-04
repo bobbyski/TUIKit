@@ -16,7 +16,7 @@
 /// font.onSubmit = { name in apply(named: name) }
 /// ```
 @MainActor
-public final class ComboBox: View {
+public final class ComboBox: TUIView {
     /// Choices shown in the popup.
     public var items: [String] {
         didSet {
@@ -192,7 +192,7 @@ public final class ComboBox: View {
     }
 
     private var owningWindow: Window? {
-        var current: View? = self
+        var current: TUIView? = self
 
         while let view = current {
             if let window = view as? Window {

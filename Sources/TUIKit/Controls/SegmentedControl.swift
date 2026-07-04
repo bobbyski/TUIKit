@@ -15,7 +15,7 @@
 /// range.onSelectionChanged = { index in reload(range.segments[index]) }
 /// ```
 @MainActor
-public final class SegmentedControl: View {
+public final class SegmentedControl: TUIView {
     /// Segment titles, leading to trailing.
     public var segments: [String] {
         didSet {

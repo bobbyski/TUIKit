@@ -183,7 +183,7 @@ private func makePopUp(buttonY: Int, windowHeight: Int = 10) -> (PopUpButton, Wi
 }
 
 @Test @MainActor func dividersCrossWithJunctions() {
-    let container = View(frame: Rect(x: 0, y: 0, width: 20, height: 7))
+    let container = TUIView(frame: Rect(x: 0, y: 0, width: 20, height: 7))
     let horizontal = Divider(axis: .horizontal)
     horizontal.frame = Rect(x: 0, y: 3, width: 20, height: 1)
     let vertical = Divider(axis: .vertical)
@@ -209,12 +209,12 @@ private func makePopUp(buttonY: Int, windowHeight: Int = 10) -> (PopUpButton, Wi
 }
 
 @Test @MainActor func draggableDividerResizesItsNeighbors() {
-    let container = View(frame: Rect(x: 0, y: 0, width: 20, height: 8))
-    let top = View(frame: Rect(x: 0, y: 0, width: 20, height: 3))
+    let container = TUIView(frame: Rect(x: 0, y: 0, width: 20, height: 8))
+    let top = TUIView(frame: Rect(x: 0, y: 0, width: 20, height: 3))
     let divider = Divider(axis: .horizontal)
     divider.isDraggable = true
     divider.frame = Rect(x: 0, y: 3, width: 20, height: 1)
-    let bottom = View(frame: Rect(x: 0, y: 4, width: 20, height: 4))
+    let bottom = TUIView(frame: Rect(x: 0, y: 4, width: 20, height: 4))
 
     container.addSubview(top)
     container.addSubview(divider)

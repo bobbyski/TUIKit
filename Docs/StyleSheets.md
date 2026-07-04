@@ -3,7 +3,7 @@
 The stylesheet layer (PLAN 7.4) puts CSS-shaped selectors on top of the
 semantic theme system. Two commitments define it:
 
-1. **Optional.** Nothing in TUIKit requires a stylesheet. `View.styleSheet`
+1. **Optional.** Nothing in TUIKit requires a stylesheet. `TUIView.styleSheet`
    is `nil` by default; with no sheets in the ancestor chain,
    `effectiveTheme` is exactly the inherited theme, and rendering is
    bit-for-bit what it was before this layer existed. Apps that are happy
@@ -15,7 +15,7 @@ semantic theme system. Two commitments define it:
 
 ## Identity hooks
 
-Every `View` carries the selector hooks:
+Every `TUIView` carries the selector hooks:
 
 | Property       | CSS equivalent | Example                          |
 |----------------|----------------|----------------------------------|

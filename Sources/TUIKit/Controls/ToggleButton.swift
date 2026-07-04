@@ -14,7 +14,7 @@
 /// Space, Return, or a click toggles; `setOn(_:notify:)` is the silent
 /// programmatic path.
 @MainActor
-public final class ToggleButton: View {
+public final class ToggleButton: TUIView {
     /// Text shown inside the toggle.
     public var title: String {
         didSet {

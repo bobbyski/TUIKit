@@ -84,7 +84,7 @@ public final class Menu {
 /// Horizontal menu bar with dropdown menus.
 ///
 /// ```text
-///    File  Edit  View          ← the bar (one row)
+///    File  Edit  TUIView          ← the bar (one row)
 ///   ┌────────────┐
 ///   │ Open    ^O │             ← dropdown while a menu is open
 ///   │ Save    ^S │
@@ -104,7 +104,7 @@ public final class Menu {
 /// the dropdown is attached to the bar's superview, so a deeply nested bar
 /// would have its dropdown clipped by that container.
 @MainActor
-public final class MenuBar: View {
+public final class MenuBar: TUIView {
     /// Menus in bar order.
     public private(set) var menus: [Menu] = []
 
@@ -369,7 +369,7 @@ public final class MenuBar: View {
 
     // Nearest ancestor window (focus scope).
     private var owningWindow: Window? {
-        var current: View? = self
+        var current: TUIView? = self
 
         while let view = current {
             if let window = view as? Window {
@@ -385,7 +385,7 @@ public final class MenuBar: View {
 
 /// The open menu's dropdown list (framework-internal).
 @MainActor
-final class MenuDropdown: View {
+final class MenuDropdown: TUIView {
     var onActivate: (MenuItem) -> Void = { _ in }
     var onClose: () -> Void = {}
     var onSwitchMenu: (Int) -> Void = { _ in }

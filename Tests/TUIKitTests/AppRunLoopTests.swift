@@ -4,7 +4,7 @@ import Testing
 /// Focusable view that fills itself with a character and mutates on keys —
 /// enough behavior to exercise the full input → state → render loop.
 @MainActor
-private final class EchoView: View {
+private final class EchoView: TUIView {
     var character: Character = "."
 
     override var acceptsFirstResponder: Bool { true }

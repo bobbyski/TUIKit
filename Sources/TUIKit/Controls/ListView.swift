@@ -94,7 +94,7 @@ struct RowNavigationState: Equatable {
 /// files.onActivate = { index in open(index) }   // Return or double action
 /// ```
 @MainActor
-public final class ListView: View {
+public final class ListView: TUIView {
     /// Row titles.
     public var items: [String] {
         didSet {

@@ -93,7 +93,7 @@ public final class TreeNode {
 /// tree.onActivate = { node in open(node) }
 /// ```
 @MainActor
-public final class TreeView: View {
+public final class TreeView: TUIView {
     /// Top-level nodes.
     public var roots: [TreeNode] {
         didSet {

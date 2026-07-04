@@ -14,7 +14,7 @@
 /// volume.onValueChanged = { level in mixer.volume = level }
 /// ```
 @MainActor
-public final class Slider: View {
+public final class Slider: TUIView {
     /// Current value, always within `range`.
     public private(set) var value: Int
 

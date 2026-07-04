@@ -9,7 +9,7 @@
 /// let save = Button("Save") { store.save() }
 /// ```
 @MainActor
-public final class Button: View {
+public final class Button: TUIView {
     /// Title shown inside the button.
     public var title: String {
         didSet {

@@ -23,7 +23,7 @@ import RichSwift
 /// editor.onChanged = { source in store(source) }
 /// ```
 @MainActor
-public final class SyntaxTextView: View {
+public final class SyntaxTextView: TUIView {
     /// Language identifier passed to RichSwift (`"swift"`, `"python"`, …).
     public var language: String {
         didSet {

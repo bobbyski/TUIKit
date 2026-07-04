@@ -29,7 +29,7 @@ public enum StackAlignment: Hashable, Sendable {
 ///
 /// Stacks own their children's frames; child `anchors` are ignored here.
 @MainActor
-open class StackView: View {
+open class StackView: TUIView {
     /// Direction of a stack's main axis.
     public enum Axis: Hashable, Sendable {
         /// Children flow left to right.
@@ -187,7 +187,7 @@ open class StackView: View {
         axis == .horizontal ? rect.minX : rect.minY
     }
 
-    private func clampMain(_ length: Int, for child: View) -> Int {
+    private func clampMain(_ length: Int, for child: TUIView) -> Int {
         var clamped = max(length, mainLength(of: child.minimumSize))
 
         if let maximum = child.maximumSize {
@@ -199,7 +199,7 @@ open class StackView: View {
 
     // Builds a child's frame from its main-axis slot and the alignment.
     private func frameFor(
-        child: View,
+        child: TUIView,
         mainOffset: Int,
         mainLength: Int,
         content: Rect

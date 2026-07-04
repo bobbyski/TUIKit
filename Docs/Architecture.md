@@ -20,7 +20,7 @@ diagrammed in [`ControlsUML.md`](ControlsUML.md).
                                 |
 +-------------------------------v-------------------------------+
 |  Views & Layout (Phases 3-5)                                  |
-|  View hierarchy, local coords, clipping, responder chain,     |
+|  TUIView hierarchy, local coords, clipping, responder chain,     |
 |  focus scopes, stack/anchor layout                            |
 +-------------------------------+-------------------------------+
                                 |  CellBuffer out / TerminalInput in
@@ -63,9 +63,9 @@ Phases 1–3 are in place: geometry (`Point`/`Size`/`Rect`), the cell model
 (`TerminalCell`/`CellStyle`/`TerminalColor`/`CellFlags`), `CellBuffer`,
 `TerminalDriver` with both `ANSIDriver` (raw mode, SGR mouse, async input)
 and `HeadlessDriver`, the pure `ANSIInputDecoder` and `ANSIEncoder`, and the
-view system — `View`, `Painter` (mechanical clipping + local coordinates),
+view system — `TUIView`, `Painter` (mechanical clipping + local coordinates),
 and `SceneRenderer` (dirty-gated frames). Phase 4 added the interaction
-layer: the `View` responder surface (typed key/mouse handlers, focus hooks),
+layer: the `TUIView` responder surface (typed key/mouse handlers, focus hooks),
 `Window` as the focus scope (first responder, Tab order, hot → focused →
 Tab → cold key routing, hit-tested mouse delivery in local coordinates), and
 `App` — the window stack and the pure-suspension run loop with graceful

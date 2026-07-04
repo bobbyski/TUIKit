@@ -18,12 +18,12 @@
 /// raw terminal bytes never reach the view layer. Focus itself is owned by
 /// the view's `Window` (the focus scope), not by individual views.
 @MainActor
-open class View {
+open class TUIView {
     /// The parent view, when attached.
-    public private(set) weak var superview: View?
+    public private(set) weak var superview: TUIView?
 
     /// Child views in back-to-front drawing order.
-    public private(set) var subviews: [View] = []
+    public private(set) var subviews: [TUIView] = []
 
     /// Position and size in the parent's coordinate space.
     public var frame: Rect {
@@ -108,8 +108,8 @@ open class View {
     /// chain this is exactly the inherited theme.
     public var effectiveTheme: Theme {
         var inherited: Theme?
-        var sheetHolders: [View] = []
-        var current: View? = self
+        var sheetHolders: [TUIView] = []
+        var current: TUIView? = self
 
         while let view = current {
             if inherited == nil, let theme = view.theme {
@@ -157,8 +157,8 @@ open class View {
     ///
     /// The view is removed from any previous parent first.
     ///
-    /// - Parameter view: View to add.
-    public func addSubview(_ view: View) {
+    /// - Parameter view: TUIView to add.
+    public func addSubview(_ view: TUIView) {
         view.removeFromSuperview()
         subviews.append(view)
         view.superview = self
@@ -196,6 +196,20 @@ open class View {
         while let view = ancestor {
             view.subtreeNeedsDisplay = true
             ancestor = view.superview
+        }
+    }
+
+    /// Forces this view and its whole subtree to redraw on the next frame.
+    ///
+    /// A convenience over `setNeedsDisplay()` that also re-dirties every
+    /// descendant, so a view whose children hold stale content can be
+    /// refreshed wholesale — handy for manually managed containers like
+    /// `AbsoluteLayout`.
+    public func refresh() {
+        setNeedsDisplay()
+
+        for subview in subviews {
+            subview.refresh()
         }
     }
 
@@ -286,6 +300,25 @@ open class View {
         }
     }
 
+    /// Forces a layout re-evaluation of this view *and its ancestors* on the
+    /// next frame.
+    ///
+    /// `setNeedsLayout()` alone re-lays-out this view's own children, but a
+    /// parent that sizes itself from this view — a stack around an
+    /// `AbsoluteLayout` whose children just moved, say — would not re-measure.
+    /// `relayout()` also marks the ancestor chain, so the whole path
+    /// re-evaluates and the parent adopts this view's new intrinsic size.
+    public func relayout() {
+        setNeedsLayout()
+
+        var ancestor = superview
+
+        while let view = ancestor {
+            view.setNeedsLayout()
+            ancestor = view.superview
+        }
+    }
+
     // MARK: - Responder Surface
 
     /// Whether the view can hold keyboard focus.
@@ -367,7 +400,7 @@ open class View {
     /// - Parameter point: Position in this view's local coordinates.
     /// - Returns: The deepest hit view and the point translated into its
     ///   local coordinates, or `nil` when the point is outside this view.
-    open func hitTest(_ point: Point) -> (view: View, local: Point)? {
+    open func hitTest(_ point: Point) -> (view: TUIView, local: Point)? {
         guard !isHidden, bounds.contains(point) else {
             return nil
         }
@@ -384,7 +417,7 @@ open class View {
     // Visits the visible tree depth-first (self, then children in order)
     // until the body returns true. Returns whether any visit returned true.
     @discardableResult
-    func traverseVisible(_ body: (View) -> Bool) -> Bool {
+    func traverseVisible(_ body: (TUIView) -> Bool) -> Bool {
         guard !isHidden else {
             return false
         }
@@ -403,8 +436,8 @@ open class View {
     }
 
     // Collects visible views depth-first that satisfy the predicate.
-    func collectVisible(where predicate: (View) -> Bool) -> [View] {
-        var result: [View] = []
+    func collectVisible(where predicate: (TUIView) -> Bool) -> [TUIView] {
+        var result: [TUIView] = []
 
         traverseVisible { view in
             if predicate(view) {
@@ -418,8 +451,8 @@ open class View {
     }
 
     // Whether this view is the given view or one of its descendants.
-    func isDescendant(of ancestor: View) -> Bool {
-        var current: View? = self
+    func isDescendant(of ancestor: TUIView) -> Bool {
+        var current: TUIView? = self
 
         while let view = current {
             if view === ancestor {

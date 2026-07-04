@@ -2,7 +2,7 @@
 /// below it.
 ///
 /// ```text
-///   ┌ Files ┐ Edit    View            ← tab bar (row 0); "Files" selected
+///   ┌ Files ┐ Edit    TUIView            ← tab bar (row 0); "Files" selected
 ///   ─────────────────────────         ← separator (row 1)
 ///   │ the selected tab's content      ← content area (rows 2+)
 ///   │ view fills this region          │
@@ -20,11 +20,11 @@
 /// tabs.onSelectionChanged = { index in print("showing tab \(index)") }
 /// ```
 @MainActor
-public final class TabView: View {
+public final class TabView: TUIView {
     /// One tab: a title and the content shown when it is selected.
     private struct Tab {
         let title: String
-        let content: View
+        let content: TUIView
     }
 
     private var tabs: [Tab] = []
@@ -57,8 +57,8 @@ public final class TabView: View {
     ///
     /// - Parameters:
     ///   - title: Tab title shown in the bar.
-    ///   - content: View shown in the content area when the tab is selected.
-    public func addTab(_ title: String, content: View) {
+    ///   - content: TUIView shown in the content area when the tab is selected.
+    public func addTab(_ title: String, content: TUIView) {
         tabs.append(Tab(title: title, content: content))
         addSubview(content)
         updateVisibility()

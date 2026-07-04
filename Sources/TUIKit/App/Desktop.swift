@@ -13,7 +13,7 @@
 /// Because themes cascade, the desktop's theme is also the default for
 /// every window that doesn't set its own.
 @MainActor
-public final class Desktop: View {
+public final class Desktop: TUIView {
     /// Character tiled across the background. Defaults to a space.
     public var fillCharacter: Character = " " {
         didSet {

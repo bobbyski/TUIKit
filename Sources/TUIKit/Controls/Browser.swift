@@ -64,7 +64,7 @@ public protocol BrowserDataSource: AnyObject {
 /// browser.onSelectionChanged = { item in preview(item) }
 /// ```
 @MainActor
-public final class Browser: View {
+public final class Browser: TUIView {
     /// Width of each column in cells.
     public var columnWidth: Int {
         didSet {

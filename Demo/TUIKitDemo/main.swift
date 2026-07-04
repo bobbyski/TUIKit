@@ -9,7 +9,7 @@ import TUIKit   // re-exports RichSwift (Markup, Table, Syntax, …)
 //
 // Modes:
 //   swift run TUIKitDemo                 static gallery (cells/views/layout)
-//   swift run TUIKitDemo --interactive   live control form (Phase 6)
+//   swift run TUIKitDemo --interactive   declarative + manual example windows
 //   swift run TUIKitDemo --events        live driver event viewer
 
 if CommandLine.arguments.contains("--interactive") {
@@ -47,7 +47,7 @@ final class MenuBarWindow: Window {
 
     /// Claim only the bar row and open dropdowns; everywhere else is
     /// click-through, so clicks reach the floating windows behind.
-    override func hitTest(_ point: Point) -> (view: View, local: Point)? {
+    override func hitTest(_ point: Point) -> (view: TUIView, local: Point)? {
         guard let hit = super.hitTest(point) else {
             return nil
         }
@@ -86,20 +86,20 @@ final class MenuBarWindow: Window {
 ///   bottomLeft   │ bottomMid │ bottomRight
 /// ```
 @MainActor
-final class PanesLayout: View {
+final class PanesLayout: TUIView {
     var onDividerMoved: (String) -> Void = { _ in }
 
     private let across = Divider(axis: .horizontal)
     private let left = Divider(axis: .vertical)
     private let right = Divider(axis: .vertical)
-    private let panes: [View]
+    private let panes: [TUIView]
 
     // Divider coordinates; derived from ratios on first layout.
     private var acrossY = -1
     private var leftX = -1
     private var rightX = -1
 
-    init(topLeft: View, topRight: View, bottomLeft: View, bottomMiddle: View, bottomRight: View) {
+    init(topLeft: TUIView, topRight: TUIView, bottomLeft: TUIView, bottomMiddle: TUIView, bottomRight: TUIView) {
         self.panes = [topLeft, topRight, bottomLeft, bottomMiddle, bottomRight]
         super.init(frame: .zero)
 
@@ -173,663 +173,658 @@ final class PanesLayout: View {
 @MainActor
 func runFormDemo() async throws {
     let app = App(driver: ANSIDriver())
-
-    // The desktop is the stylable background behind every window:
-    // a solid middle gray.
     app.desktop.fillStyle = CellStyle(background: .rgb(red: 128, green: 128, blue: 128))
     app.desktop.theme = .dark   // inherited default for un-themed windows
 
-    // Menu bar strip across the top (the root window).
-    let menuWindow = MenuBarWindow()
-    menuWindow.onQuit = { app.stop() }
+    // The MANUAL example: the original imperative demo, intact and repeatable —
+    // every control wired by hand. The declarative example below mirrors it.
+    func makeManualExample(index: Int) -> FloatingWindow {
+        let controls = FloatingWindow(
+            title: "Manual Example \(index)",
+            frame: Rect(x: 3 + index * 4, y: 2 + index * 2, width: 74, height: 22)
+        )
+        controls.theme = .standard
+        controls.onCloseRequest = { [weak controls] in
+            if let controls { app.dismiss(controls) }   // close the window, not the app
+        }
 
-    // All demo controls live in this floating window; closing it quits.
-    let controls = FloatingWindow(
-        title: "TUIKit Controls",
-        frame: Rect(x: 3, y: 2, width: 74, height: 22)
-    )
-    controls.theme = .standard   // keeps the terminal look inside
-    controls.onCloseRequest = { app.stop() }
+        let status = Label("Click windows to focus them — drag titles to move, ◢ to resize.", style: CellStyle(flags: .dim))
 
-    let status = Label("Click windows to focus them — drag titles to move, ◢ to resize.", style: CellStyle(flags: .dim))
+        // The status line carries a style class so the CSS theme can target it.
+        status.styleClasses = ["status"]
 
-    // The status line carries a style class so the CSS theme can target it.
-    status.styleClasses = ["status"]
+        // Whether Theme ▸ CSS is active (the Code tab's stylesheet applies live).
+        var cssThemeActive = false
 
-    // Whether Theme ▸ CSS is active (the Code tab's stylesheet applies live).
-    var cssThemeActive = false
+        let name = TextField(placeholder: "type a name, Return to submit")
+        name.maximumSize = Size(width: 999, height: 1)
+        name.onChanged = { status.text = "name draft: '\($0)'" }
+        name.onSubmit = { status.text = "name submitted: '\($0)'" }
 
-    let name = TextField(placeholder: "type a name, Return to submit")
-    name.maximumSize = Size(width: 999, height: 1)
-    name.onChanged = { status.text = "name draft: '\($0)'" }
-    name.onSubmit = { status.text = "name submitted: '\($0)'" }
+        let wrap = Checkbox("Wrap lines")
+        wrap.onChange = { status.text = "wrap lines: \($0)" }
 
-    let wrap = Checkbox("Wrap lines")
-    wrap.onChange = { status.text = "wrap lines: \($0)" }
+        let mode = RadioGroup(["Fast", "Balanced", "Accurate"], selectedIndex: 1)
+        mode.onSelectionChanged = { status.text = "mode: \(mode.options[$0])" }
 
-    let mode = RadioGroup(["Fast", "Balanced", "Accurate"], selectedIndex: 1)
-    mode.onSelectionChanged = { status.text = "mode: \(mode.options[$0])" }
+        let density = SegmentedControl(["Compact", "Cozy", "Roomy"], selectedIndex: 1)
+        density.onSelectionChanged = { status.text = "density: \(density.segments[$0])" }
 
-    let density = SegmentedControl(["Compact", "Cozy", "Roomy"], selectedIndex: 1)
-    density.onSelectionChanged = { status.text = "density: \(density.segments[$0])" }
+        let tabSize = Stepper(value: 4, in: 1...16)
+        tabSize.onValueChanged = { status.text = "tab size: \($0)" }
 
-    let tabSize = Stepper(value: 4, in: 1...16)
-    tabSize.onValueChanged = { status.text = "tab size: \($0)" }
+        let accent = ColorPicker(color: .named(.cyan))
+        accent.onColorChanged = { status.text = "accent color: \($0)" }
 
-    let accent = ColorPicker(color: .named(.cyan))
-    accent.onColorChanged = { status.text = "accent color: \($0)" }
+        let files = ListView(items: (1...30).map { "Document-\($0).txt" })
+        files.onSelectionChanged = { index in
+            status.text = index.map { "selected \(files.items[$0])" } ?? "selection cleared"
+        }
+        files.onActivate = { status.text = "OPENED \(files.items[$0])" }
 
-    let files = ListView(items: (1...30).map { "Document-\($0).txt" })
-    files.onSelectionChanged = { index in
-        status.text = index.map { "selected \(files.items[$0])" } ?? "selection cleared"
-    }
-    files.onActivate = { status.text = "OPENED \(files.items[$0])" }
+        // Right-click the list for a context menu.
+        let fileActions = Menu("File Actions")
+        fileActions.addItem("Open") {
+            status.text = files.selectedIndex.map { "context: open \(files.items[$0])" } ?? "context: open"
+        }
+        fileActions.addItem("Rename…") { status.text = "context: rename" }
+        fileActions.addSeparator()
+        fileActions.addItem("Delete") { status.text = "context: delete (not really)" }
+        files.contextMenu = fileActions
 
-    // Right-click the list for a context menu.
-    let fileActions = Menu("File Actions")
-    fileActions.addItem("Open") {
-        status.text = files.selectedIndex.map { "context: open \(files.items[$0])" } ?? "context: open"
-    }
-    fileActions.addItem("Rename…") { status.text = "context: rename" }
-    fileActions.addSeparator()
-    fileActions.addItem("Delete") { status.text = "context: delete (not really)" }
-    files.contextMenu = fileActions
-
-    let summary = Button("Summary") {
-        status.text = "name='\(name.text)' wrap=\(wrap.isChecked) mode=\(mode.selectedIndex ?? -1)"
-    }
-    let quit = Button("Quit") {
-        let dialog = Dialog(title: "Quit?", message: "Leave the TUIKit demo?")
-        dialog.addButton("Cancel", isCancel: true)
-        dialog.addButton("Quit", isDefault: true) { app.stop() }
-        dialog.onDismiss = { [weak dialog] in
-            if let dialog {
-                app.dismiss(dialog)
+        let summary = Button("Summary") {
+            status.text = "name='\(name.text)' wrap=\(wrap.isChecked) mode=\(mode.selectedIndex ?? -1)"
+        }
+        let quit = Button("Quit") {
+            let dialog = Dialog(title: "Quit?", message: "Leave the TUIKit demo?")
+            dialog.addButton("Cancel", isCancel: true)
+            dialog.addButton("Quit", isDefault: true) { app.stop() }
+            dialog.onDismiss = { [weak dialog] in
+                if let dialog {
+                    app.dismiss(dialog)
+                }
             }
+            dialog.sizeToFit(in: app.desktop.bounds.size)
+            app.present(dialog)
+            status.text = "modal dialog open — Esc cancels, Return confirms"
         }
-        dialog.sizeToFit(in: app.desktop.bounds.size)
-        app.present(dialog)
-        status.text = "modal dialog open — Esc cancels, Return confirms"
-    }
 
-    let open = Button("Open…") {
-        let dialog = FileDialog(mode: .open, root: FileManager.default.currentDirectoryPath)
-        dialog.onConfirm = { status.text = "chose: \($0)" }
-        dialog.onDismiss = { [weak dialog] in
-            if let dialog {
-                app.dismiss(dialog)
+        let open = Button("Open…") {
+            let dialog = FileDialog(mode: .open, root: FileManager.default.currentDirectoryPath)
+            dialog.onConfirm = { status.text = "chose: \($0)" }
+            dialog.onDismiss = { [weak dialog] in
+                if let dialog {
+                    app.dismiss(dialog)
+                }
             }
-        }
-        dialog.sizeToFit(in: app.desktop.bounds.size)
-        app.present(dialog)
-    }
-
-    let buttons = HStack(spacing: 2)
-    buttons.addSubview(summary)
-    buttons.addSubview(open)
-    buttons.addSubview(quit)
-    buttons.addSubview(View())   // flexible spacer keeps buttons leading
-
-    let nameRow = HStack(spacing: 1)
-    nameRow.addSubview(Label("Name:", style: CellStyle(flags: .bold)))
-    nameRow.addSubview(name)
-
-    // "Form" tab content: the input controls.
-    let formTab = VStack(spacing: 1, insets: EdgeInsets(all: 1))
-    formTab.addSubview(nameRow)
-    formTab.addSubview(wrap)
-    formTab.addSubview(Label("Mode (radio):", style: CellStyle(flags: .bold)))
-    formTab.addSubview(mode)
-    formTab.addSubview(Label("Density (segmented):", style: CellStyle(flags: .bold)))
-    formTab.addSubview(density)
-
-    let stepperRow = HStack(spacing: 1)
-    stepperRow.addSubview(Label("Tab size (stepper):", style: CellStyle(flags: .bold)))
-    stepperRow.addSubview(tabSize)
-    stepperRow.addSubview(View())   // flexible spacer keeps the row leading
-    formTab.addSubview(stepperRow)
-
-    formTab.addSubview(Label("Accent (color picker):", style: CellStyle(flags: .bold)))
-    formTab.addSubview(accent)
-
-    // Collapsible "Advanced" section: combo box, slider + level, rating.
-    let fontCombo = ComboBox(items: ["Menlo", "Monaco", "SF Mono", "Fira Code"], placeholder: "font name")
-    fontCombo.onSelectionChanged = { _ in status.text = "font: \(fontCombo.text)" }
-    fontCombo.onSubmit = { status.text = "custom font: \($0)" }
-
-    let speedLevel = LevelIndicator(value: 2, maximum: 5, style: .capacity)
-    let speed = Slider(value: 40, in: 0...100, step: 5)
-    speed.onValueChanged = { value in
-        speedLevel.setValue((value + 10) / 20)
-        status.text = "speed: \(value)"
-    }
-
-    let stars = LevelIndicator(value: 3, maximum: 5, style: .rating)
-    stars.isEditable = true
-    stars.onValueChanged = { status.text = "rating: \($0) star(s)" }
-
-    let advancedStack = VStack(spacing: 1)
-
-    for (title, control) in [("Font:", fontCombo as View), ("Speed:", speed), ("Rating:", stars)] {
-        let row = HStack(spacing: 1)
-        row.addSubview(Label(title, style: CellStyle(flags: .bold)))
-        row.addSubview(control)
-
-        if control === speed {
-            row.addSubview(speedLevel)
+            dialog.sizeToFit(in: app.desktop.bounds.size)
+            app.present(dialog)
         }
 
-        row.addSubview(View())   // spacer
-        advancedStack.addSubview(row)
-    }
+        let buttons = HStack(spacing: 2)
+        buttons.addSubview(summary)
+        buttons.addSubview(open)
+        buttons.addSubview(quit)
+        buttons.addSubview(TUIView())   // flexible spacer keeps buttons leading
 
-    let advanced = DisclosureGroup("Advanced (disclosure group)")
-    advancedStack.anchors = .fill()
-    advanced.content.addSubview(advancedStack)
-    advanced.onExpansionChanged = { status.text = $0 ? "advanced options revealed" : "advanced options tucked away" }
-    formTab.addSubview(advanced)
+        let nameRow = HStack(spacing: 1)
+        nameRow.addSubview(Label("Name:", style: CellStyle(flags: .bold)))
+        nameRow.addSubview(name)
 
-    formTab.addSubview(buttons)
-    formTab.addSubview(View())   // spacer pushes content to the top
+        // "Form" tab content: the input controls.
+        let formTab = VStack(spacing: 1, insets: EdgeInsets(all: 1))
+        formTab.addSubview(nameRow)
+        formTab.addSubview(wrap)
+        formTab.addSubview(Label("Mode (radio):", style: CellStyle(flags: .bold)))
+        formTab.addSubview(mode)
+        formTab.addSubview(Label("Density (segmented):", style: CellStyle(flags: .bold)))
+        formTab.addSubview(density)
 
-    // "Files" tab content: the scrolling list, a breadcrumb path bar, and
-    // a real directory browser (selection updates the crumbs).
-    let browser = DirectoryTree(root: FileManager.default.currentDirectoryPath)
-    let crumbs = PathControl(path: FileManager.default.currentDirectoryPath)
-    crumbs.onPathSelected = { status.text = "crumb: \($0)" }
+        let stepperRow = HStack(spacing: 1)
+        stepperRow.addSubview(Label("Tab size (stepper):", style: CellStyle(flags: .bold)))
+        stepperRow.addSubview(tabSize)
+        stepperRow.addSubview(TUIView())   // flexible spacer keeps the row leading
+        formTab.addSubview(stepperRow)
 
-    browser.expandRoot()
-    browser.onSelectionChanged = { path in
-        crumbs.setPath(path ?? browser.rootPath)
-        status.text = path.map { "path: \($0)" } ?? "path cleared"
-    }
-    browser.onActivate = { status.text = "OPENED \($0)" }
+        formTab.addSubview(Label("Accent (color picker):", style: CellStyle(flags: .bold)))
+        formTab.addSubview(accent)
 
-    let filesTab = VStack(spacing: 1, insets: EdgeInsets(all: 1))
-    filesTab.addSubview(Label("Files (right-click for a context menu):", style: CellStyle(flags: .bold)))
-    filesTab.addSubview(files)
-    filesTab.addSubview(crumbs)
-    filesTab.addSubview(Label("Directory (lazy, real file system):", style: CellStyle(flags: .bold)))
-    filesTab.addSubview(browser)
+        // Collapsible "Advanced" section: combo box, slider + level, rating.
+        let fontCombo = ComboBox(items: ["Menlo", "Monaco", "SF Mono", "Fira Code"], placeholder: "font name")
+        fontCombo.onSelectionChanged = { _ in status.text = "font: \(fontCombo.text)" }
+        fontCombo.onSubmit = { status.text = "custom font: \($0)" }
 
-    // "Scroll" tab content: a document taller than any terminal, inside a
-    // ScrollView (arrows/PgUp/PgDn/Home/End when focused; wheel anytime).
-    let article = VStack(spacing: 0, insets: EdgeInsets(all: 1))
-    article.addSubview(Label("TUIKit — scrollable document", style: CellStyle(flags: .bold)))
-    article.addSubview(Label(""))
-
-    for chapter in 1...12 {
-        article.addSubview(Label("Chapter \(chapter)", style: CellStyle(flags: .underline)))
-
-        for line in 1...4 {
-            article.addSubview(Label("  \(chapter).\(line) The viewport clips; the offset translates."))
+        let speedLevel = LevelIndicator(value: 2, maximum: 5, style: .capacity)
+        let speed = Slider(value: 40, in: 0...100, step: 5)
+        speed.onValueChanged = { value in
+            speedLevel.setValue((value + 10) / 20)
+            status.text = "speed: \(value)"
         }
 
+        let stars = LevelIndicator(value: 3, maximum: 5, style: .rating)
+        stars.isEditable = true
+        stars.onValueChanged = { status.text = "rating: \($0) star(s)" }
+
+        let advancedStack = VStack(spacing: 1)
+
+        for (title, control) in [("Font:", fontCombo as TUIView), ("Speed:", speed), ("Rating:", stars)] {
+            let row = HStack(spacing: 1)
+            row.addSubview(Label(title, style: CellStyle(flags: .bold)))
+            row.addSubview(control)
+
+            if control === speed {
+                row.addSubview(speedLevel)
+            }
+
+            row.addSubview(TUIView())   // spacer
+            advancedStack.addSubview(row)
+        }
+
+        let advanced = DisclosureGroup("Advanced (disclosure group)")
+        advancedStack.anchors = .fill()
+        advanced.content.addSubview(advancedStack)
+        advanced.onExpansionChanged = { status.text = $0 ? "advanced options revealed" : "advanced options tucked away" }
+        formTab.addSubview(advanced)
+
+        formTab.addSubview(buttons)
+        formTab.addSubview(TUIView())   // spacer pushes content to the top
+
+        // "Files" tab content: the scrolling list, a breadcrumb path bar, and
+        // a real directory browser (selection updates the crumbs).
+        let browser = DirectoryTree(root: FileManager.default.currentDirectoryPath)
+        let crumbs = PathControl(path: FileManager.default.currentDirectoryPath)
+        crumbs.onPathSelected = { status.text = "crumb: \($0)" }
+
+        browser.expandRoot()
+        browser.onSelectionChanged = { path in
+            crumbs.setPath(path ?? browser.rootPath)
+            status.text = path.map { "path: \($0)" } ?? "path cleared"
+        }
+        browser.onActivate = { status.text = "OPENED \($0)" }
+
+        let filesTab = VStack(spacing: 1, insets: EdgeInsets(all: 1))
+        filesTab.addSubview(Label("Files (right-click for a context menu):", style: CellStyle(flags: .bold)))
+        filesTab.addSubview(files)
+        filesTab.addSubview(crumbs)
+        filesTab.addSubview(Label("Directory (lazy, real file system):", style: CellStyle(flags: .bold)))
+        filesTab.addSubview(browser)
+
+        // "Scroll" tab content: a document taller than any terminal, inside a
+        // ScrollView (arrows/PgUp/PgDn/Home/End when focused; wheel anytime).
+        let article = VStack(spacing: 0, insets: EdgeInsets(all: 1))
+        article.addSubview(Label("TUIKit — scrollable document", style: CellStyle(flags: .bold)))
         article.addSubview(Label(""))
-    }
 
-    let scroller = ScrollView(document: article)
-    scroller.onOffsetChanged = { status.text = "scrolled to row \($0.y)" }
+        for chapter in 1...12 {
+            article.addSubview(Label("Chapter \(chapter)", style: CellStyle(flags: .underline)))
 
-    let scrollTab = VStack(spacing: 1, insets: EdgeInsets(all: 1))
-    scrollTab.addSubview(Label("Scroll (arrows, PgUp/PgDn, wheel):", style: CellStyle(flags: .bold)))
-    scrollTab.addSubview(scroller)
+            for line in 1...4 {
+                article.addSubview(Label("  \(chapter).\(line) The viewport clips; the offset translates."))
+            }
 
-    // "Data" tab content: a sortable table above a lazily-loading tree.
-    var tableRows = [
-        ("Button.swift", 4, "control"),
-        ("ListView.swift", 9, "control"),
-        ("Painter.swift", 5, "views"),
-        ("StackView.swift", 10, "layout"),
-        ("TableView.swift", 12, "control"),
-        ("Window.swift", 7, "app"),
-    ]
+            article.addSubview(Label(""))
+        }
 
-    let table = TableView(
-        columns: [
-            TableColumn("Name"),
-            TableColumn("KB", width: .fixed(4)),
-            TableColumn("Layer", width: .fixed(8)),
+        let scroller = ScrollView(document: article)
+        scroller.onOffsetChanged = { status.text = "scrolled to row \($0.y)" }
+
+        let scrollTab = VStack(spacing: 1, insets: EdgeInsets(all: 1))
+        scrollTab.addSubview(Label("Scroll (arrows, PgUp/PgDn, wheel):", style: CellStyle(flags: .bold)))
+        scrollTab.addSubview(scroller)
+
+        // "Data" tab content: a sortable table above a lazily-loading tree.
+        var tableRows = [
+            ("Button.swift", 4, "control"),
+            ("ListView.swift", 9, "control"),
+            ("Painter.swift", 5, "views"),
+            ("StackView.swift", 10, "layout"),
+            ("TableView.swift", 12, "control"),
+            ("Window.swift", 7, "app"),
         ]
-    )
 
-    func reloadTable() {
-        table.rows = tableRows.map { [$0.0, "\($0.1)", $0.2] }
-    }
+        let table = TableView(
+            columns: [
+                TableColumn("Name"),
+                TableColumn("KB", width: .fixed(4)),
+                TableColumn("Layer", width: .fixed(8)),
+            ]
+        )
 
-    reloadTable()
-    table.onSelectionChanged = { row in
-        status.text = row.map { "table row: \(tableRows[$0].0)" } ?? "table selection cleared"
-    }
-    table.onActivate = { status.text = "OPENED \(tableRows[$0].0)" }
-    table.onSortRequested = { column in
-        switch column {
-        case 0: tableRows.sort { $0.0 < $1.0 }
-        case 1: tableRows.sort { $0.1 < $1.1 }
-        default: tableRows.sort { $0.2 < $1.2 }
+        func reloadTable() {
+            table.rows = tableRows.map { [$0.0, "\($0.1)", $0.2] }
         }
 
         reloadTable()
-        status.text = "sorted by \(table.columns[column].title)"
-    }
-
-    let sources = TreeNode("Sources", childProvider: {
-        [
-            TreeNode("Controls", children: tableRows.map { TreeNode($0.0) }),
-            TreeNode("TUIKit.swift"),
-        ]
-    })
-    let docs = TreeNode("Docs", children: [
-        TreeNode("Architecture.md"),
-        TreeNode("ControlsUML.md"),
-    ])
-
-    let tree = TreeView(roots: [sources, docs])
-    tree.onSelectionChanged = { node in
-        status.text = node.map { "tree node: \($0.title)" } ?? "tree selection cleared"
-    }
-    tree.onActivate = { status.text = "OPENED \($0.title)" }
-
-    let tableSection = VStack(spacing: 1)
-    tableSection.addSubview(Label("Table (click headers to sort):", style: CellStyle(flags: .bold)))
-    tableSection.addSubview(table)
-
-    let treeSection = VStack(spacing: 1)
-    treeSection.addSubview(Label("Tree (←/→ disclose, lazy Sources):", style: CellStyle(flags: .bold)))
-    treeSection.addSubview(tree)
-
-    let dataSplit = SplitView(axis: .vertical, first: tableSection, second: treeSection)
-    dataSplit.minimumFirstLength = 4
-    dataSplit.minimumSecondLength = 4
-    dataSplit.onDividerMoved = { status.text = "split divider at row \($0)" }
-
-    let dataTab = VStack(spacing: 1, insets: EdgeInsets(all: 1))
-    dataTab.addSubview(Label("SplitView: drag the ─ divider, or focus it and use ↑/↓", style: CellStyle(flags: .bold)))
-    dataTab.addSubview(dataSplit)
-
-    // "Code" tab content: the syntax editor, holding this window's
-    // stylesheet. With Theme ▸ CSS active, edits re-style the window live.
-    let editor = SyntaxTextView(
-        text: """
-        /* TUIKit stylesheet — pick Theme > CSS,
-           then edit me and watch the window restyle */
-        Panel { border: rounded; border-color: brightCyan; }
-        .status { color: brightCyan; }
-        Button { bold: true; }
-        TableView { header-color: brightYellow;
-                    selection-background: #aa5500; }
-        ListView { selection-background: #2266aa;
-                   selection-color: brightWhite; }
-        TextField:focused { underline: true; }
-        """,
-        language: "css"
-    )
-    editor.onChanged = { source in
-        if cssThemeActive {
-            controls.styleSheet = StyleSheet(source)
-            status.text = "CSS re-applied — \(editor.lineCount) lines"
-        } else {
-            status.text = "editing — \(editor.lineCount) lines (Theme ▸ CSS applies this)"
+        table.onSelectionChanged = { row in
+            status.text = row.map { "table row: \(tableRows[$0].0)" } ?? "table selection cleared"
         }
-    }
+        table.onActivate = { status.text = "OPENED \(tableRows[$0].0)" }
+        table.onSortRequested = { column in
+            switch column {
+            case 0: tableRows.sort { $0.0 < $1.0 }
+            case 1: tableRows.sort { $0.1 < $1.1 }
+            default: tableRows.sort { $0.2 < $1.2 }
+            }
 
-    let codeTab = VStack(spacing: 1, insets: EdgeInsets(all: 1))
-    codeTab.addSubview(RichText(markup: "[bold]SyntaxTextView[/] — the window's [cyan]stylesheet[/]; live with Theme ▸ CSS"))
-    codeTab.addSubview(editor)
+            reloadTable()
+            status.text = "sorted by \(table.columns[column].title)"
+        }
 
-    // "Docs" tab content: a scrolling markdown reader.
-    let docsView = MarkdownView(markdown: """
-    # TUIKit
-
-    A terminal UI framework with **AppKit bones** and `RichSwift` blood. \
-    This paragraph is long on purpose so the view can show off soft \
-    word-wrapping at whatever width the terminal happens to be.
-
-    ## Controls
-    - Buttons, fields, checkboxes, radios, steppers
-    - Lists, tables, trees, a real directory browser
-    - Menus, dialogs, split views, color pickers
-
-    > Scroll me: arrows and PgUp/PgDn while focused, wheel anytime.
-
-    ```swift
-    let app = App(driver: ANSIDriver())
-    try await app.run(window)
-    ```
-    """)
-
-    let docsTab = VStack(spacing: 1, insets: EdgeInsets(all: 1))
-    docsTab.addSubview(Label("MarkdownView (read-only, wraps to width):", style: CellStyle(flags: .bold)))
-    docsTab.addSubview(docsView)
-
-    // The form scrolls vertically so every control stays reachable on
-    // small screens; the document reflows to the viewport width.
-    let formScroll = ScrollView(document: formTab)
-    formScroll.fitsDocumentWidth = true
-
-    // "Panes" tab content: five live panes carved by three draggable
-    // dividers — drag a line and watch the content reflow. The panel joins
-    // edge-reaching dividers into its border (├ ┤ ┬ ┴), the crossing shows
-    // ┼, and the right divider's endpoint tees into the horizontal (┬).
-    let panesPanel = TUIKit.Panel("Dividers & Junctions — drag any line")
-
-    let paneGuide = MarkdownView(markdown: """
-    **Panes.** Drag the lines with the mouse, or Tab to one and use the \
-    arrows. This text **rewraps** as its pane resizes.
-    """)
-
-    let paneSwift = SyntaxTextView(text: """
-    // resize me
-    func layout(panes: Int) -> Bool {
-        let lines = 3
-        return panes == 5 && lines == 3
-    }
-    """, language: "swift")
-
-    let paneList = ListView(items: (1...20).map { "Pane row \($0)" })
-    paneList.onSelectionChanged = { index in
-        status.text = index.map { "pane list row \($0 + 1)" } ?? ""
-    }
-
-    let paneNotes = MarkdownView(markdown: """
-    - `┼` where lines cross
-    - `┬` endpoint meets a line
-    - border tees join the panel
-    - focused lines show the accent
-    """)
-
-    let paneCSS = SyntaxTextView(text: """
-    /* junctions follow drags */
-    Panel { border: rounded; }
-    .status { color: brightCyan; }
-    """, language: "css")
-
-    let panes = PanesLayout(
-        topLeft: paneGuide,
-        topRight: paneSwift,
-        bottomLeft: paneList,
-        bottomMiddle: paneNotes,
-        bottomRight: paneCSS
-    )
-    panes.onDividerMoved = { name in
-        status.text = "\(name) divider moved — panes resize, junctions follow"
-    }
-    panes.anchors = .fill()
-    panesPanel.content.addSubview(panes)
-
-    // "New" tab: the Controls v2 additions (PLAN Phase 6B) — a toolbar with a
-    // » overflow, a determinate progress bar plus a live spinner driven by an
-    // App timer, date/time pickers with a calendar popup, and a Miller-column
-    // browser. This is also the demo's proof of the non-blocking timer story.
-    final class DemoBrowserSource: BrowserDataSource {
-        func browserRootItems(_ browser: Browser) -> [BrowserItem] {
+        let sources = TreeNode("Sources", childProvider: {
             [
-                BrowserItem("Fruits", isExpandable: true),
-                BrowserItem("Veg", isExpandable: true),
-                BrowserItem("Grains", isExpandable: true),
-                BrowserItem("README"),
+                TreeNode("Controls", children: tableRows.map { TreeNode($0.0) }),
+                TreeNode("TUIKit.swift"),
             ]
-        }
+        })
+        let docs = TreeNode("Docs", children: [
+            TreeNode("Architecture.md"),
+            TreeNode("ControlsUML.md"),
+        ])
 
-        func browser(_ browser: Browser, childrenOf item: BrowserItem) -> [BrowserItem] {
-            switch item.title {
-            case "Fruits":
-                return [BrowserItem("Citrus", isExpandable: true), BrowserItem("Apple"), BrowserItem("Banana")]
-            case "Citrus":
-                return [BrowserItem("Orange"), BrowserItem("Lemon"), BrowserItem("Lime")]
-            case "Veg":
-                return [BrowserItem("Carrot"), BrowserItem("Kale")]
-            case "Grains":
-                return [BrowserItem("Rice"), BrowserItem("Oats")]
-            default:
-                return []
+        let tree = TreeView(roots: [sources, docs])
+        tree.onSelectionChanged = { node in
+            status.text = node.map { "tree node: \($0.title)" } ?? "tree selection cleared"
+        }
+        tree.onActivate = { status.text = "OPENED \($0.title)" }
+
+        let tableSection = VStack(spacing: 1)
+        tableSection.addSubview(Label("Table (click headers to sort):", style: CellStyle(flags: .bold)))
+        tableSection.addSubview(table)
+
+        let treeSection = VStack(spacing: 1)
+        treeSection.addSubview(Label("Tree (←/→ disclose, lazy Sources):", style: CellStyle(flags: .bold)))
+        treeSection.addSubview(tree)
+
+        let dataSplit = SplitView(axis: .vertical, first: tableSection, second: treeSection)
+        dataSplit.minimumFirstLength = 4
+        dataSplit.minimumSecondLength = 4
+        dataSplit.onDividerMoved = { status.text = "split divider at row \($0)" }
+
+        let dataTab = VStack(spacing: 1, insets: EdgeInsets(all: 1))
+        dataTab.addSubview(Label("SplitView: drag the ─ divider, or focus it and use ↑/↓", style: CellStyle(flags: .bold)))
+        dataTab.addSubview(dataSplit)
+
+        // "Code" tab content: the syntax editor, holding this window's
+        // stylesheet. With Theme ▸ CSS active, edits re-style the window live.
+        let editor = SyntaxTextView(
+            text: """
+            /* TUIKit stylesheet — pick Theme > CSS,
+               then edit me and watch the window restyle */
+            Panel { border: rounded; border-color: brightCyan; }
+            .status { color: brightCyan; }
+            Button { bold: true; }
+            TableView { header-color: brightYellow;
+                        selection-background: #aa5500; }
+            ListView { selection-background: #2266aa;
+                       selection-color: brightWhite; }
+            TextField:focused { underline: true; }
+            """,
+            language: "css"
+        )
+        editor.onChanged = { source in
+            if cssThemeActive {
+                controls.styleSheet = StyleSheet(source)
+                status.text = "CSS re-applied — \(editor.lineCount) lines"
+            } else {
+                status.text = "editing — \(editor.lineCount) lines (Theme ▸ CSS applies this)"
             }
         }
-    }
 
-    let toolbar = Toolbar()
-    toolbar.addItem("Run", icon: "▶") { status.text = "toolbar ▸ Run" }
-    toolbar.addItem("Stop", icon: "■") { status.text = "toolbar ▸ Stop" }
-    toolbar.addItem("Reset", icon: "↺") { status.text = "toolbar ▸ Reset" }
-    toolbar.addItem("Export") { status.text = "toolbar ▸ Export" }
-    toolbar.addItem("Settings") { status.text = "toolbar ▸ Settings" }
+        let codeTab = VStack(spacing: 1, insets: EdgeInsets(all: 1))
+        codeTab.addSubview(RichText(markup: "[bold]SyntaxTextView[/] — the window's [cyan]stylesheet[/]; live with Theme ▸ CSS"))
+        codeTab.addSubview(editor)
 
-    let progress = ProgressIndicator(style: .bar, value: 40, minValue: 0, maxValue: 100)
-    progress.showsPercentage = true
+        // "Docs" tab content: a scrolling markdown reader.
+        let docsView = MarkdownView(markdown: """
+        # TUIKit
 
-    let progressSlider = Slider(value: 40, in: 0...100, step: 5)
-    progressSlider.onValueChanged = {
-        progress.doubleValue = Double($0)
-        status.text = "progress: \($0)%"
-    }
+        A terminal UI framework with **AppKit bones** and `RichSwift` blood. \
+        This paragraph is long on purpose so the view can show off soft \
+        word-wrapping at whatever width the terminal happens to be.
 
-    let spinner = ProgressIndicator(style: .spinner)
-    spinner.caption = "idle"
+        ## Controls
+        - Buttons, fields, checkboxes, radios, steppers
+        - Lists, tables, trees, a real directory browser
+        - Menus, dialogs, split views, color pickers
 
-    var spinnerTimer: AppTimer?
-    let spinToggle = ToggleButton("Spin")
-    spinToggle.onChange = { on in
-        if on {
-            spinner.caption = "working…"
-            spinnerTimer = app.addTimer(every: .milliseconds(120)) { spinner.advance() }
-            status.text = "spinner: animating (App timer)"
-        } else {
-            spinnerTimer?.cancel()
-            spinnerTimer = nil
-            spinner.caption = "idle"
-            status.text = "spinner: stopped"
+        > Scroll me: arrows and PgUp/PgDn while focused, wheel anytime.
+
+        ```swift
+        let app = App(driver: ANSIDriver())
+        try await app.run(window)
+        ```
+        """)
+
+        let docsTab = VStack(spacing: 1, insets: EdgeInsets(all: 1))
+        docsTab.addSubview(Label("MarkdownView (read-only, wraps to width):", style: CellStyle(flags: .bold)))
+        docsTab.addSubview(docsView)
+
+        // The form scrolls vertically so every control stays reachable on
+        // small screens; the document reflows to the viewport width.
+        let formScroll = ScrollView(document: formTab)
+        formScroll.fitsDocumentWidth = true
+
+        // "Panes" tab content: five live panes carved by three draggable
+        // dividers — drag a line and watch the content reflow. The panel joins
+        // edge-reaching dividers into its border (├ ┤ ┬ ┴), the crossing shows
+        // ┼, and the right divider's endpoint tees into the horizontal (┬).
+        let panesPanel = TUIKit.Panel("Dividers & Junctions — drag any line")
+
+        let paneGuide = MarkdownView(markdown: """
+        **Panes.** Drag the lines with the mouse, or Tab to one and use the \
+        arrows. This text **rewraps** as its pane resizes.
+        """)
+
+        let paneSwift = SyntaxTextView(text: """
+        // resize me
+        func layout(panes: Int) -> Bool {
+            let lines = 3
+            return panes == 5 && lines == 3
         }
+        """, language: "swift")
+
+        let paneList = ListView(items: (1...20).map { "Pane row \($0)" })
+        paneList.onSelectionChanged = { index in
+            status.text = index.map { "pane list row \($0 + 1)" } ?? ""
+        }
+
+        let paneNotes = MarkdownView(markdown: """
+        - `┼` where lines cross
+        - `┬` endpoint meets a line
+        - border tees join the panel
+        - focused lines show the accent
+        """)
+
+        let paneCSS = SyntaxTextView(text: """
+        /* junctions follow drags */
+        Panel { border: rounded; }
+        .status { color: brightCyan; }
+        """, language: "css")
+
+        let panes = PanesLayout(
+            topLeft: paneGuide,
+            topRight: paneSwift,
+            bottomLeft: paneList,
+            bottomMiddle: paneNotes,
+            bottomRight: paneCSS
+        )
+        panes.onDividerMoved = { name in
+            status.text = "\(name) divider moved — panes resize, junctions follow"
+        }
+        panes.anchors = .fill()
+        panesPanel.content.addSubview(panes)
+
+        // "New" tab: the Controls v2 additions (PLAN Phase 6B) — a toolbar with a
+        // » overflow, a determinate progress bar plus a live spinner driven by an
+        // App timer, date/time pickers with a calendar popup, and a Miller-column
+        // browser. This is also the demo's proof of the non-blocking timer story.
+        final class DemoBrowserSource: BrowserDataSource {
+            func browserRootItems(_ browser: Browser) -> [BrowserItem] {
+                [
+                    BrowserItem("Fruits", isExpandable: true),
+                    BrowserItem("Veg", isExpandable: true),
+                    BrowserItem("Grains", isExpandable: true),
+                    BrowserItem("README"),
+                ]
+            }
+
+            func browser(_ browser: Browser, childrenOf item: BrowserItem) -> [BrowserItem] {
+                switch item.title {
+                case "Fruits":
+                    return [BrowserItem("Citrus", isExpandable: true), BrowserItem("Apple"), BrowserItem("Banana")]
+                case "Citrus":
+                    return [BrowserItem("Orange"), BrowserItem("Lemon"), BrowserItem("Lime")]
+                case "Veg":
+                    return [BrowserItem("Carrot"), BrowserItem("Kale")]
+                case "Grains":
+                    return [BrowserItem("Rice"), BrowserItem("Oats")]
+                default:
+                    return []
+                }
+            }
+        }
+
+        let toolbar = Toolbar()
+        toolbar.addItem("Run", icon: "▶") { status.text = "toolbar ▸ Run" }
+        toolbar.addItem("Stop", icon: "■") { status.text = "toolbar ▸ Stop" }
+        toolbar.addItem("Reset", icon: "↺") { status.text = "toolbar ▸ Reset" }
+        toolbar.addItem("Export") { status.text = "toolbar ▸ Export" }
+        toolbar.addItem("Settings") { status.text = "toolbar ▸ Settings" }
+
+        let progress = ProgressIndicator(style: .bar, value: 40, minValue: 0, maxValue: 100)
+        progress.showsPercentage = true
+
+        let progressSlider = Slider(value: 40, in: 0...100, step: 5)
+        progressSlider.onValueChanged = {
+            progress.doubleValue = Double($0)
+            status.text = "progress: \($0)%"
+        }
+
+        let spinner = ProgressIndicator(style: .spinner)
+        spinner.caption = "idle"
+
+        var spinnerTimer: AppTimer?
+        let spinToggle = ToggleButton("Spin")
+        spinToggle.onChange = { on in
+            if on {
+                spinner.caption = "working…"
+                spinnerTimer = app.addTimer(every: .milliseconds(120)) { spinner.advance() }
+                status.text = "spinner: animating (App timer)"
+            } else {
+                spinnerTimer?.cancel()
+                spinnerTimer = nil
+                spinner.caption = "idle"
+                status.text = "spinner: stopped"
+            }
+        }
+
+        let spinRow = HStack(spacing: 2)
+        spinRow.addSubview(spinToggle)
+        spinRow.addSubview(spinner)
+        spinRow.addSubview(TUIView())
+
+        let datePicker = DatePicker(mode: .date)
+        datePicker.onDateChanged = { _ in status.text = "date updated" }
+        let timePicker = DatePicker(mode: .time)
+        timePicker.onDateChanged = { _ in status.text = "time updated" }
+
+        let dateRow = HStack(spacing: 3)
+        dateRow.addSubview(Label("Date:", style: CellStyle(flags: .bold)))
+        dateRow.addSubview(datePicker)
+        dateRow.addSubview(Label("Time:", style: CellStyle(flags: .bold)))
+        dateRow.addSubview(timePicker)
+        dateRow.addSubview(TUIView())
+
+        let millerBrowser = Browser(dataSource: DemoBrowserSource(), columnWidth: 14)
+        millerBrowser.maximumSize = Size(width: 9999, height: 7)
+        millerBrowser.onSelectionChanged = { (item: BrowserItem?) in
+            status.text = item.map { "browser ▸ \($0.title)" } ?? "browser cleared"
+        }
+
+        let v2Tab = VStack(spacing: 1, insets: EdgeInsets(all: 1))
+        v2Tab.addSubview(Label("Toolbar — ←/→ move, Return activates, » overflow when narrow:", style: CellStyle(flags: .dim)))
+        v2Tab.addSubview(toolbar)
+        v2Tab.addSubview(Label("Progress bar — slide to fill:", style: CellStyle(flags: .dim)))
+        v2Tab.addSubview(progressSlider)
+        v2Tab.addSubview(progress)
+        v2Tab.addSubview(Label("Spinner — toggle to animate via a non-blocking App timer:", style: CellStyle(flags: .dim)))
+        v2Tab.addSubview(spinRow)
+        v2Tab.addSubview(Label("Pickers — ↑/↓ fields, ←/→ segments, Space drops a calendar:", style: CellStyle(flags: .dim)))
+        v2Tab.addSubview(dateRow)
+        v2Tab.addSubview(Label("Browser — Miller columns, ←/→ between columns:", style: CellStyle(flags: .dim)))
+        v2Tab.addSubview(millerBrowser)
+
+        let v2Scroll = ScrollView(document: v2Tab)
+        v2Scroll.fitsDocumentWidth = true
+
+        let tabs = TabView()
+        tabs.addTab("Form", content: formScroll)
+        tabs.addTab("New", content: v2Scroll)
+        tabs.addTab("Files", content: filesTab)
+        tabs.addTab("Scroll", content: scrollTab)
+        tabs.addTab("Data", content: dataTab)
+        tabs.addTab("Code", content: codeTab)
+        tabs.addTab("Docs", content: docsTab)
+        tabs.addTab("Panes", content: panesPanel)
+        tabs.onSelectionChanged = { status.text = "tab: \(tabs.title(at: $0) ?? "?")" }
+        // Fill the controls window, leaving the bottom row for the status bar.
+        tabs.anchors = AnchorSet(leading: 0, trailing: 0, top: 0, bottom: 1)
+
+        // Status bar (Controls v2): flexible status label, a live-CSS toggle,
+        // and a theme pop-up whose menu opens *above* (it sits at the bottom).
+        let liveToggle = ToggleButton("CSS")
+        liveToggle.onChange = { on in
+            cssThemeActive = on
+            controls.styleSheet = on ? StyleSheet(editor.text) : nil
+            status.text = on
+                ? "stylesheet applied — edit it live in the Code tab"
+                : "stylesheet cleared"
+        }
+
+        let themePopUp = PopUpButton(items: TUIKit.Theme.builtIn.map(\.name), selectedIndex: 0)
+        themePopUp.onSelectionChanged = { index in
+            controls.theme = TUIKit.Theme.builtIn[index].theme
+            status.text = "theme: \(TUIKit.Theme.builtIn[index].name)"
+        }
+
+        let statusBar = StatusBar()
+        statusBar.addSegment(status, percentage: 100)
+        statusBar.addSegment(liveToggle)
+        statusBar.addSegment(themePopUp)
+        statusBar.anchors = AnchorSet(leading: 0, trailing: 0, bottom: 0, height: 1)
+
+        controls.content.addSubview(tabs)
+        controls.content.addSubview(statusBar)
+        controls.makeFirstResponder(tabs)
+        return controls
     }
 
-    let spinRow = HStack(spacing: 2)
-    spinRow.addSubview(spinToggle)
-    spinRow.addSubview(spinner)
-    spinRow.addSubview(View())
+    // The DECLARATIVE example: the same spirit built with the TUIBuilder layer
+    // (Docs/TUIBuilder.md) — nested containers, trailing-closure children,
+    // chained modifiers, and no reactivity. Controls take defaults; you add
+    // only your differences, and the parent containers do the layout. This is
+    // the default window at launch.
+    func makeDeclarativeExample(index: Int) -> FloatingWindow {
+        let window = FloatingWindow(
+            title: "Declarative Example \(index)",
+            frame: Rect(x: 8 + index * 4, y: 4 + index * 2, width: 54, height: 20)
+        )
+        window.theme = .standard
+        window.onCloseRequest = { [weak window] in
+            if let window { app.dismiss(window) }
+        }
 
-    let datePicker = DatePicker(mode: .date)
-    datePicker.onDateChanged = { _ in status.text = "date updated" }
-    let timePicker = DatePicker(mode: .time)
-    timePicker.onDateChanged = { _ in status.text = "time updated" }
+        let status = Label("Built with TUIBuilder — try the controls.", style: CellStyle(flags: .dim))
+        let progress = ProgressIndicator(style: .bar, value: 40, minValue: 0, maxValue: 100)
+        progress.showsPercentage = true
 
-    let dateRow = HStack(spacing: 3)
-    dateRow.addSubview(Label("Date:", style: CellStyle(flags: .bold)))
-    dateRow.addSubview(datePicker)
-    dateRow.addSubview(Label("Time:", style: CellStyle(flags: .bold)))
-    dateRow.addSubview(timePicker)
-    dateRow.addSubview(View())
+        let nameField = TextField(placeholder: "type a name")
+        nameField.onSubmit { status.text = "name: \($0)" }
 
-    let millerBrowser = Browser(dataSource: DemoBrowserSource(), columnWidth: 14)
-    millerBrowser.maximumSize = Size(width: 9999, height: 7)
-    millerBrowser.onSelectionChanged = { (item: BrowserItem?) in
-        status.text = item.map { "browser ▸ \($0.title)" } ?? "browser cleared"
+        let content = VStack(spacing: 1, insets: EdgeInsets(all: 1)) {
+            Label("A form, declared").bold()
+
+            HStack(spacing: 1) {
+                Label("Name:").bold()
+                nameField
+            }
+
+            Toggle("Wrap lines").onChange { status.text = "wrap: \($0)" }
+
+            HStack(spacing: 1) {
+                Label("Mode:").bold()
+                SegmentedControl(["Fast", "Balanced", "Accurate"], selectedIndex: 1)
+                    .onSelectionChanged { status.text = "mode \($0)" }
+            }
+
+            HStack(spacing: 1) {
+                Label("Fill:").bold()
+                Slider(value: 40, in: 0...100, step: 5).onValueChanged { value in
+                    progress.doubleValue = Double(value)
+                    status.text = "fill \(value)%"
+                }
+            }
+
+            progress
+
+            Spacer()
+
+            HStack(spacing: 2) {
+                Spacer()
+                Button("Reset") { status.text = "reset" }
+                Button("Save") { status.text = "saved" }
+            }
+
+            status
+        }
+
+        content.anchors = .fill()
+        window.content.addSubview(content)
+        window.makeFirstResponder(nameField)
+        return window
     }
 
-    let v2Tab = VStack(spacing: 1, insets: EdgeInsets(all: 1))
-    v2Tab.addSubview(Label("Toolbar — ←/→ move, Return activates, » overflow when narrow:", style: CellStyle(flags: .dim)))
-    v2Tab.addSubview(toolbar)
-    v2Tab.addSubview(Label("Progress bar — slide to fill:", style: CellStyle(flags: .dim)))
-    v2Tab.addSubview(progressSlider)
-    v2Tab.addSubview(progress)
-    v2Tab.addSubview(Label("Spinner — toggle to animate via a non-blocking App timer:", style: CellStyle(flags: .dim)))
-    v2Tab.addSubview(spinRow)
-    v2Tab.addSubview(Label("Pickers — ↑/↓ fields, ←/→ segments, Space drops a calendar:", style: CellStyle(flags: .dim)))
-    v2Tab.addSubview(dateRow)
-    v2Tab.addSubview(Label("Browser — Miller columns, ←/→ between columns:", style: CellStyle(flags: .dim)))
-    v2Tab.addSubview(millerBrowser)
+    // Root menu strip: File spawns example windows, Theme restyles the key one.
+    let menuWindow = MenuBarWindow()
+    menuWindow.onQuit = { app.stop() }
 
-    let v2Scroll = ScrollView(document: v2Tab)
-    v2Scroll.fitsDocumentWidth = true
-
-    let tabs = TabView()
-    tabs.addTab("Form", content: formScroll)
-    tabs.addTab("New", content: v2Scroll)
-    tabs.addTab("Files", content: filesTab)
-    tabs.addTab("Scroll", content: scrollTab)
-    tabs.addTab("Data", content: dataTab)
-    tabs.addTab("Code", content: codeTab)
-    tabs.addTab("Docs", content: docsTab)
-    tabs.addTab("Panes", content: panesPanel)
-    tabs.onSelectionChanged = { status.text = "tab: \(tabs.title(at: $0) ?? "?")" }
-    // Fill the controls window, leaving the bottom row for the status bar.
-    tabs.anchors = AnchorSet(leading: 0, trailing: 0, top: 0, bottom: 1)
-
-    // Status bar (Controls v2): flexible status label, a live-CSS toggle,
-    // and a theme pop-up whose menu opens *above* (it sits at the bottom).
-    let liveToggle = ToggleButton("CSS")
-    liveToggle.onChange = { on in
-        cssThemeActive = on
-        controls.styleSheet = on ? StyleSheet(editor.text) : nil
-        status.text = on
-            ? "stylesheet applied — edit it live in the Code tab"
-            : "stylesheet cleared"
-    }
-
-    let themePopUp = PopUpButton(items: TUIKit.Theme.builtIn.map(\.name), selectedIndex: 0)
-    themePopUp.onSelectionChanged = { index in
-        controls.theme = TUIKit.Theme.builtIn[index].theme
-        status.text = "theme: \(TUIKit.Theme.builtIn[index].name)"
-    }
-
-    let statusBar = StatusBar()
-    statusBar.addSegment(status, percentage: 100)
-    statusBar.addSegment(liveToggle)
-    statusBar.addSegment(themePopUp)
-    statusBar.anchors = AnchorSet(leading: 0, trailing: 0, bottom: 0, height: 1)
-
-    // Menu bar on the top row: hot keys work from anywhere (^O, ^Q).
+    var exampleCount = 0
     let fileMenu = Menu("File")
-    fileMenu.addItem("Open…", keyEquivalent: KeyInput(key: .character("o"), modifiers: .control)) {
-        open.activate()
+    fileMenu.addItem("New Declarative Example", keyEquivalent: KeyInput(key: .character("n"), modifiers: .control)) {
+        exampleCount += 1
+        app.present(makeDeclarativeExample(index: exampleCount))
+    }
+    fileMenu.addItem("New Manual Example", keyEquivalent: KeyInput(key: .character("m"), modifiers: .control)) {
+        exampleCount += 1
+        app.present(makeManualExample(index: exampleCount))
+    }
+    fileMenu.addSeparator()
+    fileMenu.addItem("Close Window", keyEquivalent: KeyInput(key: .character("w"), modifiers: .control)) {
+        // Opening the menu made the strip key, so target the top-most example.
+        if let target = app.windows.last(where: { $0 !== menuWindow }) {
+            app.dismiss(target)
+        }
     }
     fileMenu.addSeparator()
     fileMenu.addItem("Quit", keyEquivalent: KeyInput(key: .character("q"), modifiers: .control)) {
-        quit.activate()
+        app.stop()
     }
 
-    let viewMenu = Menu("View")
-
-    for (index, name) in ["Form", "Files", "Scroll", "Data", "Code", "Docs", "Panes"].enumerated() {
-        viewMenu.addItem(name) {
-            tabs.select(index, notify: true)
-        }
-    }
-
-    // Overlapping, non-modal windows: spawn floats, click between them.
-    var floatingWindows: [FloatingWindow] = []
-    var floatingCount = 0
-
-    let windowMenu = Menu("Window")
-    windowMenu.addItem("New Floating Window", keyEquivalent: KeyInput(key: .character("n"), modifiers: .control)) {
-        floatingCount += 1
-        let id = floatingCount
-        let pick = TUIKit.Theme.builtIn[id % TUIKit.Theme.builtIn.count]
-
-        let float = FloatingWindow(
-            title: "Float \(id) — \(pick.name)",
-            frame: Rect(x: 4 + (id % 5) * 6, y: 2 + (id % 4) * 2, width: 36, height: 10)
-        )
-        float.theme = pick.theme
-        float.onCloseRequest = { [weak float] in
-            if let float {
-                floatingWindows.removeAll { $0 === float }
-                app.dismiss(float)
-            }
-        }
-
-        let list = ListView(items: (1...8).map { "Row \($0) of \(pick.name)" })
-        list.onSelectionChanged = { index in
-            status.text = index.map { "float \(id): row \($0 + 1)" } ?? "float \(id)"
-        }
-
-        let column = VStack(spacing: 1)
-        column.addSubview(Label("Click another window to activate it.", style: CellStyle(flags: .dim)))
-        column.addSubview(list)
-        column.anchors = .fill()
-        float.content.addSubview(column)
-
-        floatingWindows.append(float)
-        app.present(float)
-        float.makeFirstResponder(list)
-        status.text = "float \(id): drag the title to move, ◢ to resize, click windows to switch"
-    }
-    windowMenu.addItem("Activate Controls Window") {
-        app.activate(controls)
-        status.text = "controls window is key"
-    }
-    windowMenu.addItem("Raise All Floating Windows") {
-        for float in floatingWindows {
-            app.activate(float)
-        }
-
-        status.text = floatingWindows.isEmpty
-            ? "no floating windows — File ▸ New Floating Window"
-            : "raised \(floatingWindows.count) floating window(s) above the main window"
-    }
-
-    // Live theme switching for the controls window.
     let themeMenu = Menu("Theme")
-
-    for (name, theme) in TUIKit.Theme.builtIn {   // qualified: RichSwift also has a Theme
+    for (name, theme) in TUIKit.Theme.builtIn {
         themeMenu.addItem(name) {
-            cssThemeActive = false
-            liveToggle.setOn(false)
-            controls.styleSheet = nil
-            controls.theme = theme
-            status.text = "theme: \(name)"
+            // Restyle the top-most example (the strip is key while the menu is open).
+            app.windows.last(where: { $0 !== menuWindow })?.theme = theme
         }
-    }
-
-    themeMenu.addSeparator()
-    themeMenu.addItem("CSS") {
-        cssThemeActive = true
-        liveToggle.setOn(true)
-        controls.theme = .standard
-        controls.styleSheet = StyleSheet(editor.text)
-        tabs.select(4, notify: true)   // jump to the Code tab: the source
-        status.text = "theme: CSS — edit the stylesheet here, changes apply live"
     }
 
     let menuBar = MenuBar()
     menuBar.addMenu(fileMenu)
-    menuBar.addMenu(viewMenu)
-    menuBar.addMenu(windowMenu)
     menuBar.addMenu(themeMenu)
     menuBar.anchors = AnchorSet(leading: 0, top: 0, height: 1)
-
-    // Assemble: controls in their floating window, the menu bar in the
-    // root strip window.
-    controls.content.addSubview(tabs)
-    controls.content.addSubview(statusBar)
-    controls.makeFirstResponder(tabs)   // ←/→ switches tabs; Tab enters content
-
     menuWindow.addSubview(menuBar)
     menuWindow.menuBar = menuBar
     menuWindow.makeFirstResponder(menuBar)
 
-    // A global StatusBar pinned to the very bottom of the screen — proof a
-    // StatusBar works as root-window chrome, and a second live use of the
-    // App timer: the clock ticks once a second without ever blocking.
+    // Global status bar + live clock along the very bottom (also a second use
+    // of the non-blocking App timer).
     let clock = Label("--:--:--")
     let clockFormatter = DateFormatter()
     clockFormatter.dateFormat = "HH:mm:ss"
-
-    func refreshClock() {
-        clock.text = clockFormatter.string(from: Date())
-    }
-
+    func refreshClock() { clock.text = clockFormatter.string(from: Date()) }
     refreshClock()
     app.addTimer(every: .seconds(1)) { refreshClock() }
 
     let globalStatus = StatusBar()
     globalStatus.addSegment(Label(" TUIKit Demo", style: CellStyle(flags: .bold)), minimumWidth: 14)
-    globalStatus.addSegment(Label("menu ▸ File · click a window to focus · Esc quits"), percentage: 100)
+    globalStatus.addSegment(Label("File ▸ New… opens examples · close a window to dismiss it"), percentage: 100)
     globalStatus.addSegment(clock, minimumWidth: 10)
     globalStatus.anchors = AnchorSet(leading: 0, trailing: 0, bottom: 0, height: 1)
     menuWindow.addSubview(globalStatus)
 
-    // The controls float goes onto the desktop first; running presents the
-    // menu window above it. Click either to make it key.
-    app.present(controls)
+    // The declarative example is the default, on the desktop; the menu strip
+    // runs on top. File ▸ New… opens more of either kind.
+    app.present(makeDeclarativeExample(index: 0))
 
     do {
         try await app.run(menuWindow)
@@ -923,7 +918,7 @@ func runEventViewer() async throws {
 
 /// Bordered, titled panel used by the gallery's view-tree section.
 @MainActor
-final class DemoPanel: View {
+final class DemoPanel: TUIView {
     var title: String
     var background: TerminalColor
 
@@ -1062,7 +1057,7 @@ for step in 0..<64 {
 
 show(gradient)
 
-// MARK: - View Tree (Phase 3)
+// MARK: - TUIView Tree (Phase 3)
 
 heading("View tree — local coordinates & clipping")
 
@@ -1154,7 +1149,7 @@ let galleryButtons = HStack(spacing: 2)
 let galleryOK = Button("OK")
 galleryButtons.addSubview(galleryOK)
 galleryButtons.addSubview(Button("Cancel"))
-galleryButtons.addSubview(View())
+galleryButtons.addSubview(TUIView())
 
 controlsForm.addSubview(galleryRow)
 controlsForm.addSubview(Checkbox("Wrap lines", isChecked: true))
@@ -1255,7 +1250,7 @@ print("""
 All Phase 6 controls have landed. Next up: styling & theming (Phase 7),
 demo polish (Phase 8), and the tutorial (Phase 9).
 
-Live demos:  swift run TUIKitDemo --interactive   (tabbed control form)
+Live demos:  swift run TUIKitDemo --interactive   (declarative + manual windows)
              swift run TUIKitDemo --events        (driver event viewer)
 """)
 }

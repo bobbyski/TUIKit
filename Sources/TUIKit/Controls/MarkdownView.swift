@@ -14,7 +14,7 @@
 ///
 /// Read-only by design; for editable text see `SyntaxTextView`.
 @MainActor
-public final class MarkdownView: View {
+public final class MarkdownView: TUIView {
     /// The markdown source.
     public private(set) var markdown: String
 

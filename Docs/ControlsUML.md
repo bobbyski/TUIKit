@@ -12,7 +12,7 @@ Conventions:
 - Event callbacks are listed as fields typed as closures (e.g.
   `onActivate : () -> Void`).
 - `«control»` in a note marks views intended as user-facing controls, versus
-  structural views (`View`, `StackView`, `Window`).
+  structural views (`TUIView`, `StackView`, `Window`).
 
 ## Diagram
 
@@ -20,11 +20,11 @@ Conventions:
 classDiagram
     direction TB
 
-    class View {
+    class TUIView {
         <<@MainActor, base>>
         +frame : Rect
         +bounds : Rect
-        +subviews : [View]
+        +subviews : [TUIView]
         +isHidden : Bool
         +anchors : AnchorSet?
         +theme : Theme?
@@ -37,9 +37,11 @@ classDiagram
         +maximumSize : Size?
         +acceptsFirstResponder : Bool
         +isFirstResponder : Bool
-        +addSubview(View)
+        +addSubview(TUIView)
         +draw(Painter)
         +layoutSubviews()
+        +relayout()
+        +refresh()
         +keyDown(KeyInput) Bool
         +handleHotKey(KeyInput) Bool
         +handleColdKey(KeyInput) Bool
@@ -111,13 +113,13 @@ classDiagram
         +tabCount : Int
         +tabBarHeight : Int
         +onSelectionChanged : (Int) -> Void
-        +addTab(String, content : View)
+        +addTab(String, content : TUIView)
         +select(Int, notify)
         +title(at : Int) String?
     }
 
     class ScrollView {
-        +documentView : View?
+        +documentView : TUIView?
         +contentOffset : Point
         +contentSize : Size
         +showsIndicators : Bool
@@ -180,12 +182,12 @@ classDiagram
     class Panel {
         +title : String
         +showsCloseButton : Bool
-        +content : View
+        +content : TUIView
         +onClose : () -> Void
     }
 
     class Dialog {
-        +body : View
+        +body : TUIView
         +buttons : [Button]
         +defaultButton : Button?
         +cancelButton : Button?
@@ -204,8 +206,8 @@ classDiagram
 
     class SplitView {
         +axis : StackView.Axis
-        +first : View
-        +second : View
+        +first : TUIView
+        +second : TUIView
         +currentDividerPosition : Int
         +minimumFirstLength : Int
         +minimumSecondLength : Int
@@ -342,7 +344,7 @@ classDiagram
     class DisclosureGroup {
         +title : String
         +isExpanded : Bool
-        +content : View
+        +content : TUIView
         +onExpansionChanged : (Bool) -> Void
         +setExpanded(Bool, notify)
         +toggle()
@@ -422,18 +424,24 @@ classDiagram
     class HStack
     class VStack
 
+    class AbsoluteLayout {
+        <<@MainActor, no auto-layout>>
+        +place(TUIView, at : Rect) TUIView
+        +intrinsicContentSize : Size?
+    }
+
     class GridView {
         +columns : [Track]
         +rows : [Track]
-        +place(View, column, row, spans)
+        +place(TUIView, column, row, spans)
         +setRow(Int, Track)
     }
 
     class Window {
         <<@MainActor, focus scope>>
-        +firstResponder : View?
+        +firstResponder : TUIView?
         +isModal : Bool
-        +makeFirstResponder(View?) Bool
+        +makeFirstResponder(TUIView?) Bool
         +focusNext() Bool
         +focusPrevious() Bool
         +route(TerminalInput) Bool
@@ -441,7 +449,7 @@ classDiagram
 
     class FloatingWindow {
         +title : String
-        +content : View
+        +content : TUIView
         +isMovable : Bool
         +isResizable : Bool
         +minimumWindowSize : Size
@@ -453,48 +461,49 @@ classDiagram
         +fillStyle : CellStyle
     }
 
-    View <|-- Label
-    View <|-- Button
-    View <|-- TextField
-    View <|-- Checkbox
-    View <|-- RadioGroup
-    View <|-- ListView
-    View <|-- SegmentedControl
-    View <|-- TabView
-    View <|-- ScrollView
-    View <|-- Stepper
-    View <|-- TableView
-    View <|-- TreeView
-    View <|-- DirectoryTree
-    View <|-- Panel
-    View <|-- Desktop
+    TUIView <|-- Label
+    TUIView <|-- Button
+    TUIView <|-- TextField
+    TUIView <|-- Checkbox
+    TUIView <|-- RadioGroup
+    TUIView <|-- ListView
+    TUIView <|-- SegmentedControl
+    TUIView <|-- TabView
+    TUIView <|-- ScrollView
+    TUIView <|-- Stepper
+    TUIView <|-- TableView
+    TUIView <|-- TreeView
+    TUIView <|-- DirectoryTree
+    TUIView <|-- Panel
+    TUIView <|-- Desktop
     Window <|-- Dialog
     Window <|-- FloatingWindow
     FloatingWindow *-- Panel : chrome
     Dialog <|-- FileDialog
-    View <|-- SplitView
-    View <|-- MenuBar
-    View <|-- ColorPicker
-    View <|-- RichText
-    View <|-- MarkdownView
-    View <|-- SyntaxTextView
-    View <|-- PopUpButton
-    View <|-- ToggleButton
-    View <|-- StatusBar
-    View <|-- Divider
-    View <|-- ComboBox
-    View <|-- Slider
-    View <|-- LevelIndicator
-    View <|-- PathControl
-    View <|-- DisclosureGroup
-    View <|-- ProgressIndicator
-    View <|-- DatePicker
-    View <|-- Toolbar
-    View <|-- Browser
+    TUIView <|-- SplitView
+    TUIView <|-- MenuBar
+    TUIView <|-- ColorPicker
+    TUIView <|-- RichText
+    TUIView <|-- MarkdownView
+    TUIView <|-- SyntaxTextView
+    TUIView <|-- PopUpButton
+    TUIView <|-- ToggleButton
+    TUIView <|-- StatusBar
+    TUIView <|-- Divider
+    TUIView <|-- ComboBox
+    TUIView <|-- Slider
+    TUIView <|-- LevelIndicator
+    TUIView <|-- PathControl
+    TUIView <|-- DisclosureGroup
+    TUIView <|-- ProgressIndicator
+    TUIView <|-- DatePicker
+    TUIView <|-- Toolbar
+    TUIView <|-- Browser
     ComboBox *-- TextField : editing
-    View <|-- StackView
-    View <|-- GridView
-    View <|-- Window
+    TUIView <|-- StackView
+    TUIView <|-- GridView
+    TUIView <|-- AbsoluteLayout
+    TUIView <|-- Window
     StackView <|-- HStack
     StackView <|-- VStack
 
@@ -515,17 +524,17 @@ classDiagram
     TreeNode o-- TreeNode : children
     DirectoryTree *-- TreeView : composes
     DirectoryTree ..> FileSystemProvider : lists via
-    Panel o-- View : content
+    Panel o-- TUIView : content
     Dialog *-- Panel : chrome
     Dialog o-- Button : actions
     FileDialog *-- DirectoryTree : browses
-    SplitView o-- View : first/second
+    SplitView o-- TUIView : first/second
     MenuBar o-- Menu : menus
     Menu o-- MenuItem : items
     ColorPicker *-- TabView : modes
     ColorPicker *-- Stepper : palette/rgb
-    TabView o-- View : content per tab
-    ScrollView o-- View : documentView
+    TabView o-- TUIView : content per tab
+    ScrollView o-- TUIView : documentView
 
     note for RowNavigationState "Shared selection/scroll core\ndriving List, Table, and Tree."
     note for RichText "Bridges RichSwift content\n(markup, tables, panels, syntax)\ninto cells via SGRDecoder."
@@ -590,7 +599,7 @@ See `Architecture.md` for how the run loop merges ticks with input.
 classDiagram
     direction TB
 
-    class View
+    class TUIView
     class TextField
 
     class ComboBox {
@@ -611,15 +620,15 @@ classDiagram
     class Toolbar
     class ContextMenu
 
-    View <|-- ComboBox
-    View <|-- ProgressIndicator
-    View <|-- Slider
-    View <|-- DatePicker
-    View <|-- LevelIndicator
-    View <|-- Browser
-    View <|-- PathControl
-    View <|-- DisclosureGroup
-    View <|-- Toolbar
+    TUIView <|-- ComboBox
+    TUIView <|-- ProgressIndicator
+    TUIView <|-- Slider
+    TUIView <|-- DatePicker
+    TUIView <|-- LevelIndicator
+    TUIView <|-- Browser
+    TUIView <|-- PathControl
+    TUIView <|-- DisclosureGroup
+    TUIView <|-- Toolbar
     ComboBox *-- TextField : editing
     StatusBar o-- StatusBarSegment : segments
 ```

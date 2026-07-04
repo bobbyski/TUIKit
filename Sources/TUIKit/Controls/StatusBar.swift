@@ -2,7 +2,7 @@
 @MainActor
 public final class StatusBarSegment {
     /// The one-row control the segment hosts.
-    public let content: View
+    public let content: TUIView
 
     /// Smallest width in cells. `nil` means the content's natural width.
     public var minimumWidth: Int?
@@ -15,7 +15,7 @@ public final class StatusBarSegment {
     /// Zero-percentage segments stay at their minimum width.
     public var percentage: Int
 
-    init(content: View, minimumWidth: Int?, maximumWidth: Int?, percentage: Int) {
+    init(content: TUIView, minimumWidth: Int?, maximumWidth: Int?, percentage: Int) {
         self.content = content
         self.minimumWidth = minimumWidth
         self.maximumWidth = maximumWidth
@@ -46,7 +46,7 @@ public final class StatusBarSegment {
 /// bar.anchors = AnchorSet(leading: 0, trailing: 0, bottom: 0, height: 1)
 /// ```
 @MainActor
-public final class StatusBar: View {
+public final class StatusBar: TUIView {
     /// Segments in display order.
     public private(set) var segments: [StatusBarSegment] = []
 
@@ -80,7 +80,7 @@ public final class StatusBar: View {
     /// - Returns: The created segment.
     @discardableResult
     public func addSegment(
-        _ content: View,
+        _ content: TUIView,
         minimumWidth: Int? = nil,
         maximumWidth: Int? = nil,
         percentage: Int = 0

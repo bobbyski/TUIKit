@@ -68,7 +68,7 @@ public final class ToolbarItem {
 /// bar.addItem("Stop", icon: "■") { session.stop() }
 /// ```
 @MainActor
-public final class Toolbar: View {
+public final class Toolbar: TUIView {
     /// Commands in display order.
     public private(set) var items: [ToolbarItem] = []
 
@@ -405,7 +405,7 @@ public final class Toolbar: View {
     // MARK: - Window plumbing
 
     private var owningWindow: Window? {
-        var current: View? = self
+        var current: TUIView? = self
 
         while let view = current {
             if let window = view as? Window {
@@ -421,7 +421,7 @@ public final class Toolbar: View {
     // This view's origin in the given window's coordinates.
     private func origin(in window: Window) -> Point {
         var origin = Point.zero
-        var current: View? = self
+        var current: TUIView? = self
 
         while let view = current, view !== window {
             origin = origin + view.frame.origin

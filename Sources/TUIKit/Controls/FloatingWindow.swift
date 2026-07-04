@@ -40,7 +40,7 @@ open class FloatingWindow: Window {
     public var onCloseRequest: () -> Void = {}
 
     /// Container for application content, inset by the chrome.
-    public var content: View {
+    public var content: TUIView {
         panel.content
     }
 

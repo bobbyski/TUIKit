@@ -5,7 +5,7 @@ import Testing
 
 @MainActor
 private func makeSplit() -> (SplitView, Window) {
-    let split = SplitView(axis: .horizontal, first: View(), second: View())
+    let split = SplitView(axis: .horizontal, first: TUIView(), second: TUIView())
     let window = Window(frame: Rect(x: 0, y: 0, width: 20, height: 4))
     split.frame = window.bounds
     window.addSubview(split)
@@ -67,7 +67,7 @@ private func makeSplit() -> (SplitView, Window) {
 }
 
 @Test @MainActor func splitViewVerticalAxisUsesRowGeometry() {
-    let split = SplitView(axis: .vertical, first: View(), second: View())
+    let split = SplitView(axis: .vertical, first: TUIView(), second: TUIView())
     split.frame = Rect(x: 0, y: 0, width: 10, height: 11)
     split.layoutIfNeeded()
 
