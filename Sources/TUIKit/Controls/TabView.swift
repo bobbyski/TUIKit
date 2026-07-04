@@ -65,6 +65,30 @@ public final class TabView: TUIView {
         setNeedsLayout()
     }
 
+    /// Replaces a tab's title and content in place, keeping its position and
+    /// (when it is the selected tab) its selection.
+    ///
+    /// Handy for a "reuse the current tab" flow — e.g. a file browser where a
+    /// single click retitles and refills the open tab, and only a new-tab
+    /// gesture calls `addTab`.
+    ///
+    /// - Parameters:
+    ///   - index: Tab to replace. Out-of-range indices are ignored.
+    ///   - title: New tab title.
+    ///   - content: New content view.
+    public func setTab(at index: Int, title: String, content: TUIView) {
+        guard tabs.indices.contains(index) else {
+            return
+        }
+
+        tabs[index].content.removeFromSuperview()
+        tabs[index] = Tab(title: title, content: content)
+        addSubview(content)
+        updateVisibility()
+        setNeedsLayout()
+        setNeedsDisplay()
+    }
+
     /// Title of a tab.
     ///
     /// - Parameter index: Tab index.

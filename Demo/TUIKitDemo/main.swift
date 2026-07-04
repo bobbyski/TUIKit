@@ -893,6 +893,155 @@ func runFormDemo() async throws {
         return window
     }
 
+    // A source browser for the demo itself: a directory tree on the left, a
+    // draggable divider, and a folder-tab editor on the right. It doubles as a
+    // teaching aid — open the very code that builds these windows. Click a file
+    // to open it in the current tab; click it again (or press ↵) to open it in
+    // a fresh tab.
+    func makeDemoSource(index: Int) -> FloatingWindow {
+        // #filePath is this source file's location, so its parent directory is
+        // the TUIKitDemo source tree — a stable anchor regardless of the
+        // process's working directory.
+        let demoDir = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+
+        // A tree node for a file or (lazily-listed) directory; the file URL
+        // rides along in `representedValue` so selection can open it.
+        func node(for url: URL) -> TreeNode {
+            let isDirectory = (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
+
+            let item = TreeNode(url.lastPathComponent, childProvider: isDirectory ? {
+                let children = (try? FileManager.default.contentsOfDirectory(
+                    at: url,
+                    includingPropertiesForKeys: [.isDirectoryKey],
+                    options: [.skipsHiddenFiles]
+                )) ?? []
+
+                return children
+                    .sorted { a, b in
+                        let aDir = (try? a.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
+                        let bDir = (try? b.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
+                        if aDir != bDir { return aDir }   // folders first
+                        return a.lastPathComponent.localizedCaseInsensitiveCompare(b.lastPathComponent) == .orderedAscending
+                    }
+                    .map { node(for: $0) }
+            } : nil)
+
+            item.representedValue = url
+            return item
+        }
+
+        let window = FloatingWindow(
+            title: "Demo Source \(index)",
+            frame: Rect(x: 6 + index * 3, y: 2 + index * 2, width: 84, height: 30)
+        )
+        window.onCloseRequest = { [weak window] in if let window { app.dismiss(window) } }
+
+        let tree = TreeView(roots: [node(for: demoDir)])
+        let tabs = TabView()
+        let status = Label(
+            "Click a file to open it · click it again (or ↵) to open it in a new tab",
+            style: CellStyle(flags: .dim)
+        )
+
+        func language(for url: URL) -> String {
+            switch url.pathExtension.lowercased() {
+            case "swift":            return "swift"
+            case "json":             return "json"
+            case "md", "markdown":   return "markdown"
+            case "css":              return "css"
+            default:                 return "text"
+            }
+        }
+
+        // Breadcrumb relative to the folder above the demo dir, so the first
+        // crumb is the demo folder's own name.
+        func crumbPath(for url: URL) -> String {
+            let base = demoDir.deletingLastPathComponent().path
+            let full = url.path
+            return full.hasPrefix(base + "/") ? String(full.dropFirst(base.count + 1)) : url.lastPathComponent
+        }
+
+        // One folder's content: a breadcrumb over a syntax editor. The VStack
+        // stretches the flexible editor to fill; the crumb row stays one tall.
+        func sourcePane(for url: URL, text: String) -> TUIView {
+            let crumbs = PathControl(path: crumbPath(for: url))
+            let editor = SyntaxTextView(text: text, language: language(for: url))
+            return VStack(spacing: 0) {
+                crumbs
+                editor
+            }
+        }
+
+        func open(_ url: URL, inNewTab newTab: Bool) {
+            guard (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) != true else {
+                return   // folders expand in the tree; only files open
+            }
+
+            guard let text = try? String(contentsOf: url, encoding: .utf8) else {
+                status.text = "· \(url.lastPathComponent) isn't a UTF-8 text file"
+                return
+            }
+
+            let pane = sourcePane(for: url, text: text)
+            let name = url.lastPathComponent
+
+            if newTab || tabs.tabCount == 0 {
+                tabs.addTab(name, content: pane)
+                tabs.select(tabs.tabCount - 1, notify: false)
+                status.text = "opened \(name) in a new tab — \(tabs.tabCount) open"
+            } else {
+                tabs.setTab(at: tabs.selectedIndex, title: name, content: pane)
+                status.text = "opened \(name) in the current tab"
+            }
+
+            window.content.setNeedsLayout()
+        }
+
+        // Single click opens in the current tab; a second click / Return opens
+        // a new tab (TreeView fires onActivate on a re-click of the selection).
+        tree.onSelectionChanged = { selected in
+            if let url = selected?.representedValue as? URL { open(url, inNewTab: false) }
+        }
+        tree.onActivate = { activated in
+            if let url = activated.representedValue as? URL { open(url, inNewTab: true) }
+        }
+
+        let treeSection = VStack(spacing: 0) {
+            Label(" Files", style: CellStyle(flags: .bold))
+            Divider(axis: .horizontal)
+            tree
+        }
+
+        let split = SplitView(.horizontal) { treeSection; tabs }
+        split.minimumFirstLength = 18
+        split.minimumSecondLength = 30
+
+        window.content.setContent {
+            VStack(spacing: 0) {
+                split
+                status
+            }
+        }
+        split.setDividerPosition(26)
+
+        // Reveal the folder, seed the first tab with main.swift, and highlight
+        // it — a ready-made reading start instead of an empty pane.
+        if let root = tree.roots.first {
+            tree.expand(root)
+            let mainURL = demoDir.appendingPathComponent("main.swift")
+            open(mainURL, inNewTab: true)
+
+            if let mainNode = root.children.first(where: {
+                ($0.representedValue as? URL)?.lastPathComponent == "main.swift"
+            }) {
+                tree.select(mainNode, notify: false)   // silent: the tab is already open
+            }
+        }
+
+        window.makeFirstResponder(tree)
+        return window
+    }
+
     // Root menu strip: File spawns example windows, Theme restyles the key one.
     let menuWindow = MenuBarWindow()
     menuWindow.onQuit = { app.stop() }
@@ -910,6 +1059,10 @@ func runFormDemo() async throws {
     fileMenu.addItem("New Contact Book", keyEquivalent: KeyInput(key: .character("b"), modifiers: .control)) {
         exampleCount += 1
         app.present(makeContactBook(index: exampleCount))
+    }
+    fileMenu.addItem("New Demo Source", keyEquivalent: KeyInput(key: .character("d"), modifiers: .control)) {
+        exampleCount += 1
+        app.present(makeDemoSource(index: exampleCount))
     }
     fileMenu.addSeparator()
     fileMenu.addItem("Close Window", keyEquivalent: KeyInput(key: .character("w"), modifiers: .control)) {

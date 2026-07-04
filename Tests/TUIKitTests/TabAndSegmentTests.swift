@@ -133,6 +133,26 @@ private func makeTabs() -> (TabView, Label, Label) {
     #expect(tabs.selectedIndex == 0)
 }
 
+@Test @MainActor func tabViewSetTabReplacesTitleAndContentInPlace() {
+    let (tabs, first, second) = makeTabs()
+    tabs.select(1, notify: false)   // "Edit" selected → `second` is visible
+
+    let replacement = Label("REPLACED CONTENT")
+    tabs.setTab(at: 1, title: "Editor", content: replacement)
+
+    #expect(tabs.tabCount == 2)
+    #expect(tabs.selectedIndex == 1, "the tab stays selected")
+    #expect(tabs.title(at: 1) == "Editor")
+    #expect(second.superview == nil, "the old content is detached")
+    #expect(replacement.isHidden == false, "the new content shows for the selected tab")
+    #expect(first.isHidden == true)
+
+    let lines = renderedLines(tabs, size: Size(width: 28, height: 5))
+    #expect(lines[0].contains("Editor"))
+    #expect(lines[2].contains("REPLACED CONTENT"))
+    #expect(!lines.joined().contains("SECOND CONTENT"))
+}
+
 @Test @MainActor func tabViewHidesNonSelectedContentFromFocusOrder() {
     let tabs = TabView()
     let firstField = TextField()

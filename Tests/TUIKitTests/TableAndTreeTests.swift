@@ -243,6 +243,34 @@ private func makeTree() -> (TreeView, TreeNode, TreeNode, TreeNode) {
     #expect(selections == ["Controls"], "selection changed once; the toggles kept it")
 }
 
+@Test @MainActor func treeReclickOnSelectedLeafActivates() {
+    let (tree, sources, _, _) = makeTree()
+    tree.frame = Rect(x: 0, y: 0, width: 26, height: 8)
+    tree.expand(sources)   // rows: Sources, Controls (collapsed), TUIKit.swift, Tests
+
+    var selections = 0
+    var activations: [String] = []
+    tree.onSelectionChanged = { _ in selections += 1 }
+    tree.onActivate = { activations.append($0.title) }
+
+    // Row 2 "  TUIKit.swift" is a leaf; the first click only selects it.
+    _ = tree.mouseEvent(MouseInput(position: Point(x: 6, y: 2), action: .press, button: .left))
+    #expect(tree.selectedNode?.title == "TUIKit.swift")
+    #expect(selections == 1)
+    #expect(activations.isEmpty, "first click selects, does not activate")
+
+    // A second click on the same selected leaf activates it (no re-selection) —
+    // the timing-free double-click stand-in.
+    _ = tree.mouseEvent(MouseInput(position: Point(x: 6, y: 2), action: .press, button: .left))
+    #expect(selections == 1, "selection is unchanged")
+    #expect(activations == ["TUIKit.swift"], "re-click activates, like Return")
+
+    // Re-clicking an expandable node's title does not activate — only leaves do.
+    _ = tree.mouseEvent(MouseInput(position: Point(x: 5, y: 0), action: .press, button: .left))
+    _ = tree.mouseEvent(MouseInput(position: Point(x: 5, y: 0), action: .press, button: .left))
+    #expect(activations == ["TUIKit.swift"], "folders don't activate on re-click")
+}
+
 // MARK: - DirectoryTree
 
 // In-memory file system: listings by path, with a request log proving
