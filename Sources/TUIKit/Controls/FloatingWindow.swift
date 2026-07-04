@@ -57,6 +57,32 @@ open class FloatingWindow: Window {
     /// Smallest size a resize drag can reach.
     public var minimumWindowSize = Size(width: 12, height: 4)
 
+    /// Size state of the window.
+    public enum WindowState: Sendable {
+        /// The user-controlled frame (draggable, resizable).
+        case normal
+
+        /// Filled to the superview minus `maximizeInsets`.
+        case maximized
+    }
+
+    /// Whether a maximize/restore box shows in the title bar.
+    public var isMaximizable = true {
+        didSet {
+            panel.showsMaximizeButton = isMaximizable
+        }
+    }
+
+    /// Current size state. Change it with `maximize()`/`restore()`.
+    public private(set) var windowState: WindowState = .normal
+
+    /// Edges to leave clear when maximized — e.g. `top: 1, bottom: 1` to keep a
+    /// menu-bar strip and status row visible. Defaults to filling completely.
+    public var maximizeInsets = EdgeInsets()
+
+    // The frame to return to on restore (saved at the moment of maximize).
+    private var normalFrame: Rect?
+
     // Chrome.
     private let panel: Panel
 
@@ -80,11 +106,84 @@ open class FloatingWindow: Window {
 
         panel.showsCloseButton = true
         panel.showsResizeHandle = true
+        panel.showsMaximizeButton = true
         panel.onClose = { [weak self] in
             self?.onCloseRequest()
         }
+        panel.onMaximize = { [weak self] in
+            self?.toggleMaximize()
+        }
         panel.anchors = .fill()
         addSubview(panel)
+    }
+
+    /// Fills the superview (minus `maximizeInsets`), saving the current frame
+    /// so `restore()` is exact. No-op without a superview.
+    public func maximize() {
+        guard let superview, windowState == .normal else {
+            return
+        }
+
+        normalFrame = frame
+        windowState = .maximized
+        panel.isMaximized = true
+        frame = maximizedFrame(in: superview.bounds)
+        setNeedsDisplay()
+    }
+
+    /// Returns a maximized window to its saved normal frame.
+    public func restore() {
+        guard windowState == .maximized else {
+            return
+        }
+
+        windowState = .normal
+        panel.isMaximized = false
+
+        if let normalFrame {
+            frame = normalFrame
+        }
+
+        normalFrame = nil
+        setNeedsDisplay()
+    }
+
+    /// Maximizes a normal window, or restores a maximized one.
+    public func toggleMaximize() {
+        windowState == .maximized ? restore() : maximize()
+    }
+
+    /// Re-applies the maximized frame after the desktop resizes. Called by
+    /// `App` on a terminal resize; does nothing for a normal window.
+    public func reflowMaximizeIfNeeded() {
+        guard windowState == .maximized, let superview else {
+            return
+        }
+
+        frame = maximizedFrame(in: superview.bounds)
+        setNeedsDisplay()
+    }
+
+    // A manual move/resize takes ownership of the geometry: the window keeps
+    // its current (maximized) size but becomes a normal, user-controlled frame.
+    private func exitMaximizedForManualGeometry() {
+        guard windowState == .maximized else {
+            return
+        }
+
+        windowState = .normal
+        panel.isMaximized = false
+        normalFrame = nil
+    }
+
+    // The maximized frame: the superview bounds inset by `maximizeInsets`.
+    private func maximizedFrame(in bounds: Rect) -> Rect {
+        Rect(
+            x: bounds.origin.x + maximizeInsets.left,
+            y: bounds.origin.y + maximizeInsets.top,
+            width: max(minimumWindowSize.width, bounds.size.width - maximizeInsets.left - maximizeInsets.right),
+            height: max(minimumWindowSize.height, bounds.size.height - maximizeInsets.top - maximizeInsets.bottom)
+        )
     }
 
     /// Esc asks to close (before focused views see the key).
@@ -108,11 +207,13 @@ open class FloatingWindow: Window {
             if isResizable,
                mouse.position.x == bounds.size.width - 1,
                mouse.position.y == bounds.size.height - 1 {
+                exitMaximizedForManualGeometry()
                 activeDrag = .resize
                 return true
             }
 
             if isMovable, mouse.position.y == 0 {
+                exitMaximizedForManualGeometry()
                 activeDrag = .move(grab: mouse.position)
                 return true
             }

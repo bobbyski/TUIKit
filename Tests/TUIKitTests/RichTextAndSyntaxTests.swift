@@ -228,3 +228,42 @@ private func renderedBuffer(_ view: TUIKit.TUIView, size: TUIKit.Size) -> CellBu
     #expect(editor.text == "abc\nde    fgh", "tab inserts spaces at the cursor")
     #expect(editor.cursorPosition == TUIKit.Point(x: 6, y: 1))
 }
+
+@Test @MainActor func syntaxEditorReadOnlyIgnoresEditsAndHidesCursor() {
+    let editor = SyntaxTextView(text: "let x = 1", language: "swift")
+    editor.isEditable = false
+    let window = Window(frame: Rect(x: 0, y: 0, width: 20, height: 3))
+    editor.frame = window.bounds
+    window.addSubview(editor)
+    window.makeFirstResponder(editor)
+
+    // Edits are ignored; Tab bubbles for focus movement.
+    #expect(editor.keyDown(KeyInput(key: .character("z"))) == false)
+    #expect(editor.keyDown(KeyInput(key: .tab)) == false)
+    #expect(editor.keyDown(KeyInput(key: .enter)) == false)
+    #expect(editor.text == "let x = 1")
+
+    // No inverse insertion cursor is drawn while read-only.
+    let buffer = renderedBuffer(editor, size: TUIKit.Size(width: 20, height: 3))
+    let hasCursor = (0..<20).contains { buffer[TUIKit.Point(x: $0, y: 0)].style.flags.contains(.inverse) }
+    #expect(!hasCursor, "a source viewer shows no cursor")
+}
+
+@Test @MainActor func syntaxEditorShowsAndDragsScrollbarOnOverflow() {
+    let text = (1...30).map { "line \($0)" }.joined(separator: "\n")
+    let editor = SyntaxTextView(text: text, language: "swift")
+    let window = Window(frame: Rect(x: 0, y: 0, width: 20, height: 6))
+    editor.frame = window.bounds
+    window.addSubview(editor)
+
+    // 30 lines in 6 rows → a scrollbar in the last column, thumb at the top.
+    let buffer = SceneRenderer(root: window).render(size: TUIKit.Size(width: 20, height: 6))
+    #expect(buffer[TUIKit.Point(x: 19, y: 0)].style.background == .named(.white), "thumb at top")
+    #expect(buffer[TUIKit.Point(x: 19, y: 5)].style.background == .named(.brightBlack), "dim track below")
+
+    // Grab the thumb and drag to the bottom → the last page (line 25 first).
+    _ = editor.mouseEvent(MouseInput(position: TUIKit.Point(x: 19, y: 0), action: .press, button: .left))
+    _ = editor.mouseEvent(MouseInput(position: TUIKit.Point(x: 19, y: 5), action: .drag, button: .left))
+    let lines = SceneRenderer(root: window).render(size: TUIKit.Size(width: 20, height: 6)).textLines()
+    #expect(lines[0].contains("line 25"), "dragging to the bottom scrolls to the end")
+}

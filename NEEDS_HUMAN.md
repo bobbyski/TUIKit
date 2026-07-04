@@ -6,7 +6,18 @@ Bobby whenever an entry is added.
 
 ## Open Entries
 
-*None. Largest file as of 2026-07-01 is well under the threshold.*
+### `Demo/TUIKitDemo/Traditional/ManualExample.swift` — 626 lines (~527-line factory)
+- Added: 2026-07-04 — `makeManualExample(index:)` is the demo's kitchen-sink
+  *manual* window: it wires every Phase 6 control by hand across several tabs,
+  so it is intentionally one large factory. Splitting `main.swift` gave each
+  demo window its own file (`Declarative/` + `Traditional/`); this one window
+  is simply big.
+- Suggested remedy: if it keeps growing, break the tabs into helper methods
+  (`manualControlsTab()`, `manualDataTab()`, `manualDocsTab()`) in the same
+  file, or per-tab files — but keep the "one window, discoverable in one place"
+  property that makes it useful as a tutorial.
+- [ ] Reviewed by human
+- [ ] Human accepted (as-is or with the noted remedy)
 
 <!-- Entry template:
 ### <path> — <reason>

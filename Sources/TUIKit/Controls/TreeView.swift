@@ -311,6 +311,7 @@ public final class TreeView: TUIView {
             }
 
             let (node, depth) = visibleRows[index]
+            let wasSelected = node === selectedNode
             moveSelection(to: index)
 
             // A click on the disclosure triangle toggles expansion.
@@ -320,6 +321,12 @@ public final class TreeView: TUIView {
                 } else {
                     expand(node)
                 }
+            } else if wasSelected, !node.isExpandable {
+                // A second click on the already-selected leaf activates it —
+                // the timing-free stand-in for a double-click. (First click
+                // selects and fires `onSelectionChanged`; this one fires
+                // `onActivate`, matching Return.)
+                onActivate(node)
             }
 
             return true

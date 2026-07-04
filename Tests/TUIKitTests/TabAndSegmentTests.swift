@@ -133,6 +133,62 @@ private func makeTabs() -> (TabView, Label, Label) {
     #expect(tabs.selectedIndex == 0)
 }
 
+@Test @MainActor func tabViewSetTabReplacesTitleAndContentInPlace() {
+    let (tabs, first, second) = makeTabs()
+    tabs.select(1, notify: false)   // "Edit" selected → `second` is visible
+
+    let replacement = Label("REPLACED CONTENT")
+    tabs.setTab(at: 1, title: "Editor", content: replacement)
+
+    #expect(tabs.tabCount == 2)
+    #expect(tabs.selectedIndex == 1, "the tab stays selected")
+    #expect(tabs.title(at: 1) == "Editor")
+    #expect(second.superview == nil, "the old content is detached")
+    #expect(replacement.isHidden == false, "the new content shows for the selected tab")
+    #expect(first.isHidden == true)
+
+    let lines = renderedLines(tabs, size: Size(width: 28, height: 5))
+    #expect(lines[0].contains("Editor"))
+    #expect(lines[2].contains("REPLACED CONTENT"))
+    #expect(!lines.joined().contains("SECOND CONTENT"))
+}
+
+@Test @MainActor func tabViewClosableRemovesTabOnClickingX() {
+    let (tabs, first, _) = makeTabs()
+    tabs.tabsClosable = true
+    tabs.frame = Rect(x: 0, y: 0, width: 40, height: 5)
+
+    var closed: [Int] = []
+    tabs.onTabClosed = { closed.append($0) }
+
+    // The tab bar shows the single-width × affordance.
+    #expect(renderedLines(tabs, size: Size(width: 40, height: 5))[0].contains("×"))
+
+    // " Files × " is 9 cells; × is at x7. Clicking it closes tab 0.
+    _ = tabs.mouseEvent(MouseInput(position: Point(x: 7, y: 0), action: .press, button: .left))
+    #expect(closed == [0])
+    #expect(tabs.tabCount == 1)
+    #expect(tabs.title(at: 0) == "Edit", "the surviving tab shifts into place")
+    #expect(first.superview == nil, "the closed tab's content is detached")
+
+    // Clicking a title (not the ×) still selects rather than closes.
+    _ = tabs.mouseEvent(MouseInput(position: Point(x: 2, y: 0), action: .press, button: .left))
+    #expect(tabs.selectedIndex == 0)
+    #expect(closed == [0], "no extra close fired")
+
+    // The × of a *second* tab hit-tests correctly too (single-width, no drift).
+    let more = TabView()
+    more.tabsClosable = true
+    more.addTab("A", content: Label("a"))   // " A × " = 5 cells, gap at 5, then...
+    more.addTab("B", content: Label("b"))   // " B × " starts at x6; its × at x9
+    more.frame = Rect(x: 0, y: 0, width: 40, height: 5)
+    var moreClosed: [Int] = []
+    more.onTabClosed = { moreClosed.append($0) }
+    _ = more.mouseEvent(MouseInput(position: Point(x: 9, y: 0), action: .press, button: .left))
+    #expect(moreClosed == [1], "the second tab's × closes the second tab")
+    #expect(more.title(at: 0) == "A")
+}
+
 @Test @MainActor func tabViewHidesNonSelectedContentFromFocusOrder() {
     let tabs = TabView()
     let firstField = TextField()
