@@ -1444,12 +1444,14 @@ final class ContactStore {
         return formatter
     }()
 
-    /// Decodes the seed JSON once, at startup.
+    /// Decodes the bundled `presidents.json` resource once, at startup.
     func loadIfNeeded() {
         guard !loaded else { return }
         loaded = true
 
-        let decoded = (try? JSONDecoder().decode([PersonData].self, from: Data(presidentsSeedJSON().utf8))) ?? []
+        let json = Bundle.module.url(forResource: "presidents", withExtension: "json")
+            .flatMap { try? Data(contentsOf: $0) } ?? Data()
+        let decoded = (try? JSONDecoder().decode([PersonData].self, from: json)) ?? []
         people = decoded.map { data in
             let person = Person()
             person.name = data.name
@@ -1469,27 +1471,3 @@ final class ContactStore {
     }
 }
 
-/// Seed data loaded at startup. A dozen presidents; a couple have an empty
-/// address on purpose, to exercise the White-House fallback.
-///
-/// A function (not a top-level `let`) so it is available regardless of
-/// `main.swift`'s top-level initialization order — `runFormDemo()` runs before
-/// execution reaches this point in the file.
-private func presidentsSeedJSON() -> String {
-    """
-[
- {"name":"George Washington","birthday":"1732-02-22","deathday":"1799-12-14","address":"Mount Vernon, VA","notes":"1st president. Set the founding precedents, formed the first cabinet, and stepped down after two terms."},
- {"name":"John Adams","birthday":"1735-10-30","deathday":"1826-07-04","address":"Quincy, MA","notes":"2nd president. Navigated the Quasi-War with France; signed the Alien and Sedition Acts."},
- {"name":"Thomas Jefferson","birthday":"1743-04-13","deathday":"1826-07-04","address":"Monticello, VA","notes":"3rd president. Made the Louisiana Purchase and sent the Lewis & Clark expedition west."},
- {"name":"Abraham Lincoln","birthday":"1809-02-12","deathday":"1865-04-15","address":"Springfield, IL","notes":"16th president. Led the Union through the Civil War and issued the Emancipation Proclamation."},
- {"name":"Ulysses S. Grant","birthday":"1822-04-27","deathday":"1885-07-23","address":"","notes":"18th president. Union general turned president; pushed Reconstruction and civil-rights enforcement."},
- {"name":"Theodore Roosevelt","birthday":"1858-10-27","deathday":"1919-01-06","address":"Oyster Bay, NY","notes":"26th president. Trust-buster and conservationist; expanded the national parks and built the Panama Canal."},
- {"name":"Franklin D. Roosevelt","birthday":"1882-01-30","deathday":"1945-04-12","address":"Hyde Park, NY","notes":"32nd president. New Deal architect who led through the Depression and most of World War II."},
- {"name":"Harry S. Truman","birthday":"1884-05-08","deathday":"1972-12-26","address":"Lamar, MO","notes":"33rd president. Ended WWII, launched the Marshall Plan and NATO, and entered the Korean War."},
- {"name":"John F. Kennedy","birthday":"1917-05-29","deathday":"1963-11-22","address":"Brookline, MA","notes":"35th president. Faced the Cuban Missile Crisis and set the goal of landing on the Moon."},
- {"name":"Ronald Reagan","birthday":"1911-02-06","deathday":"2004-06-05","address":"Tampico, IL","notes":"40th president. Cut taxes, escalated then thawed the Cold War with the Soviet Union."},
- {"name":"Bill Clinton","birthday":"1946-08-19","deathday":"","address":"Hope, AR","notes":"42nd president. Presided over an economic boom and welfare reform; impeached and acquitted."},
- {"name":"Barack Obama","birthday":"1961-08-04","deathday":"","address":"","notes":"44th president. Passed the Affordable Care Act; the first Black president of the United States."}
-]
-"""
-}

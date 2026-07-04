@@ -30,6 +30,21 @@ private func makeSplit() -> (SplitView, Window) {
     #expect(line[5] == "│", "the divider renders at its column")
 }
 
+@Test @MainActor func splitViewFocusCueIsColorNotBoldOrInverse() {
+    // The default divider cue recolors to the accent — never bold or inverse,
+    // since bold box-drawing glyphs render as a dashed line. (Regression guard.)
+    let (split, window) = makeSplit()
+    window.makeFirstResponder(split)
+
+    let style = SceneRenderer(root: window)
+        .render(size: window.frame.size)[Point(x: split.currentDividerPosition, y: 1)]
+        .style
+
+    #expect(style.foreground == .named(.brightCyan), "focus recolors the divider to the accent")
+    #expect(!style.flags.contains(.bold), "never bold")
+    #expect(!style.flags.contains(.inverse), "never inverse")
+}
+
 @Test @MainActor func splitViewKeysMoveAndClampTheDivider() {
     let (split, _) = makeSplit()
     split.minimumFirstLength = 3

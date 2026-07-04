@@ -45,7 +45,12 @@ let package = Package(
         .executableTarget(
             name: "TUIKitDemo",
             dependencies: ["TUIKit"],
-            path: "Demo/TUIKitDemo"
+            path: "Demo/TUIKitDemo",
+            resources: [
+                // The Contact Book's seed data (US presidents), loaded via
+                // Bundle.module at startup.
+                .process("Resources"),
+            ]
         ),
         .testTarget(
             name: "TUIKitTests",
