@@ -91,7 +91,7 @@ struct RowNavigationState: Equatable {
 /// ```swift
 /// let files = ListView(items: names)
 /// files.onSelectionChanged = { index in preview(index) }
-/// files.onActivate = { index in open(index) }   // Return or double action
+/// files.onActivate = { index in open(index) }   // Return or double-click
 /// ```
 @MainActor
 public final class ListView: TUIView {
@@ -107,7 +107,7 @@ public final class ListView: TUIView {
     /// Called when the selected row changes.
     public var onSelectionChanged: (Int?) -> Void = { _ in }
 
-    /// Called when a row is activated with Return.
+    /// Called when a row is activated — Return, or a double-click on the row.
     public var onActivate: (Int) -> Void = { _ in }
 
     // Shared navigation core.
@@ -275,17 +275,28 @@ public final class ListView: TUIView {
         }
     }
 
-    /// Click selects; the wheel scrolls without moving the selection.
+    /// A settled click selects (and activates on a double); the wheel scrolls
+    /// without moving the selection.
     public override func mouseEvent(_ mouse: MouseInput) -> Bool {
         let height = bounds.size.height
         let overflow = items.count > height && bounds.size.width > 1
 
         switch mouse.action {
         case .press where mouse.button == .left:
-            // The reserved last column is the scrollbar: drag the thumb, or
-            // click the track to page toward the click.
+            // Only the scrollbar acts on the raw press: drag the thumb, or click
+            // the track to page toward the click. A row's select/activate waits
+            // for the debounced `.click`, so a double-click never runs the
+            // single-click (selection) action ahead of the open.
             if overflow, mouse.position.x == bounds.size.width - 1 {
                 return pressScrollbar(atRow: mouse.position.y, height: height)
+            }
+
+            return true   // consume; the settled click does the work
+
+        case .click:
+            // The scrollbar column never selects.
+            if overflow, mouse.position.x == bounds.size.width - 1 {
+                return false
             }
 
             let index = navigation.scrollOffset + mouse.position.y
@@ -294,7 +305,16 @@ public final class ListView: TUIView {
                 return false
             }
 
-            moveSelection(to: index)
+            if mouse.clickCount >= 2 {
+                // A double is ONLY the double action: the highlight moves
+                // silently, so the single-click callback never fires alongside
+                // the activation.
+                select(index)
+                onActivate(index)
+            } else {
+                moveSelection(to: index)
+            }
+
             return true
 
         case .drag where scrollbarGrab != nil:

@@ -244,35 +244,51 @@ public final class Browser: TUIView {
         }
     }
 
-    /// Click focuses a column and selects the row under the pointer.
+    /// A settled click focuses a column and selects the row under the pointer;
+    /// a double-click activates it. Nothing acts on the raw press, so a
+    /// double-click never runs the single-click (selection) action first.
     public override func mouseEvent(_ mouse: MouseInput) -> Bool {
-        guard mouse.action == .press, mouse.button == .left else {
+        switch mouse.action {
+        case .press where mouse.button == .left:
+            return true   // consume; the settled click does the work
+
+        case .click:
+            let start = firstVisibleColumn
+            let end = min(columns.count, start + columnsThatFit)
+
+            for slot in 0..<(end - start) {
+                let x0 = slot * (columnWidth + 1)
+
+                guard mouse.position.x >= x0, mouse.position.x < x0 + columnWidth else {
+                    continue
+                }
+
+                let columnIndex = start + slot
+                let row = columns[columnIndex].nav.scrollOffset + mouse.position.y
+
+                guard columns[columnIndex].items.indices.contains(row) else {
+                    return false
+                }
+
+                focusedColumn = columnIndex
+
+                // A double is ONLY the double action: the selection moves
+                // silently, so the single-click callback never fires alongside
+                // the activation.
+                setSelection(row, inColumn: columnIndex, notify: mouse.clickCount < 2)
+
+                if mouse.clickCount >= 2 {
+                    onActivate(columns[columnIndex].items[row])
+                }
+
+                return true
+            }
+
+            return false
+
+        default:
             return false
         }
-
-        let start = firstVisibleColumn
-        let end = min(columns.count, start + columnsThatFit)
-
-        for slot in 0..<(end - start) {
-            let x0 = slot * (columnWidth + 1)
-
-            guard mouse.position.x >= x0, mouse.position.x < x0 + columnWidth else {
-                continue
-            }
-
-            let columnIndex = start + slot
-            let row = columns[columnIndex].nav.scrollOffset + mouse.position.y
-
-            guard columns[columnIndex].items.indices.contains(row) else {
-                return false
-            }
-
-            focusedColumn = columnIndex
-            setSelection(row, inColumn: columnIndex, notify: true)
-            return true
-        }
-
-        return false
     }
 
     // MARK: - Navigation

@@ -142,12 +142,11 @@ extension DemoApp {
             window.content.setNeedsLayout()   // the new/updated tab content needs positioning
         }
 
-        // The two selection callbacks encode the single-vs-"double" click rule
-        // without any timing. TreeView fires `onSelectionChanged` when the
-        // selection *moves* to a row (a first click), and `onActivate` when you
-        // click the already-selected leaf again (or press Return). So:
-        //   • first click on a file  → selectionChanged → open in current tab
-        //   • click that file again  → activate         → open in a new tab
+        // The two callbacks split single from double click. The click events are
+        // debounced through the app's multi-click guard, and a double fires ONLY
+        // `onActivate` — never `onSelectionChanged` alongside it. So:
+        //   • single-click a file → selectionChanged → open in current tab
+        //   • double-click a file → activate         → open in a new tab (only)
         tree.onSelectionChanged = { selected in
             if let url = selected?.representedValue as? URL { open(url, inNewTab: false) }
         }

@@ -64,7 +64,7 @@ public final class TableView: TUIView {
     /// Called when the selected row changes.
     public var onSelectionChanged: (Int?) -> Void = { _ in }
 
-    /// Called when a row is activated with Return.
+    /// Called when a data row is activated — Return, or a double-click.
     public var onActivate: (Int) -> Void = { _ in }
 
     /// Called when a header is clicked; the application re-sorts and
@@ -215,11 +215,17 @@ public final class TableView: TUIView {
         }
     }
 
-    /// Header click requests a sort; row click selects; wheel scrolls.
+    /// A settled click on the header sorts; on a data row it selects (and
+    /// activates on a double); the wheel scrolls. Nothing acts on the raw
+    /// press, so a double-click never runs the single-click action first.
     public override func mouseEvent(_ mouse: MouseInput) -> Bool {
         switch mouse.action {
         case .press where mouse.button == .left:
+            return true   // consume; the settled click does the work
+
+        case .click:
             if mouse.position.y == 0 {
+                // The header sorts once, whatever the click count.
                 if let column = columnIndex(at: mouse.position.x) {
                     onSortRequested(column)
                 }
@@ -233,7 +239,16 @@ public final class TableView: TUIView {
                 return false
             }
 
-            moveSelection(to: index)
+            if mouse.clickCount >= 2 {
+                // A double is ONLY the double action: the highlight moves
+                // silently, so the single-click callback never fires alongside
+                // the activation.
+                select(index)
+                onActivate(index)
+            } else {
+                moveSelection(to: index)
+            }
+
             return true
 
         case .scrollUp:
