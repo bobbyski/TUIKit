@@ -99,6 +99,24 @@ import Testing
     #expect(selected.last == "relative", "relative paths stay relative")
 }
 
+@Test @MainActor func pathControlScrollsToShowTheTail() {
+    // TUIKitDemo(10) ▸ Resources(9) ▸ presidents.json(15) = 40 cells, in 16.
+    let crumbs = PathControl(path: "TUIKitDemo/Resources/presidents.json")
+    let window = Window(frame: Rect(x: 0, y: 0, width: 16, height: 1))
+    crumbs.frame = window.bounds
+    window.addSubview(crumbs)
+
+    let line = SceneRenderer(root: window).render(size: Size(width: 16, height: 1)).textLines()[0]
+    #expect(line.hasSuffix("presidents.json"), "the filename stays visible on the right")
+    #expect(!line.contains("TUIKitDemo"), "leading crumbs scroll off the left")
+
+    // Clicks still map through the scroll to the correct crumb.
+    var selected: [String] = []
+    crumbs.onPathSelected = { selected.append($0) }
+    _ = crumbs.mouseEvent(MouseInput(position: Point(x: 4, y: 0), action: .press, button: .left))
+    #expect(selected == ["TUIKitDemo/Resources/presidents.json"])
+}
+
 // MARK: - DisclosureGroup
 
 @Test @MainActor func disclosureGroupTogglesAndReflows() {

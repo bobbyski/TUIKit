@@ -14,14 +14,16 @@ private func send(_ window: Window, _ action: MouseInput.Action, atScreen point:
     let window = FloatingWindow(title: "Move me", frame: Rect(x: 2, y: 1, width: 12, height: 6))
     window.layoutIfNeeded()   // rendering does this before input in a real app
 
-    send(window, .press, atScreen: Point(x: 7, y: 1))     // grab the title row
-    send(window, .drag, atScreen: Point(x: 9, y: 2))      // pointer moves +2,+1
+    // Grab the title text on the left, clear of the top-right chrome buttons
+    // ([+] maximize and [x] close).
+    send(window, .press, atScreen: Point(x: 4, y: 1))     // grab the title row
+    send(window, .drag, atScreen: Point(x: 6, y: 2))      // pointer moves +2,+1
     #expect(window.frame == Rect(x: 4, y: 2, width: 12, height: 6))
 
-    send(window, .drag, atScreen: Point(x: 6, y: 0))      // up-left, clamped at y 0
+    send(window, .drag, atScreen: Point(x: 3, y: 0))      // up-left, clamped at y 0
     #expect(window.frame == Rect(x: 1, y: 0, width: 12, height: 6))
 
-    send(window, .release, atScreen: Point(x: 6, y: 0))
+    send(window, .release, atScreen: Point(x: 3, y: 0))
     send(window, .drag, atScreen: Point(x: 20, y: 3))
     #expect(window.frame.origin == Point(x: 1, y: 0), "release ends the move")
 }

@@ -334,6 +334,11 @@ public final class App {
         for window in windows where window.fillsScreen {
             window.frame = desktop.bounds
         }
+
+        // Maximized floating windows track the new desktop size too.
+        for window in windows {
+            (window as? FloatingWindow)?.reflowMaximizeIfNeeded()
+        }
     }
 
     // Renders and presents a frame when anything changed.

@@ -40,6 +40,27 @@ public final class Panel: TUIView {
     /// Called when the close button is clicked.
     public var onClose: () -> Void = {}
 
+    /// Whether a maximize/restore box appears in the top border, left of `[x]`.
+    public var showsMaximizeButton = false {
+        didSet {
+            if showsMaximizeButton != oldValue {
+                setNeedsDisplay()
+            }
+        }
+    }
+
+    /// Drives the maximize box glyph: `[+]` when normal, `[=]` when maximized.
+    public var isMaximized = false {
+        didSet {
+            if isMaximized != oldValue {
+                setNeedsDisplay()
+            }
+        }
+    }
+
+    /// Called when the maximize/restore box is clicked.
+    public var onMaximize: () -> Void = {}
+
     /// Whether the bottom-right corner renders as a resize handle (`◢`).
     ///
     /// Visual only — `FloatingWindow` owns the actual resize interaction.
@@ -82,9 +103,17 @@ public final class Panel: TUIView {
 
         let width = bounds.size.width
 
-        if !title.isEmpty, width > 6 {
-            let text = " " + Label.truncated(title, width: width - 6) + " "
+        // Reserve the right-hand border for the buttons: [x] alone, or the
+        // maximize box plus [x].
+        let reserved = showsMaximizeButton ? 10 : 6
+
+        if !title.isEmpty, width > reserved {
+            let text = " " + Label.truncated(title, width: width - reserved) + " "
             painter.write(text, at: Point(x: 2, y: 0), style: theme.header)
+        }
+
+        if showsMaximizeButton, width >= 11 {
+            painter.write(isMaximized ? "[=]" : "[+]", at: Point(x: maximizeButtonX, y: 0), style: theme.border)
         }
 
         if showsCloseButton, width >= 7 {
@@ -164,23 +193,32 @@ public final class Panel: TUIView {
         visit(content, offset: .zero)
     }
 
-    /// Click on `[x]` closes.
+    /// Click on `[x]` closes; click on `[+]`/`[=]` maximizes/restores.
     public override func mouseEvent(_ mouse: MouseInput) -> Bool {
-        guard showsCloseButton,
-              mouse.action == .press,
-              mouse.button == .left,
-              mouse.position.y == 0,
-              mouse.position.x >= closeButtonX,
-              mouse.position.x < closeButtonX + 3 else {
+        guard mouse.action == .press, mouse.button == .left, mouse.position.y == 0 else {
             return false
         }
 
-        onClose()
-        return true
+        if showsCloseButton, mouse.position.x >= closeButtonX, mouse.position.x < closeButtonX + 3 {
+            onClose()
+            return true
+        }
+
+        if showsMaximizeButton, mouse.position.x >= maximizeButtonX, mouse.position.x < maximizeButtonX + 3 {
+            onMaximize()
+            return true
+        }
+
+        return false
     }
 
     // Leading cell of the [x] affordance in the top border.
     private var closeButtonX: Int {
         bounds.size.width - 4
+    }
+
+    // Leading cell of the maximize box, one gap left of [x].
+    private var maximizeButtonX: Int {
+        bounds.size.width - 8
     }
 }

@@ -35,6 +35,20 @@ public final class TabView: TUIView {
     /// Called when the selected tab changes.
     public var onSelectionChanged: (Int) -> Void = { _ in }
 
+    /// When `true`, each tab shows a `✕` close affordance; clicking it removes
+    /// the tab and fires `onTabClosed`.
+    public var tabsClosable = false {
+        didSet {
+            if tabsClosable != oldValue {
+                setNeedsLayout()
+                setNeedsDisplay()
+            }
+        }
+    }
+
+    /// Called with a tab's index just after it is closed via its `✕`.
+    public var onTabClosed: (Int) -> Void = { _ in }
+
     /// Rows reserved for the tab bar (titles + separator).
     public let tabBarHeight = 2
 
@@ -84,6 +98,31 @@ public final class TabView: TUIView {
         tabs[index].content.removeFromSuperview()
         tabs[index] = Tab(title: title, content: content)
         addSubview(content)
+        updateVisibility()
+        setNeedsLayout()
+        setNeedsDisplay()
+    }
+
+    /// Removes a tab, detaching its content. The selection shifts to stay on
+    /// the same tab where possible (or the nearest one).
+    ///
+    /// - Parameter index: Tab to remove. Out-of-range indices are ignored.
+    public func removeTab(at index: Int) {
+        guard tabs.indices.contains(index) else {
+            return
+        }
+
+        tabs[index].content.removeFromSuperview()
+        tabs.remove(at: index)
+
+        if tabs.isEmpty {
+            selectedIndex = 0
+        } else if index < selectedIndex {
+            selectedIndex -= 1
+        } else if index == selectedIndex {
+            selectedIndex = min(selectedIndex, tabs.count - 1)
+        }
+
         updateVisibility()
         setNeedsLayout()
         setNeedsDisplay()
@@ -157,7 +196,7 @@ public final class TabView: TUIView {
         var x = 0
 
         for (index, tab) in tabs.enumerated() {
-            let label = " \(tab.title) "
+            let label = self.label(for: tab)
             let isSelected = index == selectedIndex
             var style: CellStyle
 
@@ -174,6 +213,14 @@ public final class TabView: TUIView {
             painter.write(label, at: Point(x: x, y: 0), style: style)
             x += label.count + 1
         }
+    }
+
+    // A tab's bar label: ` title ` plus a `×` close affordance when closable.
+    // The glyph is `×` (U+00D7), which is single-width — the cell model is one
+    // column per character, so a double-width glyph (e.g. `✕` U+2715) would
+    // render two columns and drift every tab after it out of hit-test range.
+    private func label(for tab: Tab) -> String {
+        tabsClosable ? " \(tab.title) × " : " \(tab.title) "
     }
 
     /// Left/Right switch tabs.
@@ -196,39 +243,37 @@ public final class TabView: TUIView {
         }
     }
 
-    /// Click on a tab title selects it.
+    /// Click on a tab title selects it; click its `×` closes it.
     public override func mouseEvent(_ mouse: MouseInput) -> Bool {
         guard mouse.action == .press, mouse.button == .left, mouse.position.y == 0 else {
             return false
         }
 
-        guard let index = tabIndex(atX: mouse.position.x) else {
-            return false
-        }
-
-        select(index, notify: true)
-        return true
-    }
-
-    // MARK: - Geometry
-
-    // Tab whose title x-range contains a local x coordinate. Titles are
-    // ` title ` with one trailing gap between tabs.
-    private func tabIndex(atX x: Int) -> Int? {
         var start = 0
 
         for (index, tab) in tabs.enumerated() {
-            let width = tab.title.count + 2
+            let width = label(for: tab).count
 
-            if x >= start, x < start + width {
-                return index
+            if mouse.position.x >= start, mouse.position.x < start + width {
+                // The `×` is the second-to-last cell; accept it and the
+                // trailing space so the whole right end of the tab closes.
+                if tabsClosable, mouse.position.x >= start + width - 2 {
+                    removeTab(at: index)
+                    onTabClosed(index)
+                } else {
+                    select(index, notify: true)
+                }
+
+                return true
             }
 
             start += width + 1
         }
 
-        return nil
+        return false
     }
+
+    // MARK: - Geometry
 
     private func switchTab(by offset: Int) {
         let next = min(max(0, selectedIndex + offset), tabs.count - 1)

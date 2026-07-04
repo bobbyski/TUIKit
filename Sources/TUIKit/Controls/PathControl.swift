@@ -55,10 +55,13 @@ public final class PathControl: TUIView {
         return Size(width: text + separators, height: 1)
     }
 
-    /// Draws the crumbs; the focused one wears the accent color.
+    /// Draws the crumbs; the focused one wears the accent color. When the path
+    /// is wider than the view it scrolls left so the tail (the deepest crumbs)
+    /// stays visible — a filename never scrolls off the right edge.
     public override func draw(_ painter: Painter) {
         let theme = effectiveTheme
-        var x = 0
+        let width = bounds.size.width
+        var x = -shift
 
         for (index, component) in components.enumerated() {
             var style = CellStyle()
@@ -67,14 +70,29 @@ public final class PathControl: TUIView {
                 style.foreground = theme.accent
             }
 
-            painter.write(component, at: Point(x: x, y: 0), style: style)
-            x += component.count
+            drawClipped(painter, component, x: &x, width: width, style: style)
 
             if index < components.count - 1 {
-                painter.write(" ▸ ", at: Point(x: x, y: 0), style: theme.placeholder)
-                x += 3
+                drawClipped(painter, " ▸ ", x: &x, width: width, style: theme.placeholder)
             }
         }
+    }
+
+    // Writes a string starting at `x`, advancing it, painting only the cells
+    // that fall inside [0, width) — so a left-scrolled path clips cleanly.
+    private func drawClipped(_ painter: Painter, _ text: String, x: inout Int, width: Int, style: CellStyle) {
+        for character in text {
+            if x >= 0, x < width {
+                painter.set(TerminalCell(character: character, style: style), at: Point(x: x, y: 0))
+            }
+            x += 1
+        }
+    }
+
+    // How far the content is scrolled left so its tail stays visible.
+    private var shift: Int {
+        let total = (intrinsicContentSize?.width ?? 0)
+        return max(0, total - bounds.size.width)
     }
 
     /// `←`/`→` walk the crumbs; Return chooses.
@@ -142,7 +160,9 @@ public final class PathControl: TUIView {
         return isAbsolute ? "/" + prefix : prefix
     }
 
-    private func crumbIndex(atX x: Int) -> Int? {
+    private func crumbIndex(atX screenX: Int) -> Int? {
+        // Map the screen x back into content coordinates through the scroll.
+        let x = screenX + shift
         var start = 0
 
         for (index, component) in components.enumerated() {
