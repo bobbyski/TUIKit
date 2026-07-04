@@ -104,6 +104,84 @@ public extension ScrollView {
     }
 }
 
+/// One tab in a `TabView` builder: a title and its content.
+@MainActor
+public struct Tab {
+    let title: String
+    let content: any Component
+
+    /// Creates a tab.
+    ///
+    /// - Parameters:
+    ///   - title: Tab title.
+    ///   - content: The tab's content (several are wrapped in a `VStack`).
+    public init(_ title: String, @NodeBuilder _ content: () -> [any Component]) {
+        self.title = title
+
+        let children = content()
+
+        if children.count == 1 {
+            self.content = children[0]
+        } else {
+            let stack = VStack()
+            children.forEach { stack.addSubview($0.makeView()) }
+            self.content = stack
+        }
+    }
+}
+
+/// Collects `Tab`s inside a `TabView` builder.
+@MainActor
+@resultBuilder
+public enum TabBuilder {
+    public static func buildExpression(_ tab: Tab) -> [Tab] { [tab] }
+    public static func buildBlock(_ parts: [Tab]...) -> [Tab] { parts.flatMap { $0 } }
+    public static func buildOptional(_ part: [Tab]?) -> [Tab] { part ?? [] }
+    public static func buildEither(first: [Tab]) -> [Tab] { first }
+    public static func buildEither(second: [Tab]) -> [Tab] { second }
+    public static func buildArray(_ parts: [[Tab]]) -> [Tab] { parts.flatMap { $0 } }
+}
+
+public extension TabView {
+    /// Builds a tab view from `Tab`s.
+    ///
+    /// ```swift
+    /// TabView {
+    ///     Tab("Form")  { form }
+    ///     Tab("Files") { files }
+    /// }
+    /// ```
+    ///
+    /// - Parameter tabs: The tabs.
+    convenience init(@TabBuilder _ tabs: () -> [Tab]) {
+        self.init()
+
+        for tab in tabs() {
+            addTab(tab.title, content: tab.content.makeView())
+        }
+    }
+}
+
+public extension SplitView {
+    /// Builds a split view from two panes (the first two components).
+    ///
+    /// ```swift
+    /// SplitView(.horizontal) { sidebar; editor }
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - axis: Direction the panes flow.
+    ///   - content: The two panes.
+    convenience init(_ axis: StackView.Axis, @NodeBuilder _ content: () -> [any Component]) {
+        let views = content().map { $0.makeView() }
+        self.init(
+            axis: axis,
+            first: views.first ?? Spacer(),
+            second: views.count > 1 ? views[1] : Spacer()
+        )
+    }
+}
+
 public extension Panel {
     /// Builds a titled panel whose content is the built children stacked
     /// vertically and filling the content area.

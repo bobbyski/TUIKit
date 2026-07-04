@@ -3,12 +3,12 @@
 **Status: core implemented; layer growing.** Shipping in
 `Sources/TUIKit/Builder/`: the core (`Component`, `Composable`, `NodeBuilder`);
 containers `VStack`/`HStack`/`ZStack`/`ScrollView`/`Panel` + `Spacer`;
-structural + typed modifiers + `Ref`; the auto-aligning `Form`/`Field`; and
+structural + typed modifiers + `Ref`; the auto-aligning `Form`/`Field`; the
+`Grid`/`GridRow` (+ `.gridSpan`), `TabView`, and `SplitView` builders; and
 hosting (`TUIView.setContent { }`, `App.run { }`). The `--interactive` demo's
 default window is built with them (a `Form`-based screen hosted via
-`setContent`). Still to come: the general `Grid`/`GridRow` DSL (see §13). This
-document describes the whole *optional* declarative layer over TUIKit's
-controls. It reads like SwiftUI
+`setContent`). The layer is feature-complete for v1. This document describes
+the whole *optional* declarative layer over TUIKit's controls. It reads like SwiftUI
 at the call site — nested containers, trailing-closure children, chained
 modifiers — but it is **not reactive**: there is no state graph, no bindings,
 no diffing, no invalidation. It is a construction convenience that builds a
@@ -778,19 +778,23 @@ is an optional module; it can ship after TUIKit 1.0 without blocking anything.
 | B4 | Hosting: `TUIView.setContent`, `App.run { }` | ✅ Done |
 | B5 | `Form` + `Field` (over `GridView`) — the auto-aligning form | ✅ Done |
 | B6 | Demo: default window built with the DSL (`Form` + `setContent`) | ✅ Done |
-| B7 | `Grid`/`GridRow`/`@GridBuilder`/`.gridSpan`; `TabView`/`SplitView` builders | ⏳ Pending — the general placement grid (fiddliest) + tab/split sugar |
+| B7 | `Grid`/`GridRow`/`@GridBuilder`/`.gridSpan`; `TabView`/`SplitView` builders | ✅ Done |
+
+The layer is now feature-complete for v1. Remaining work is polish: a
+declarative rewrite of a manual demo tab to prove headless-identical output,
+and any modifiers/containers real apps turn out to need.
 
 **File layout** (new, under `Sources/TUIKit/Builder/`):
 
 ```
 Builder/
-  Component.swift        // protocol, NodeBuilder, TUIView/Never conformances
-  Containers.swift       // VStack/HStack/ZStack/ScrollView/Panel/TabView/SplitView inits
-  Modifiers.swift        // Configured, structural modifiers, Spacer, Ref
-  ControlModifiers.swift // typed per-control chainable setters
-  Grid.swift             // Grid/GridRow/@GridBuilder
+  Component.swift        // Component, Composable, NodeBuilder, TUIView conformance
+  Containers.swift       // VStack/HStack/ZStack/ScrollView/Panel/TabView/SplitView + Spacer
+  Modifiers.swift        // Configured, structural modifiers, Padded, Ref
+  ControlModifiers.swift // typed per-control chainable setters + Toggle alias
+  Grid.swift             // Grid/GridRow/GridCell/@GridBuilder/.gridSpan
   Form.swift             // Form/Field (aligned two-column grid)
-  Hosting.swift          // Window.setContent, App.run { }
+  Hosting.swift          // TUIView.setContent, App.run { }
 ```
 
 No changes to existing control sources except (optionally) moving each

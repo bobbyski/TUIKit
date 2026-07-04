@@ -122,6 +122,51 @@ private struct LabeledField: Composable {
     #expect(window.subviews[0].frame == Rect(x: 0, y: 0, width: 20, height: 3))
 }
 
+@Test @MainActor func gridDSLPlacesCellsAndSpans() {
+    let grid = Grid(columns: [.fixed(4), .flexible(1)]) {
+        GridRow {
+            Label("A")
+            Label("one")
+        }
+        GridRow {
+            Label("hdr").gridSpan(columns: 2)
+        }
+    }
+
+    let window = Window(frame: Rect(x: 0, y: 0, width: 10, height: 2))
+    grid.anchors = .fill()
+    window.addSubview(grid)
+    window.layoutIfNeeded()
+
+    #expect(grid.subviews.count == 3, "two cells in row 0, one spanning cell in row 1")
+
+    let lines = SceneRenderer(root: window).render(size: Size(width: 10, height: 2)).textLines()
+    #expect(lines[0].hasPrefix("A"), "cell 0 sits in column 0")
+    #expect(lines[0].contains("one"), "cell 1 sits in the flexible column")
+    #expect(lines[1].hasPrefix("hdr"), "the spanning cell starts at column 0")
+}
+
+@Test @MainActor func tabViewDSLBuildsTabs() {
+    let tabs = TabView {
+        Tab("One") { Label("first") }
+        Tab("Two") { Label("second") }
+    }
+
+    #expect(tabs.tabCount == 2)
+    #expect(tabs.title(at: 0) == "One")
+    #expect(tabs.title(at: 1) == "Two")
+}
+
+@Test @MainActor func splitViewDSLTakesTwoPanes() {
+    let split = SplitView(.horizontal) {
+        Label("left")
+        Label("right")
+    }
+
+    #expect(split.first is Label)
+    #expect(split.second is Label)
+}
+
 @Test @MainActor func appRunBuilderPresentsBuiltContent() async throws {
     let driver = HeadlessDriver(size: Size(width: 8, height: 1))
     let app = App(driver: driver)

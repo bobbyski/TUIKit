@@ -39,7 +39,7 @@ Phase 8 · Demo & Polish               ███░░░░░░░░░░�
 Phase 9 · Tutorial                    ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending
 Phase 10 · VTG Vector Graphics        ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending (rev 2)
 Phase 11 · Controls v3                ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending (rev 2: search, sheets, images, tokens, tooltips)
-Phase 12 · TUIBuilder (declarative)   ██████████████████████░░░░   86%  🔄 Core/containers/modifiers/Form/hosting in; only Grid DSL left
+Phase 12 · TUIBuilder (declarative)   ██████████████████████████  100%  🔄 Code complete — core, containers, Form, Grid/Tab/Split DSL, hosting
 Phase 13 · TUIView base rename        ██████████████████████████  100%  ✅ Done — base class View → TUIView (SwiftUI coexistence)
 ```
 
@@ -306,7 +306,7 @@ state graph, no diffing.
 | 12.4 | Hosting (`TUIView.setContent`, `App.run { }`) | ✅ Done | `setContent { }` replaces a view's children with one fill-anchored root (several → a `VStack`); `App.run { }` runs a window whose content is the built tree. Both tested (incl. headless `run`). |
 | 12.5 | `Form`/`Field` + `ZStack` | ✅ Done | `Form { Field("Name") { … } }` lowers to a `GridView` (fixed right-aligned label column + flexible control column) and computes its own intrinsic size, so the labels line up and controls fill with **zero** layout code — principle #2 made real. `ZStack` overlays fill-anchored children. Tested (label alignment across rows, overlap order). |
 | 12.6 | Demo: declarative example window | ✅ Done | The `--interactive` default window is built with the DSL (`Form` rows + toggle + slider→progress + buttons), hosted via `setContent`. Proves compounds/controls/`Form` compose with defaults. |
-| 12.7 | `Grid`/`GridRow` DSL | ⏳ Pending | The general placement-metadata grid builder (`Grid(columns:) { GridRow { … } }` + `.gridSpan`); `Form` already uses `GridView` directly. |
+| 12.7 | `Grid`/`GridRow` + `Tab`/`SplitView` DSL | ✅ Done | `Grid(columns:) { GridRow { … } }` with `.gridSpan(columns:rows:)` (cells fill columns left-to-right); `TabView { Tab("…") { … } }`; `SplitView(.horizontal) { first; second }`. `Grid`/`Toggle` are typealiases to `GridView`/`ToggleButton`. Tested (cell placement + spans, tab titles, two-pane split). |
 
 ## Phase 13 — TUIView base rename ✅
 
