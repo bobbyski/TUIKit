@@ -149,6 +149,48 @@ private final class EchoView: TUIView {
     try await session.value
 }
 
+@Test @MainActor func pressOutsideAnOpenMenuDismissesItButInsideSelects() async throws {
+    let driver = HeadlessDriver(size: Size(width: 20, height: 8))
+    let app = App(driver: driver)
+
+    let root = Window(frame: Rect(x: 0, y: 0, width: 20, height: 8))
+    let bar = MenuBar()
+    let file = Menu("File")
+    var opened = 0
+    file.addItem("Open") { opened += 1 }
+    file.addItem("Save") {}
+    bar.addMenu(file)
+    bar.frame = Rect(x: 0, y: 0, width: 20, height: 1)
+    root.addSubview(bar)
+
+    let session = Task { try await app.run(root) }
+    while await driver.presentCount == 0 {
+        await Task.yield()
+    }
+
+    // A press well outside the open dropdown dismisses it — no item fires.
+    bar.openMenu(at: 0)
+    #expect(bar.isMenuOpen)
+    await driver.send(.mouse(MouseInput(position: Point(x: 18, y: 6), action: .press, button: .left)))
+    while bar.isMenuOpen {
+        await Task.yield()
+    }
+    #expect(opened == 0, "an outside press only dismisses; it does not activate an item")
+
+    // A press *inside* the dropdown still activates the item under it. The
+    // dropdown sits at (0,1); its first item row is y = 1 (origin) + 1 (border).
+    bar.openMenu(at: 0)
+    #expect(bar.isMenuOpen)
+    await driver.send(.mouse(MouseInput(position: Point(x: 2, y: 2), action: .press, button: .left)))
+    while opened == 0 {
+        await Task.yield()
+    }
+    #expect(!bar.isMenuOpen, "activating an item closes the menu")
+
+    await driver.send(.key(KeyInput(key: .character("c"), modifiers: .control)))
+    try await session.value
+}
+
 @Test @MainActor func clickActivatesNonModalWindowsButNotPastAModal() async throws {
     let driver = HeadlessDriver(size: Size(width: 10, height: 4))
     let app = App(driver: driver)

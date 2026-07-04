@@ -426,6 +426,12 @@ final class MenuDropdown: TUIView {
         true
     }
 
+    /// A dropdown is a transient overlay: a press outside it dismisses it,
+    /// even one that lands on the desktop or another window.
+    override var dismissesOnOutsidePress: Bool {
+        true
+    }
+
     /// Losing focus closes the menu — so a click anywhere else dismisses
     /// it without the click being lost.
     override func didResignFirstResponder() {

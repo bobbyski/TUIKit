@@ -158,7 +158,7 @@ Slots become **flat, self-describing keys** so a palette is a plain dictionary
 | `scrollbar` | `scrollbarThumb`, `scrollbarTrack` |
 | `placeholder` | `placeholderForeground`, `placeholderBackground` |
 | *(new — see 8.13)* | `fieldForeground`, `fieldBackground` — the editable "well" |
-| *(new — buttons)* | `defaultButtonForeground`, `defaultButtonBackground` (the Return/highlighted button) · `destructiveButtonForeground`, `destructiveButtonBackground` (dangerous actions) |
+| *(new — buttons)* | `buttonForeground`, `buttonBackground` (ordinary buttons — set the background to the window's own for the minimal "accent text" look, or a distinct fill like Turbo's gray pill) · `defaultButtonForeground`, `defaultButtonBackground` (the Return/highlighted button) · `destructiveButtonForeground`, `destructiveButtonBackground` (dangerous actions) |
 
 **Text attributes** (bold / dim / inverse / underline) that some slots carry are
 kept out of the color grid as small per-role sets, defaulting to empty:
@@ -201,6 +201,8 @@ is `→ base`). Hex uses the EGA/VGA palette.
 | `placeholderAttributes` | `[dim]` |
 | `fieldForeground` | Yellow `#FFFF55` |
 | `fieldBackground` | Blue `#0000AA` |
+| `buttonForeground` | White `#FFFFFF` |
+| `buttonBackground` | Dark Gray `#555555` *(ordinary buttons — a raised pill, distinct from the green default)* |
 | `defaultButtonForeground` | White `#FFFFFF` |
 | `defaultButtonBackground` | Green `#00AA00` *(Borland default/OK button)* |
 | `destructiveButtonForeground` | White `#FFFFFF` |
@@ -276,6 +278,7 @@ attributes, and **every context inherits `base`** (no per-context styling).
 | `scrollbarThumb` / `scrollbarTrack` | White `#E5E5E5` / Bright Black `#7F7F7F` *(named)* |
 | `placeholderForeground` / `placeholderBackground` | — ; `placeholderAttributes = [dim]` |
 | `fieldForeground` / `fieldBackground` | — ; `fieldAttributes = [underline]` |
+| `buttonForeground` / `buttonBackground` | Bright Cyan `#00FFFF` / — *(accent text on the terminal surface — the minimal look, no pill; `Mono` drops both to `.standard`, resting on the underline)* |
 | `defaultButton` fg / bg | Bright Green `#00FF00` / — *(named fg; buttons stay bordered/tinted)* |
 | `destructiveButton` fg / bg | Bright Red `#FF0000` / — *(named)* |
 
@@ -314,6 +317,8 @@ required and complete; the five contexts are optional and sparse.
     "placeholderAttributes": ["dim"],
     "fieldForeground": "#FFFF55",
     "fieldBackground": "#0000AA",
+    "buttonForeground": "#FFFFFF",
+    "buttonBackground": "#555555",
     "defaultButtonForeground": "#FFFFFF",
     "defaultButtonBackground": "#00AA00",
     "destructiveButtonForeground": "#FFFFFF",

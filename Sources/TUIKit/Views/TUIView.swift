@@ -381,6 +381,14 @@ open class TUIView {
     /// Called after the view loses keyboard focus.
     open func didResignFirstResponder() {}
 
+    /// Whether this view is a transient overlay (a menu dropdown, pop-up list,
+    /// or context menu) that a press *anywhere outside it* should dismiss —
+    /// including a press that lands on the desktop or a different window, which
+    /// its own window would otherwise never see. Such overlays tear themselves
+    /// down from `didResignFirstResponder`, so dismissal is just moving focus
+    /// off them. Ordinary views stay put on an outside click.
+    open var dismissesOnOutsidePress: Bool { false }
+
     /// Handles a key while the view is (or contains) the first responder.
     ///
     /// Unhandled keys bubble up the superview chain, then fall through to

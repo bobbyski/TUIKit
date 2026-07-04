@@ -266,6 +266,23 @@ likely missing — are now in, alongside filled pill buttons (8.8) and themeable
 field wells (8.13). What remains of the Turbo look is border-embedded
 scrollbars (8.7).
 
+Follow-up fixes (2026-07-04, from a Turbo screenshot):
+- **Outside-press dismisses open overlays.** A press on the desktop or another
+  window left menu dropdowns / pop-up lists / context menus open (the overlay's
+  own window never saw the press). Added `TUIView.dismissesOnOutsidePress`
+  (overridden by `MenuDropdown`/`PopUpList`) + `Window.dismissOverlayIfPressOutside`,
+  called from `App`'s press routing; the press still routes normally afterward.
+  Test: `pressOutsideAnOpenMenuDismissesItButInsideSelects`.
+- **Ordinary buttons get their own theme slot.** A `.tinted` button drew its
+  label in the `accent`, which on Turbo (green on gray) was both low-contrast
+  and indistinguishable from a label. Added a `button` slot
+  (`buttonForeground`/`buttonBackground`), symmetric with
+  `defaultButton`/`destructiveButton`; `ControlStyle.restingStyle` rests on it.
+  Defaults preserve every theme's look — the background is the window's own, so
+  the pill is invisible and reads as today's accent text (Mono → underline).
+  Turbo sets a distinct dark-gray pill (`#555555`, white text) so Reset reads as
+  a button. Test: `ordinaryButtonsRestOnTheThemeButtonSlot`.
+
 ### Window state — 8.9–8.12 (maximize / restore / minimize)
 
 `FloatingWindow` today only moves and resizes by drag. Add explicit window-state

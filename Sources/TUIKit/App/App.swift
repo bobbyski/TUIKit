@@ -299,6 +299,14 @@ public final class App {
                 return
             }
 
+            // A press outside an open menu / pop-up / context menu dismisses it
+            // first — even when the press lands on the desktop or another window
+            // (the overlay's own window would never see that press otherwise).
+            // The press then routes normally, so it still lands where it points.
+            if mouse.action == .press, mouse.button == .left {
+                key.dismissOverlayIfPressOutside(mouse.position - key.frame.origin)
+            }
+
             var window = key
 
             // Click-to-activate: in a non-modal stack, pressing a window

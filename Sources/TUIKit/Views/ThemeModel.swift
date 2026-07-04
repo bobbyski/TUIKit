@@ -173,6 +173,9 @@ public struct ThemePalette: Codable, Hashable, Sendable {
     public var fieldBackground: TerminalColor?
     public var fieldAttributes: CellFlags?
 
+    public var buttonForeground: TerminalColor?
+    public var buttonBackground: TerminalColor?
+
     public var defaultButtonForeground: TerminalColor?
     public var defaultButtonBackground: TerminalColor?
 
@@ -232,6 +235,12 @@ public struct ResolvedTheme: Hashable, Sendable {
     public var fieldBackground: TerminalColor
     public var fieldAttributes: CellFlags
 
+    /// The resting fill for an ordinary (non-default) button. Themes that want
+    /// the minimal "accent text" look set the background to the window's own,
+    /// so the pill is invisible; a theme like Turbo gives it a distinct fill.
+    public var buttonForeground: TerminalColor
+    public var buttonBackground: TerminalColor
+
     public var defaultButtonForeground: TerminalColor
     public var defaultButtonBackground: TerminalColor
 
@@ -267,6 +276,11 @@ public struct ResolvedTheme: Hashable, Sendable {
     /// Editable field well.
     public var field: CellStyle {
         CellStyle(foreground: fieldForeground, background: fieldBackground, flags: fieldAttributes)
+    }
+
+    /// An ordinary (non-default) button's resting fill.
+    public var button: CellStyle {
+        CellStyle(foreground: buttonForeground, background: buttonBackground)
     }
 
     /// The default (Return/highlighted) button.
@@ -384,6 +398,8 @@ public struct Theme: Codable, Hashable, Sendable {
             fieldForeground: color(\.fieldForeground),
             fieldBackground: color(\.fieldBackground),
             fieldAttributes: flags(\.fieldAttributes),
+            buttonForeground: color(\.buttonForeground),
+            buttonBackground: color(\.buttonBackground),
             defaultButtonForeground: color(\.defaultButtonForeground),
             defaultButtonBackground: color(\.defaultButtonBackground),
             destructiveButtonForeground: color(\.destructiveButtonForeground),

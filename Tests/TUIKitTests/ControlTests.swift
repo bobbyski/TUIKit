@@ -53,6 +53,31 @@ private func press(_ character: Character) -> KeyInput {
     #expect(renderedLines(button, size: Size(width: 6, height: 1)) == ["[ OK ]"])
 }
 
+@Test @MainActor func ordinaryButtonsRestOnTheThemeButtonSlot() {
+    func cell(_ theme: Theme, context: ThemeContext?) -> CellStyle {
+        let button = Button("Reset")   // no mnemonic, so no accelerator overlay
+        let window = Window(frame: Rect(x: 0, y: 0, width: 8, height: 1))
+        window.theme = theme
+        window.themeContext = context
+        button.frame = window.bounds
+        window.addSubview(button)
+        // Column 1 is the 'R' inside " Reset ".
+        return SceneRenderer(root: window).render(size: Size(width: 8, height: 1))[Point(x: 1, y: 0)].style
+    }
+
+    // Turbo gives ordinary buttons a distinct dark-gray pill with white text,
+    // so Reset reads as a button, not a low-contrast label.
+    let turbo = cell(.turbo, context: .secondaryWindows)
+    #expect(turbo.foreground == .rgb(red: 255, green: 255, blue: 255))
+    #expect(turbo.background == .rgb(red: 85, green: 85, blue: 85))
+
+    // Surface themes keep the minimal look: accent text on the window's own
+    // background (an invisible pill), unchanged from before.
+    let ocean = cell(.ocean, context: nil)
+    #expect(ocean.foreground == .rgb(red: 126, green: 190, blue: 255))
+    #expect(ocean.background == .rgb(red: 34, green: 79, blue: 188), "fill is the window surface")
+}
+
 @Test @MainActor func defaultAndDestructiveButtonsFillFromTheirThemeSlots() {
     func fill(_ role: Button.Role) -> CellStyle {
         let button = Button("OK")

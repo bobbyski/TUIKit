@@ -151,6 +151,10 @@ extension Theme {
         base.fieldForeground = foreground
         base.fieldBackground = background
         base.fieldAttributes = [.underline]
+        // Ordinary buttons: accent text on the window's own surface, so the
+        // pill is invisible and reads as the minimal tinted look.
+        base.buttonForeground = accent
+        base.buttonBackground = background
         base.defaultButtonForeground = background
         base.defaultButtonBackground = accent
         base.destructiveButtonForeground = .named(.brightWhite)
@@ -187,6 +191,8 @@ extension Theme {
         base.fieldForeground = .standard
         base.fieldBackground = .standard
         base.fieldAttributes = [.underline]
+        base.buttonForeground = .named(.brightCyan)   // accent text, no fill
+        base.buttonBackground = .standard
         base.defaultButtonForeground = .named(.brightGreen)
         base.defaultButtonBackground = .standard
         base.destructiveButtonForeground = .named(.brightRed)
@@ -202,6 +208,8 @@ extension Theme {
         theme.base.accent = .standard
         theme.base.scrollbarThumb = .standard
         theme.base.scrollbarTrack = .standard
+        theme.base.buttonForeground = .standard   // colorless: buttons rest on emphasis
+        theme.base.buttonBackground = .standard
         return theme
     }()
 
@@ -313,6 +321,8 @@ extension Theme {
         base.placeholderAttributes = [.dim]
         base.fieldForeground = .rgb(red: 255, green: 255, blue: 85)      // yellow
         base.fieldBackground = .rgb(red: 0, green: 0, blue: 170)         // blue well
+        base.buttonForeground = .rgb(red: 255, green: 255, blue: 255)    // white
+        base.buttonBackground = .rgb(red: 85, green: 85, blue: 85)       // dark gray pill
         base.defaultButtonForeground = .rgb(red: 255, green: 255, blue: 255)
         base.defaultButtonBackground = .rgb(red: 0, green: 170, blue: 0)  // green
         base.destructiveButtonForeground = .rgb(red: 255, green: 255, blue: 255)
