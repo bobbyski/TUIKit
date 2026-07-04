@@ -43,6 +43,7 @@ Phase 11 · Controls v3                ░░░░░░░░░░░░░�
 Phase 12 · TUIBuilder (declarative)   ██████████████████████████  100%  🔄 Code complete — core, containers, Form, Grid/Tab/Split DSL, hosting
 Phase 13 · TUIView base rename        ██████████████████████████  100%  ✅ Done — base class View → TUIView (SwiftUI coexistence)
 Phase 14 · Data In / Out (binding)    ██████████████████████████  100%  🔄 Code complete — value/named/dict + typed binding + load/save/live + @Bound macro
+Phase 15 · Turbo Pascal theme         ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Planned — Borland look; main gap is keyboard accelerator hints
 ```
 
 **Status key:** ✅ Done &nbsp;|&nbsp; 🔄 In Progress &nbsp;|&nbsp; ⏳ Pending &nbsp;|&nbsp; 🚫 Blocked
@@ -347,6 +348,35 @@ never re-fires events — the "safe to repeat" property.
 | 14.5 | `load()`/`save()` + `live` | ✅ Done | Recursive, idempotent tree sync (`pull`/`push`); `bind(live:)` composes with the control's existing change event (user handler still runs). |
 | 14.6 | `@Bound` macro | ✅ Done | `@Bound var name = ""` on a class → a `$name` `Binding` projection (`field.bind(model.$name)`); the type is **inferred** from the literal initializer (`""`/`0`/`0.0`/`false`), non-literals annotate. Implemented in a new `TUIKitMacros` compiler-plugin target on **`swift-syntax`** (`603.0.0+`) — the one non-in-house dependency, confined to the plugin so the library runtime stays dependency-free. Slower builds are an accepted trade for the ergonomics. |
 | 14.7 | Tests + docs | ✅ Done | 7 headless tests (round-trip/coerce, silent, dotted paths, dict I/O, key-path load/save idempotence, closure binding, live); `Docs/DataBinding.md`. |
+
+## Phase 15 — Turbo Pascal / Borland theme ⏳ (planned, not started)
+
+Recreate the classic Turbo Pascal / Borland IDE look — royal-blue desktop,
+cyan double-bordered dialogs with drop shadows, a gray menu bar, green
+shadowed buttons, yellow static labels, **red accelerator letters**, and the
+bottom F-key strip — as a built-in theme *plus* the few framework features an
+authentic rendering needs. Serves as a strong end-to-end stress test of the
+theming, chrome, and input layers.
+
+**Standing constraint (Bobby):** solid colors, **never shade/hash patterns** —
+the Borland desktop's dotted `▒` fill and its window/button shadows all become
+solid fills.
+
+Much of the palette is already expressible via the `Theme` slots +
+`borderStyle: .double` + `Desktop.fillStyle`. The real work is the
+interactive/rendering gaps below.
+
+| # | Item | Priority | Notes |
+|---|------|----------|-------|
+| 15.1 | `.turbo` built-in theme | core | Blue desktop, cyan window base, gray/black menu bar, yellow static text, double borders. Likely needs a **filled-pill button color** and a distinct **menu-bar slot** beyond today's `base`/`accent`/`selection`/`header`/`border`/`placeholder`/`scrollbar` set. |
+| 15.2 | **Keyboard accelerator hints** | needed (main gap) | The highlighted mnemonic letter (Borland's red letters) on menus, buttons, labels, checkboxes — a `&`-marker or explicit index, drawn in an accent color, activated by Alt+letter. TUIKit has menu `keyEquivalent` but **no visual mnemonic and no per-control accelerator** — this is the primary feature to build. |
+| 15.3 | Window / dialog drop shadows | nice-to-have | A solid dark shadow offset to the bottom-right behind `Panel`/`Window`/dialogs (opt-in chrome, drawn on the desktop beneath the window). |
+| 15.4 | Filled "pill" buttons + press animation | low | A filled-background button style (green pill) with an optional drop shadow that the label "presses down" onto on activate and pops back on release. Bobby: the animation is **not important** — the filled/shadow look matters more than the motion. |
+
+Bobby's notes from the reference screenshots: expect a follow-up request to
+swap any patterned fills for solid ones; the button press-down animation is a
+low-priority flourish; the red keyboard-hint letters (15.2) are the feature
+most likely missing today.
 
 ---
 

@@ -803,7 +803,10 @@ func runFormDemo() async throws {
         window.onCloseRequest = { [weak window] in if let window { app.dismiss(window) } }
 
         let list = ListView()
-        let detail = VStack()   // right pane, rebuilt on each selection
+        // A plain view (not a stack): setContent fill-anchors its root, and a
+        // stack would ignore anchors and size the content to its intrinsic
+        // height — collapsing the flexible notes editor to nothing.
+        let detail = TUIView()   // right pane, rebuilt on each selection
         let status = Label("Select a contact, or ✚ Add a new one.", style: CellStyle(flags: .dim))
 
         func refreshList(select selection: Int?) {

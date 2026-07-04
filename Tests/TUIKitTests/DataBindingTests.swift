@@ -174,3 +174,25 @@ private final class BoundProfile {
     #expect(model.name == "typed", "live push updated the model")
     #expect(handlerCalls == 1, "the user's handler still ran")
 }
+
+@MainActor private final class NoteModel { @Bound var notes = "" }
+
+@Test @MainActor func boundSyntaxViewLoadsMultilineText() {
+    let model = NoteModel()
+    model.notes = "alpha\nbeta\ngamma"
+
+    let editor = SyntaxTextView(language: "text")
+    editor.showsLineNumbers = false
+    editor.bind(model.$notes)
+
+    let window = Window(frame: Rect(x: 0, y: 0, width: 20, height: 6))
+    editor.anchors = .fill()
+    window.addSubview(editor)
+    window.load()
+    window.layoutIfNeeded()
+
+    let lines = SceneRenderer(root: window).render(size: window.frame.size).textLines()
+    #expect(lines[0].contains("alpha"))
+    #expect(lines[1].contains("beta"))
+    #expect(lines[2].contains("gamma"))
+}

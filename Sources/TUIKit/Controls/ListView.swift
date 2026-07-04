@@ -163,7 +163,8 @@ public final class ListView: TUIView {
         }
     }
 
-    /// Draws the visible rows; the selected row inverts.
+    /// Draws the visible rows (selected row inverts) and, when the content
+    /// overflows, a proportional scroll indicator in the reserved last column.
     public override func draw(_ painter: Painter) {
         let height = bounds.size.height
         let width = bounds.size.width
@@ -171,6 +172,9 @@ public final class ListView: TUIView {
         guard height > 0, width > 0 else {
             return
         }
+
+        let showsScrollbar = items.count > height && width > 1
+        let rowWidth = showsScrollbar ? width - 1 : width
 
         for row in 0..<height {
             let index = navigation.scrollOffset + row
@@ -190,9 +194,30 @@ public final class ListView: TUIView {
                 }
             }
 
-            let title = Label.truncated(items[index], width: width)
-            let padded = title + String(repeating: " ", count: max(0, width - title.count))
+            let title = Label.truncated(items[index], width: rowWidth)
+            let padded = title + String(repeating: " ", count: max(0, rowWidth - title.count))
             painter.write(padded, at: Point(x: 0, y: row), style: style)
+        }
+
+        if showsScrollbar {
+            drawScrollbar(painter, at: width - 1, height: height)
+        }
+    }
+
+    // A solid proportional indicator (dim track, bright thumb — no glyph
+    // patterns), reusing ScrollView's indicator styling.
+    private func drawScrollbar(_ painter: Painter, at column: Int, height: Int) {
+        let count = items.count
+        let (track, thumb) = ScrollView.indicatorStyles(for: effectiveTheme, focused: isFirstResponder)
+
+        let thumbLength = max(1, height * height / count)
+        let maxThumbStart = max(0, height - thumbLength)
+        let maxOffset = max(1, count - height)
+        let thumbStart = min(maxThumbStart, navigation.scrollOffset * maxThumbStart / maxOffset)
+
+        for y in 0..<height {
+            let inThumb = y >= thumbStart && y < thumbStart + thumbLength
+            painter.set(TerminalCell(character: " ", style: inThumb ? thumb : track), at: Point(x: column, y: y))
         }
     }
 

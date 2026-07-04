@@ -2,6 +2,10 @@ public extension TUIView {
     /// Replaces this view's children with a single fill-anchored root built
     /// from the components (several are wrapped in a `VStack`).
     ///
+    /// Call this on a plain view or a panel's `content` — not on a stack,
+    /// which owns its children's frames and ignores the fill anchors, sizing
+    /// the content to its intrinsic height instead.
+    ///
     /// Use it to hand a built tree to a window or a panel's content area:
     ///
     /// ```swift

@@ -169,3 +169,24 @@ private func makeList(_ count: Int, height: Int) -> ListView {
 
     #expect(list.selectedIndex == 1)
 }
+
+@Test @MainActor func listViewShowsScrollbarOnOverflow() {
+    let list = ListView(items: (1...20).map { "Item \($0)" })
+    let window = Window(frame: Rect(x: 0, y: 0, width: 12, height: 5))
+    list.frame = window.bounds
+    window.addSubview(list)
+
+    // 20 items in 5 rows → the last column becomes a proportional scrollbar,
+    // thumb at the top while unscrolled.
+    let buffer = SceneRenderer(root: window).render(size: Size(width: 12, height: 5))
+    #expect(buffer[Point(x: 11, y: 0)].style.background == .named(.white), "thumb at top")
+    #expect(buffer[Point(x: 11, y: 4)].style.background == .named(.brightBlack), "dim track below")
+
+    // No scrollbar when everything fits.
+    let small = ListView(items: ["a", "b"])
+    let w2 = Window(frame: Rect(x: 0, y: 0, width: 12, height: 5))
+    small.frame = w2.bounds
+    w2.addSubview(small)
+    let line = SceneRenderer(root: w2).render(size: Size(width: 12, height: 5)).textLines()[0]
+    #expect(line.hasPrefix("a"))
+}
