@@ -24,10 +24,10 @@ private func rgb(_ v: UInt8) -> TerminalColor { .rgb(red: v, green: v, blue: v) 
     var content = ThemePalette()
     content.background = .rgb(red: 0, green: 0, blue: 170)   // sparse overlay
 
-    let theme = ThemeDefinition(name: "Turbo", base: base, contentWindow: content)
+    let theme = Theme(name: "Turbo", base: base, contentWindow: content)
 
     let data = try JSONEncoder().encode(theme)
-    let back = try JSONDecoder().decode(ThemeDefinition.self, from: data)
+    let back = try JSONDecoder().decode(Theme.self, from: data)
 
     #expect(back == theme, "encode → decode is lossless across rgb/named/standard/palette + flags + borderStyle")
 }
@@ -43,7 +43,7 @@ private func rgb(_ v: UInt8) -> TerminalColor { .rgb(red: v, green: v, blue: v) 
     }
     """
 
-    let theme = try JSONDecoder().decode(ThemeDefinition.self, from: Data(json.utf8))
+    let theme = try JSONDecoder().decode(Theme.self, from: Data(json.utf8))
 
     #expect(theme.name == "Turbo")
     #expect(theme.base.foreground == .rgb(red: 255, green: 255, blue: 85))
@@ -61,7 +61,7 @@ private func rgb(_ v: UInt8) -> TerminalColor { .rgb(red: v, green: v, blue: v) 
 @Test func encodingOmitsNilSlots() throws {
     var base = ThemePalette()
     base.foreground = .named(.white)   // just one slot set
-    let theme = ThemeDefinition(name: "Sparse", base: base)
+    let theme = Theme(name: "Sparse", base: base)
 
     let text = String(decoding: try JSONEncoder().encode(theme), as: UTF8.self)
     #expect(text.contains("\"foreground\""))
@@ -80,7 +80,7 @@ private func rgb(_ v: UInt8) -> TerminalColor { .rgb(red: v, green: v, blue: v) 
     var desktop = ThemePalette()
     desktop.background = rgb(9)   // exists, but must be ignored for nil context
 
-    let resolved = ThemeDefinition(name: "R", base: base, desktop: desktop).resolved(for: nil)
+    let resolved = Theme(name: "R", base: base, desktop: desktop).resolved(for: nil)
 
     #expect(resolved.foreground == rgb(1))
     #expect(resolved.background == rgb(2))
@@ -96,7 +96,7 @@ private func rgb(_ v: UInt8) -> TerminalColor { .rgb(red: v, green: v, blue: v) 
     var desktop = ThemePalette()
     desktop.background = rgb(9)   // desktop overrides only the background
 
-    let d = ThemeDefinition(name: "R", base: base, desktop: desktop).resolved(for: .desktop)
+    let d = Theme(name: "R", base: base, desktop: desktop).resolved(for: .desktop)
 
     #expect(d.background == rgb(9), "context override wins")
     #expect(d.foreground == rgb(1), "unset slot inherits base")
@@ -115,7 +115,7 @@ private func rgb(_ v: UInt8) -> TerminalColor { .rgb(red: v, green: v, blue: v) 
     var accessory = ThemePalette()
     accessory.background = rgb(3)    // only background
 
-    let theme = ThemeDefinition(name: "R", base: base, contentWindow: content, accessoryView: accessory)
+    let theme = Theme(name: "R", base: base, contentWindow: content, accessoryView: accessory)
     let a = theme.resolved(for: .accessoryView)
 
     #expect(a.background == rgb(3), "accessory's own value wins")
@@ -136,7 +136,7 @@ private func rgb(_ v: UInt8) -> TerminalColor { .rgb(red: v, green: v, blue: v) 
     base.borderForeground = .named(.white)
     base.borderStyle = .double
 
-    let r = ThemeDefinition(name: "R", base: base).resolved()
+    let r = Theme(name: "R", base: base).resolved()
 
     #expect(r.borderStyle == .double)
     #expect(r.selectionAttributes == [.bold])

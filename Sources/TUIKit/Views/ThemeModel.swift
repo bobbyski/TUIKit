@@ -1,12 +1,10 @@
 // The next-generation, context-aware theme model (see Docs/Themes.md).
 //
-// A `ThemeDefinition` is a *slot × context* matrix: a complete `base` palette
-// plus sparse per-context overlays. Resolving it for a context produces a flat,
+// A `Theme` is a *slot × context* matrix: a complete `base` palette plus sparse
+// per-context overlays. Resolving it for a context produces a flat,
 // fully-populated `ResolvedTheme` whose CellStyle conveniences (`.selection`,
-// `.header`, …) the controls draw with.
-//
-// This file is additive — it stands alongside the current flat `Theme` until
-// the migration flips `effectiveTheme` over to it (build-green chunks).
+// `.header`, …) the controls draw with (`TUIView.effectiveTheme`). The built-in
+// themes live in Theme.swift; controls draw via `effectiveTheme`.
 
 // MARK: - Codable for the primitives
 
@@ -131,6 +129,7 @@ public enum ThemeContext: String, Codable, Sendable, CaseIterable {
 public struct ThemePalette: Codable, Hashable, Sendable {
     public var foreground: TerminalColor?
     public var background: TerminalColor?
+    public var baseAttributes: CellFlags?
 
     public var accent: TerminalColor?
     public var warningAccent: TerminalColor?
@@ -177,6 +176,7 @@ public struct ThemePalette: Codable, Hashable, Sendable {
 public struct ResolvedTheme: Hashable, Sendable {
     public var foreground: TerminalColor
     public var background: TerminalColor
+    public var baseAttributes: CellFlags
 
     public var accent: TerminalColor
     public var warningAccent: TerminalColor
@@ -214,7 +214,7 @@ public struct ResolvedTheme: Hashable, Sendable {
     // MARK: CellStyle conveniences (derived, read-only)
 
     /// Ordinary cells (the `.standard`-substitution base).
-    public var base: CellStyle { CellStyle(foreground: foreground, background: background) }
+    public var base: CellStyle { CellStyle(foreground: foreground, background: background, flags: baseAttributes) }
 
     /// Selected rows / segments / menu highlights.
     public var selection: CellStyle {
@@ -257,7 +257,7 @@ public struct ResolvedTheme: Hashable, Sendable {
 
 /// A named theme: a complete `base` palette plus optional per-context overlays.
 /// Codable, so themes ship and load as JSON.
-public struct ThemeDefinition: Codable, Hashable, Sendable {
+public struct Theme: Codable, Hashable, Sendable {
     public var name: String
     public var base: ThemePalette
     public var desktop: ThemePalette?
@@ -315,6 +315,7 @@ public struct ThemeDefinition: Codable, Hashable, Sendable {
         return ResolvedTheme(
             foreground: color(\.foreground),
             background: color(\.background),
+            baseAttributes: flags(\.baseAttributes),
             accent: color(\.accent),
             warningAccent: color(\.warningAccent),
             errorAccent: color(\.errorAccent),

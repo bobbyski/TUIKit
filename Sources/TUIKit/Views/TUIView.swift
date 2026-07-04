@@ -59,6 +59,20 @@ open class TUIView {
         }
     }
 
+    /// The theme *context* for this view and its subtree — which parallel
+    /// palette its slots resolve through (see `ThemeContext`, Docs/Themes.md).
+    ///
+    /// `nil` (the default) follows the parent; with none set anywhere, slots
+    /// resolve against the theme's `base`. Windows set this by type
+    /// (`contentWindow`, `modalWindows`, …); chrome sets `desktop`.
+    public var themeContext: ThemeContext? {
+        didSet {
+            if themeContext != oldValue {
+                setNeedsDisplay()
+            }
+        }
+    }
+
     /// Name for the data layer: dotted-path lookup, bulk form I/O, and
     /// bindings (`Docs/DataBinding.md`). Distinct from `identifier`, which is
     /// the stylesheet `#id`.
@@ -115,14 +129,23 @@ open class TUIView {
     ///
     /// Style sheets are entirely optional — with none in the ancestor
     /// chain this is exactly the inherited theme.
-    public var effectiveTheme: Theme {
+    public var effectiveTheme: ResolvedTheme {
         var inherited: Theme?
+        var context: ThemeContext?
+        var foundContext = false
         var sheetHolders: [TUIView] = []
         var current: TUIView? = self
 
+        // Nearest ancestor with a theme, and (independently) the nearest with a
+        // context — both walked over the same weak `superview` chain.
         while let view = current {
             if inherited == nil, let theme = view.theme {
                 inherited = theme
+            }
+
+            if !foundContext, let viewContext = view.themeContext {
+                context = viewContext
+                foundContext = true
             }
 
             if view.styleSheet != nil {
@@ -132,9 +155,10 @@ open class TUIView {
             current = view.superview
         }
 
-        var resolved = inherited ?? .standard
+        // Resolve the matrix for this view's context, then cascade sheets on
+        // top from the root inward.
+        var resolved = (inherited ?? .standard).resolved(for: context)
 
-        // Cascade: sheets from the root inward.
         for holder in sheetHolders.reversed() {
             holder.styleSheet?.apply(to: self, theme: &resolved)
         }

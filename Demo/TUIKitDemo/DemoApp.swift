@@ -81,15 +81,10 @@ final class DemoApp {
                 // can still opt out locally (e.g. the declarative window pins its
                 // controls to `.standard`).
                 app.applyTheme(theme)
-                // Paint the desktop with a *lightened* version of the theme
-                // background, so windows (drawn on the theme background) stand
-                // out against a distinct backdrop — Turbo Pascal's light-blue
-                // desktop under its royal-blue windows. Uses the existing
-                // Desktop.fillStyle + Theme.blendColors; colorless themes (no RGB
-                // to blend) fall back to the plain background.
-                let bg = theme.base.background
-                let backdrop = TUIKit.Theme.blendColors(bg, toward: .named(.white), fraction: 0.3) ?? bg
-                app.desktop.fillStyle = CellStyle(background: backdrop)
+                // Paint the desktop from the theme's own `desktop`-context
+                // backdrop — Turbo Pascal's light blue; themes without a desktop
+                // overlay resolve to their base background.
+                app.desktop.fillStyle = CellStyle(background: theme.resolved(for: .desktop).background)
                 // Re-color the status text to the new theme's chrome slot.
                 styleStatusChrome()
             }

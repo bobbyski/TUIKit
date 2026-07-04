@@ -96,7 +96,7 @@ import Testing
 
     #expect(list.effectiveTheme.selection.background == .rgb(red: 0xaa, green: 0x55, blue: 0))
     #expect(
-        list.effectiveTheme.base == TUIKit.Theme.ocean.base,
+        list.effectiveTheme.base == TUIKit.Theme.ocean.resolved().base,
         "the inherited theme survives underneath the sheet"
     )
 
@@ -138,7 +138,7 @@ import Testing
 
 @Test @MainActor func borderStyleWorksDirectlyOnThemes() {
     var theme = TUIKit.Theme.standard
-    theme.borderStyle = .rounded
+    theme.base.borderStyle = .rounded
 
     let window = Window(frame: Rect(x: 0, y: 0, width: 12, height: 4))
     window.theme = theme
@@ -162,7 +162,7 @@ import Testing
     label.frame = Rect(x: 0, y: 0, width: 4, height: 1)
     window.addSubview(label)
 
-    #expect(label.effectiveTheme == .homebrew, "no sheets → exactly the inherited theme")
+    #expect(label.effectiveTheme == Theme.homebrew.resolved(), "no sheets → exactly the inherited theme")
     #expect(label.identifier == nil)
     #expect(label.styleClasses.isEmpty)
     #expect(label.styleSheet == nil)

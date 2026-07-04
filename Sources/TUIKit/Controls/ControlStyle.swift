@@ -44,7 +44,7 @@ public enum ControlStyle: Sendable {
     ///
     /// - Parameter theme: The control's effective theme.
     /// - Returns: The resting cell style.
-    func restingStyle(theme: Theme) -> CellStyle {
+    func restingStyle(theme: ResolvedTheme) -> CellStyle {
         switch self {
         case .bordered:
             return CellStyle()

@@ -26,25 +26,28 @@ import Testing
     #expect(buffer[Point(x: 0, y: 1)].style.background == .rgb(red: 0, green: 0, blue: 0))
 }
 
-@Test @MainActor func turboThemeUsesBorlandPaletteAndDoubleBorders() {
-    // Registered in the picker.
+@Test @MainActor func turboThemeResolvesGrayBaseAndBlueContentWindow() {
     #expect(Theme.builtIn.contains { $0.name == "Turbo Pascal" })
-    #expect(Theme.turbo.borderStyle == .double)
+    #expect(Theme.turbo.base.borderStyle == .double)
 
     let panel = TUIKit.Panel("Edit")
     panel.theme = .turbo
     let window = Window(frame: Rect(x: 0, y: 0, width: 12, height: 4))
     panel.frame = window.bounds
     window.addSubview(panel)
-    let buffer = SceneRenderer(root: window).render(size: Size(width: 12, height: 4))
 
-    // Top-left corner: a double-line glyph, white on Borland blue.
+    // No context → the gray dialog `base`, white double border.
+    var buffer = SceneRenderer(root: window).render(size: Size(width: 12, height: 4))
     let corner = buffer[Point(x: 0, y: 0)]
     #expect(corner.character == "╔")
     #expect(corner.style.foreground == .rgb(red: 255, green: 255, blue: 255))
-    #expect(corner.style.background == .rgb(red: 0, green: 0, blue: 170))
+    #expect(corner.style.background == .rgb(red: 170, green: 170, blue: 170), "base is the gray surface")
+    #expect(buffer[Point(x: 1, y: 1)].style.background == .rgb(red: 170, green: 170, blue: 170))
 
-    // Interior fills with the base background (blue).
+    // The contentWindow context resolves the blue editor look.
+    panel.themeContext = .contentWindow
+    buffer = SceneRenderer(root: window).render(size: Size(width: 12, height: 4))
+    #expect(buffer[Point(x: 0, y: 0)].style.background == .rgb(red: 0, green: 0, blue: 170), "editor blue")
     #expect(buffer[Point(x: 1, y: 1)].style.background == .rgb(red: 0, green: 0, blue: 170))
 }
 
@@ -61,8 +64,8 @@ import Testing
     panel.frame = Rect(x: 0, y: 0, width: 12, height: 2)
     window.addSubview(panel)
 
-    #expect(panel.effectiveTheme == .manPage)
-    #expect(outside.effectiveTheme == .dark)
+    #expect(panel.effectiveTheme == Theme.manPage.resolved())
+    #expect(outside.effectiveTheme == Theme.dark.resolved())
 
     let buffer = SceneRenderer(root: window).render(size: Size(width: 20, height: 3))
 
@@ -107,20 +110,19 @@ import Testing
     #expect(repainted?[Point(x: 0, y: 0)].style.background == .rgb(red: 250, green: 250, blue: 250))
 }
 
-@Test @MainActor func paletteInitializerDerivesTheSlots() {
-    let theme = TUIKit.Theme(   // qualified: RichSwift also has a Theme
-        background: .named(.black),
-        foreground: .named(.white),
-        accent: .named(.cyan)
-    )
+@Test @MainActor func surfaceHelperDerivesTheSlots() {
+    let resolved = TUIKit.Theme
+        .surface("T", background: .named(.black), foreground: .named(.white), accent: .named(.cyan))
+        .resolved()
 
-    #expect(theme.base == CellStyle(foreground: .named(.white), background: .named(.black)))
-    #expect(theme.selection == CellStyle(foreground: .named(.black), background: .named(.cyan)))
-    #expect(theme.header.foreground == .named(.cyan))
-    #expect(theme.header.flags.contains(.bold))
-    #expect(theme.placeholder.flags.contains(.dim))
+    #expect(resolved.base == CellStyle(foreground: .named(.white), background: .named(.black)))
+    #expect(resolved.selection == CellStyle(foreground: .named(.black), background: .named(.cyan)))
+    #expect(resolved.headerForeground == .named(.cyan))
+    #expect(resolved.headerAttributes.contains(.bold))
+    #expect(resolved.placeholderAttributes.contains(.dim))
 
     // The standard theme adds no color anywhere — selection is inverse.
-    #expect(TUIKit.Theme.standard.selection == CellStyle(flags: .inverse))
-    #expect(TUIKit.Theme.standard.base == CellStyle())
+    let standard = TUIKit.Theme.standard.resolved()
+    #expect(standard.selection == CellStyle(flags: .inverse))
+    #expect(standard.base == CellStyle())
 }

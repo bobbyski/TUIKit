@@ -134,7 +134,7 @@ public final class Panel: TUIView {
     // Joins connected dividers anywhere in the content subtree that reach
     // the content edges into this panel's border with tee junctions, so
     // divided layouts read as one piece of chrome.
-    private func drawDividerJunctions(_ painter: Painter, theme: Theme) {
+    private func drawDividerJunctions(_ painter: Painter, theme: ResolvedTheme) {
         guard let junctions = theme.borderStyle.junctions else {
             return
         }

@@ -357,7 +357,7 @@ public final class Browser: TUIView {
 
     // MARK: - Drawing
 
-    private func drawColumn(_ columnIndex: Int, atX x0: Int, painter: Painter, theme: Theme) {
+    private func drawColumn(_ columnIndex: Int, atX x0: Int, painter: Painter, theme: ResolvedTheme) {
         let column = columns[columnIndex]
         let isFocused = columnIndex == focusedColumn
 
