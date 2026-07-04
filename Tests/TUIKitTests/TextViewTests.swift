@@ -68,6 +68,45 @@ private func render(_ view: TUIView, size: Size) -> [String] {
     #expect(view.text == "hi")
 }
 
+@Test @MainActor func textViewShowsScrollbarOnOverflow() {
+    let view = TextView(text: (1...20).map { "Line \($0)" }.joined(separator: "\n"))
+    let window = Window(frame: Rect(x: 0, y: 0, width: 12, height: 5))
+    view.frame = window.bounds
+    window.addSubview(view)
+
+    // 20 wrapped rows in 5 → the last column becomes a proportional scrollbar,
+    // thumb at the top while unscrolled.
+    let buffer = SceneRenderer(root: window).render(size: Size(width: 12, height: 5))
+    #expect(buffer[Point(x: 11, y: 0)].style.background == .named(.white), "thumb at top")
+    #expect(buffer[Point(x: 11, y: 4)].style.background == .named(.brightBlack), "dim track below")
+
+    // No scrollbar when everything fits.
+    let small = TextView(text: "a\nb")
+    let w2 = Window(frame: Rect(x: 0, y: 0, width: 12, height: 5))
+    small.frame = w2.bounds
+    w2.addSubview(small)
+    let line = SceneRenderer(root: w2).render(size: Size(width: 12, height: 5)).textLines()[0]
+    #expect(line.hasPrefix("a"))
+}
+
+@Test @MainActor func textViewScrollbarThumbDragsTheView() {
+    let view = TextView(text: (1...20).map { "Line \($0)" }.joined(separator: "\n"))
+    let window = Window(frame: Rect(x: 0, y: 0, width: 12, height: 5))
+    view.frame = window.bounds
+    window.addSubview(view)
+    _ = SceneRenderer(root: window).render(size: window.frame.size)   // lay out
+
+    // Grab the thumb (top) and drag to the bottom row → scrolled to the end.
+    _ = view.mouseEvent(MouseInput(position: Point(x: 11, y: 0), action: .press, button: .left))
+    _ = view.mouseEvent(MouseInput(position: Point(x: 11, y: 4), action: .drag, button: .left))
+
+    // After the drag, the first visible row is the last page (row 15 of 20).
+    let lines = SceneRenderer(root: window).render(size: window.frame.size).textLines()
+    #expect(lines[0].hasPrefix("Line 16"), "dragging the thumb to the bottom scrolls to the end")
+
+    _ = view.mouseEvent(MouseInput(position: Point(x: 11, y: 4), action: .release, button: .left))
+}
+
 @Test @MainActor func readOnlyTextViewIgnoresEditsButStillScrolls() {
     let view = TextView(text: "one two three four five six")
     view.isEditable = false

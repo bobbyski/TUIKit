@@ -30,6 +30,9 @@ public final class TextView: TUIView {
     // First visible *visual* row and (unused while wrapping) horizontal scroll.
     private var offset = Point.zero
 
+    // In-flight scrollbar-thumb drag: the grab offset within the thumb.
+    private var scrollbarGrab: Int?
+
     /// Whether keystrokes edit the text. A read-only view still scrolls and
     /// takes focus, but shows no cursor and ignores edits.
     public var isEditable = true
@@ -78,7 +81,8 @@ public final class TextView: TUIView {
 
     // MARK: - Drawing
 
-    /// Draws the visible wrapped rows and the cursor.
+    /// Draws the visible wrapped rows, the cursor, and — when the content
+    /// overflows — a proportional scroll indicator in the reserved last column.
     public override func draw(_ painter: Painter) {
         let height = bounds.size.height
         let width = bounds.size.width
@@ -87,7 +91,7 @@ public final class TextView: TUIView {
             return
         }
 
-        let rows = visualRows()
+        let (rows, contentWidth, scrollbar) = layout()
 
         for viewportRow in 0..<height {
             let rowIndex = offset.y + viewportRow
@@ -105,6 +109,10 @@ public final class TextView: TUIView {
             }
         }
 
+        if scrollbar {
+            drawScrollbar(painter, at: width - 1, rowCount: rows.count, height: height)
+        }
+
         // Cursor cell inverts while focused and editable.
         guard isFirstResponder, isEditable else {
             return
@@ -112,7 +120,7 @@ public final class TextView: TUIView {
 
         let position = visualPosition(line: cursor.y, column: cursor.x, in: rows)
 
-        if position.row >= offset.y, position.row < offset.y + height, position.column < width {
+        if position.row >= offset.y, position.row < offset.y + height, position.column < contentWidth {
             let line = lines[cursor.y]
             let character: Character = cursor.x < line.count
                 ? line[line.index(line.startIndex, offsetBy: cursor.x)]
@@ -123,6 +131,28 @@ public final class TextView: TUIView {
                 at: Point(x: position.column, y: position.row - offset.y)
             )
         }
+    }
+
+    // A solid proportional indicator (dim track, bright thumb — no glyph
+    // patterns), reusing ScrollView's indicator styling.
+    private func drawScrollbar(_ painter: Painter, at column: Int, rowCount: Int, height: Int) {
+        let (track, thumb) = ScrollView.indicatorStyles(for: effectiveTheme, focused: isFirstResponder)
+        let (start, length) = scrollbarThumb(rowCount: rowCount, height: height)
+
+        for y in 0..<height {
+            let inThumb = y >= start && y < start + length
+            painter.set(TerminalCell(character: " ", style: inThumb ? thumb : track), at: Point(x: column, y: y))
+        }
+    }
+
+    // Thumb start row and length for the current scroll — shared by drawing
+    // and dragging so the thumb the user grabs is the one drawn.
+    private func scrollbarThumb(rowCount: Int, height: Int) -> (start: Int, length: Int) {
+        let length = max(1, height * height / rowCount)
+        let maxStart = max(0, height - length)
+        let maxOffset = max(1, rowCount - height)
+        let start = min(maxStart, offset.y * maxStart / maxOffset)
+        return (start, length)
     }
 
     // MARK: - Keyboard
@@ -197,13 +227,31 @@ public final class TextView: TUIView {
 
     // MARK: - Mouse
 
-    /// Click places the cursor; the wheel scrolls.
+    /// Click places the cursor (or works the scrollbar); the wheel scrolls.
     public override func mouseEvent(_ mouse: MouseInput) -> Bool {
+        let height = bounds.size.height
+
         switch mouse.action {
         case .press where mouse.button == .left:
-            let rows = visualRows()
+            let (rows, _, scrollbar) = layout()
+
+            // The reserved last column is the scrollbar: drag the thumb, or
+            // click the track to page toward the click.
+            if scrollbar, mouse.position.x == bounds.size.width - 1 {
+                pressScrollbar(atRow: mouse.position.y, rowCount: rows.count, height: height)
+                return true
+            }
+
             let logical = logicalPosition(row: offset.y + mouse.position.y, column: max(0, mouse.position.x), in: rows)
             moveCursor(line: logical.line, column: logical.column)
+            return true
+
+        case .drag where scrollbarGrab != nil:
+            dragScrollbar(toRow: mouse.position.y, height: height)
+            return true
+
+        case .release where scrollbarGrab != nil:
+            scrollbarGrab = nil
             return true
 
         case .scrollUp:
@@ -212,13 +260,38 @@ public final class TextView: TUIView {
             return true
 
         case .scrollDown:
-            offset.y = min(max(0, visualRows().count - bounds.size.height), offset.y + 1)
+            offset.y = min(max(0, layout().rows.count - height), offset.y + 1)
             setNeedsDisplay()
             return true
 
         default:
             return false
         }
+    }
+
+    // Press on the scrollbar: grab the thumb, or page the track.
+    private func pressScrollbar(atRow row: Int, rowCount: Int, height: Int) {
+        let (start, length) = scrollbarThumb(rowCount: rowCount, height: height)
+
+        if row >= start, row < start + length {
+            scrollbarGrab = row - start
+        } else {
+            let page = max(1, height - 1)
+            offset.y = min(max(0, rowCount - height), max(0, offset.y + (row < start ? -page : page)))
+            setNeedsDisplay()
+        }
+    }
+
+    // Drag maps the thumb's top row to a proportional scroll offset.
+    private func dragScrollbar(toRow row: Int, height: Int) {
+        let rowCount = layout().rows.count
+        let (_, length) = scrollbarThumb(rowCount: rowCount, height: height)
+        let maxStart = max(0, height - length)
+        let targetStart = min(maxStart, max(0, row - (scrollbarGrab ?? 0)))
+        let maxOffset = max(0, rowCount - height)
+
+        offset.y = maxStart > 0 ? targetStart * maxOffset / maxStart : 0
+        setNeedsDisplay()
     }
 
     // MARK: - Editing
@@ -293,7 +366,7 @@ public final class TextView: TUIView {
 
     // Moves the cursor up/down by visual rows, keeping its visual column.
     private func moveCursorVisually(rowDelta: Int) {
-        let rows = visualRows()
+        let rows = layout().rows
         let position = visualPosition(line: cursor.y, column: cursor.x, in: rows)
         let target = min(max(0, position.row + rowDelta), rows.count - 1)
         let logical = logicalPosition(row: target, column: position.column, in: rows)
@@ -307,7 +380,7 @@ public final class TextView: TUIView {
             return
         }
 
-        let rows = visualRows()
+        let rows = layout().rows
         let position = visualPosition(line: cursor.y, column: cursor.x, in: rows)
 
         if position.row < offset.y {
@@ -325,10 +398,27 @@ public final class TextView: TUIView {
     // length) character range of that line it shows.
     private typealias VisualRow = (line: Int, start: Int, length: Int)
 
-    // Word-wraps every logical line to the view width. An empty line still
-    // occupies one visual row.
-    private func visualRows() -> [VisualRow] {
+    // The wrapped rows plus the layout they were wrapped for: the text width
+    // and whether the last column is reserved for a scrollbar. The scrollbar
+    // shows only when content overflows; reserving its column narrows the
+    // wrap width, so this decides both together. (Narrowing can only add
+    // rows, never remove them, so the overflow test stays consistent.)
+    private func layout() -> (rows: [VisualRow], contentWidth: Int, scrollbar: Bool) {
         let width = max(1, bounds.size.width)
+        let height = bounds.size.height
+        let full = visualRows(width: width)
+
+        if width > 1, full.count > height {
+            return (visualRows(width: width - 1), width - 1, true)
+        }
+
+        return (full, width, false)
+    }
+
+    // Word-wraps every logical line to `width`. An empty line still occupies
+    // one visual row.
+    private func visualRows(width rawWidth: Int) -> [VisualRow] {
+        let width = max(1, rawWidth)
         var rows: [VisualRow] = []
 
         for (lineIndex, text) in lines.enumerated() {

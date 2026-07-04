@@ -926,8 +926,10 @@ func runFormDemo() async throws {
     let themeMenu = Menu("Theme")
     for (name, theme) in TUIKit.Theme.builtIn {
         themeMenu.addItem(name) {
-            // Restyle the top-most example (the strip is key while the menu is open).
-            app.windows.last(where: { $0 !== menuWindow })?.theme = theme
+            // One call themes the whole app — desktop and every window. Views
+            // can still opt out locally (e.g. the declarative window pins its
+            // controls to `.standard`).
+            app.applyTheme(theme)
         }
     }
 

@@ -174,6 +174,31 @@ public final class App {
         desktop.addSubview(window)   // re-adding moves it to the front
     }
 
+    // MARK: - Theme
+
+    /// Themes the whole app in one call: the desktop background and every
+    /// presented window.
+    ///
+    /// Themes cascade, so the desktop becomes the single app-wide anchor —
+    /// every window's own override is cleared to `nil` so it inherits, and any
+    /// window presented later inherits automatically too. Per-view overrides
+    /// remain fully available: set `view.theme = …` (on a window *after* this
+    /// call, or on any control) for a deliberate exception to the app theme.
+    ///
+    /// ```swift
+    /// app.applyTheme(.homebrew)          // green-on-black, everywhere
+    /// inspector.theme = .manPage         // …except this one pane
+    /// ```
+    ///
+    /// - Parameter theme: Theme to apply across the app.
+    public func applyTheme(_ theme: Theme) {
+        desktop.theme = theme
+
+        for window in windows {
+            window.theme = nil
+        }
+    }
+
     // MARK: - Run Loop
 
     /// Requests a graceful stop.
