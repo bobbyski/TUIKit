@@ -72,8 +72,9 @@ public final class SyntaxTextView: TUIView {
     // First visible (column, line).
     private var offset = Point.zero
 
-    // In-flight scrollbar-thumb drag: the grab offset within the thumb.
-    private var scrollbarGrab: Int?
+    // In-flight scrollbar-thumb drags: the grab offset within each thumb.
+    private var scrollbarGrab: Int?    // vertical
+    private var hScrollbarGrab: Int?   // horizontal
 
     // Highlighted runs by line index.
     private var highlightCache: [Int: [StyledRun]] = [:]
@@ -130,20 +131,48 @@ public final class SyntaxTextView: TUIView {
         true
     }
 
+    // The longest line, in characters — the horizontal scroll extent.
+    private var longestLine: Int {
+        lines.reduce(0) { max($0, $1.count) }
+    }
+
+    // Which scrollbars are needed and the resulting content area. Two-pass:
+    // reserving one axis's bar can push the other axis into overflow.
+    private func scrollLayout() -> (needsV: Bool, needsH: Bool, gutter: Int, contentWidth: Int, contentHeight: Int) {
+        let width = bounds.size.width
+        let height = bounds.size.height
+        let gutter = gutterWidth
+        let bareWidth = max(0, width - gutter)
+
+        var needsV = lines.count > height && bareWidth > 1
+        var needsH = longestLine > bareWidth - (needsV ? 1 : 0)
+        needsV = lines.count > height - (needsH ? 1 : 0) && bareWidth > 1
+        needsH = longestLine > bareWidth - (needsV ? 1 : 0)
+
+        return (
+            needsV,
+            needsH,
+            gutter,
+            max(0, width - gutter - (needsV ? 1 : 0)),
+            max(0, height - (needsH ? 1 : 0))
+        )
+    }
+
     /// Draws the gutter and the visible, highlighted slice of lines.
     public override func draw(_ painter: Painter) {
-        let height = bounds.size.height
         let width = bounds.size.width
+        let height = bounds.size.height
 
         guard height > 0, width > 0 else {
             return
         }
 
-        let gutter = gutterWidth
-        let showsScrollbar = lines.count > height && width > gutter + 1
-        let contentWidth = max(0, width - gutter - (showsScrollbar ? 1 : 0))
+        let layout = scrollLayout()
+        let gutter = layout.gutter
+        let contentWidth = layout.contentWidth
+        let contentHeight = layout.contentHeight
 
-        for viewportRow in 0..<height {
+        for viewportRow in 0..<contentHeight {
             let lineIndex = offset.y + viewportRow
 
             guard lineIndex < lines.count else {
@@ -173,14 +202,18 @@ public final class SyntaxTextView: TUIView {
             }
         }
 
-        if showsScrollbar {
-            drawScrollbar(painter, at: width - 1, height: height)
+        if layout.needsV {
+            drawVScrollbar(painter, at: width - 1, height: contentHeight)
+        }
+
+        if layout.needsH {
+            drawHScrollbar(painter, at: height - 1, x0: gutter, width: contentWidth)
         }
 
         // Cursor cell inverts while focused (editable only — a read-only
         // viewer scrolls but shows no insertion point).
         if isFirstResponder, isEditable,
-           cursor.y >= offset.y, cursor.y < offset.y + height,
+           cursor.y >= offset.y, cursor.y < offset.y + contentHeight,
            cursor.x >= offset.x, cursor.x < offset.x + contentWidth {
             let line = lines[cursor.y]
             let character: Character = cursor.x < line.count
@@ -196,9 +229,9 @@ public final class SyntaxTextView: TUIView {
 
     // A solid proportional indicator (dim track, bright thumb — no glyph
     // patterns), reusing ScrollView's indicator styling.
-    private func drawScrollbar(_ painter: Painter, at column: Int, height: Int) {
+    private func drawVScrollbar(_ painter: Painter, at column: Int, height: Int) {
         let (track, thumb) = ScrollView.indicatorStyles(for: effectiveTheme, focused: isFirstResponder)
-        let (start, length) = scrollbarThumb(height: height)
+        let (start, length) = vScrollbarThumb(height: height)
 
         for y in 0..<height {
             let inThumb = y >= start && y < start + length
@@ -206,14 +239,33 @@ public final class SyntaxTextView: TUIView {
         }
     }
 
-    // Thumb start row and length over the line count — shared by drawing and
-    // dragging so the thumb the user grabs is the one drawn.
-    private func scrollbarThumb(height: Int) -> (start: Int, length: Int) {
+    private func drawHScrollbar(_ painter: Painter, at row: Int, x0: Int, width: Int) {
+        let (track, thumb) = ScrollView.indicatorStyles(for: effectiveTheme, focused: isFirstResponder)
+        let (start, length) = hScrollbarThumb(width: width)
+
+        for x in 0..<width {
+            let inThumb = x >= start && x < start + length
+            painter.set(TerminalCell(character: " ", style: inThumb ? thumb : track), at: Point(x: x0 + x, y: row))
+        }
+    }
+
+    // Thumb start/length over the line count / longest line — shared by drawing
+    // and dragging so the thumb the user grabs is the one drawn.
+    private func vScrollbarThumb(height: Int) -> (start: Int, length: Int) {
         let count = lines.count
-        let length = max(1, height * height / count)
+        let length = max(1, height * height / max(1, count))
         let maxStart = max(0, height - length)
         let maxOffset = max(1, count - height)
         let start = min(maxStart, offset.y * maxStart / maxOffset)
+        return (start, length)
+    }
+
+    private func hScrollbarThumb(width: Int) -> (start: Int, length: Int) {
+        let total = longestLine
+        let length = max(1, width * width / max(1, total))
+        let maxStart = max(0, width - length)
+        let maxOffset = max(1, total - width)
+        let start = min(maxStart, offset.x * maxStart / maxOffset)
         return (start, length)
     }
 
@@ -291,17 +343,24 @@ public final class SyntaxTextView: TUIView {
         }
     }
 
-    /// Click places the cursor (or works the scrollbar); the wheel scrolls.
+    /// Click places the cursor (or works a scrollbar); the wheel scrolls.
     public override func mouseEvent(_ mouse: MouseInput) -> Bool {
+        let width = bounds.size.width
         let height = bounds.size.height
-        let overflow = lines.count > height && bounds.size.width > gutterWidth + 1
+        let layout = scrollLayout()
 
         switch mouse.action {
         case .press where mouse.button == .left:
-            // The reserved last column is the scrollbar: drag the thumb, or
-            // click the track to page toward the click.
-            if overflow, mouse.position.x == bounds.size.width - 1 {
-                pressScrollbar(atRow: mouse.position.y, height: height)
+            // The reserved last column / bottom row are the scrollbars: drag a
+            // thumb, or click the track to page toward the click.
+            if layout.needsV, mouse.position.x == width - 1, mouse.position.y < layout.contentHeight {
+                pressVScrollbar(atRow: mouse.position.y, height: layout.contentHeight)
+                return true
+            }
+
+            if layout.needsH, mouse.position.y == height - 1,
+               mouse.position.x >= layout.gutter, mouse.position.x < layout.gutter + layout.contentWidth {
+                pressHScrollbar(atColumn: mouse.position.x - layout.gutter, width: layout.contentWidth)
                 return true
             }
 
@@ -311,11 +370,16 @@ public final class SyntaxTextView: TUIView {
             return true
 
         case .drag where scrollbarGrab != nil:
-            dragScrollbar(toRow: mouse.position.y, height: height)
+            dragVScrollbar(toRow: mouse.position.y, height: layout.contentHeight)
             return true
 
-        case .release where scrollbarGrab != nil:
+        case .drag where hScrollbarGrab != nil:
+            dragHScrollbar(toColumn: mouse.position.x - layout.gutter, width: layout.contentWidth)
+            return true
+
+        case .release where scrollbarGrab != nil || hScrollbarGrab != nil:
             scrollbarGrab = nil
+            hScrollbarGrab = nil
             return true
 
         case .scrollUp:
@@ -324,7 +388,7 @@ public final class SyntaxTextView: TUIView {
             return true
 
         case .scrollDown:
-            offset.y = min(max(0, lines.count - height), offset.y + 1)
+            offset.y = min(max(0, lines.count - layout.contentHeight), offset.y + 1)
             setNeedsDisplay()
             return true
 
@@ -333,9 +397,9 @@ public final class SyntaxTextView: TUIView {
         }
     }
 
-    // Press on the scrollbar: grab the thumb, or page the track.
-    private func pressScrollbar(atRow row: Int, height: Int) {
-        let (start, length) = scrollbarThumb(height: height)
+    // Press on the vertical scrollbar: grab the thumb, or page the track.
+    private func pressVScrollbar(atRow row: Int, height: Int) {
+        let (start, length) = vScrollbarThumb(height: height)
 
         if row >= start, row < start + length {
             scrollbarGrab = row - start
@@ -346,14 +410,36 @@ public final class SyntaxTextView: TUIView {
         }
     }
 
-    // Drag maps the thumb's top row to a proportional scroll offset.
-    private func dragScrollbar(toRow row: Int, height: Int) {
-        let (_, length) = scrollbarThumb(height: height)
+    private func dragVScrollbar(toRow row: Int, height: Int) {
+        let (_, length) = vScrollbarThumb(height: height)
         let maxStart = max(0, height - length)
         let targetStart = min(maxStart, max(0, row - (scrollbarGrab ?? 0)))
         let maxOffset = max(0, lines.count - height)
 
         offset.y = maxStart > 0 ? targetStart * maxOffset / maxStart : 0
+        setNeedsDisplay()
+    }
+
+    // Press on the horizontal scrollbar: grab the thumb, or page the track.
+    private func pressHScrollbar(atColumn column: Int, width: Int) {
+        let (start, length) = hScrollbarThumb(width: width)
+
+        if column >= start, column < start + length {
+            hScrollbarGrab = column - start
+        } else {
+            let page = max(1, width - 1)
+            offset.x = min(max(0, longestLine - width), max(0, offset.x + (column < start ? -page : page)))
+            setNeedsDisplay()
+        }
+    }
+
+    private func dragHScrollbar(toColumn column: Int, width: Int) {
+        let (_, length) = hScrollbarThumb(width: width)
+        let maxStart = max(0, width - length)
+        let targetStart = min(maxStart, max(0, column - (hScrollbarGrab ?? 0)))
+        let maxOffset = max(0, longestLine - width)
+
+        offset.x = maxStart > 0 ? targetStart * maxOffset / maxStart : 0
         setNeedsDisplay()
     }
 
@@ -444,17 +530,16 @@ public final class SyntaxTextView: TUIView {
     }
 
     private func ensureCursorVisible() {
-        let height = bounds.size.height
-        let contentWidth = max(1, bounds.size.width - gutterWidth)
+        let layout = scrollLayout()
+        let contentHeight = max(1, layout.contentHeight)
+        let contentWidth = max(1, layout.contentWidth)
 
-        if height > 0 {
-            if cursor.y < offset.y {
-                offset.y = cursor.y
-            }
+        if cursor.y < offset.y {
+            offset.y = cursor.y
+        }
 
-            if cursor.y > offset.y + height - 1 {
-                offset.y = cursor.y - height + 1
-            }
+        if cursor.y > offset.y + contentHeight - 1 {
+            offset.y = cursor.y - contentHeight + 1
         }
 
         if cursor.x < offset.x {

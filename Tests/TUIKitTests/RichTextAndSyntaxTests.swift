@@ -229,6 +229,29 @@ private func renderedBuffer(_ view: TUIKit.TUIView, size: TUIKit.Size) -> CellBu
     #expect(editor.cursorPosition == TUIKit.Point(x: 6, y: 1))
 }
 
+@Test @MainActor func syntaxEditorShowsAndDragsHorizontalScrollbar() {
+    // A very long line in a narrow view → horizontal overflow → a scrollbar in
+    // the reserved bottom row.
+    let long = String(repeating: "x", count: 60)
+    let editor = SyntaxTextView(text: long + "\nshort", language: "text")
+    editor.showsLineNumbers = false
+    let window = Window(frame: Rect(x: 0, y: 0, width: 20, height: 6))
+    editor.frame = window.bounds
+    window.addSubview(editor)
+
+    // Bottom row (y=5) is the horizontal bar; thumb at the left while unscrolled.
+    let buffer = SceneRenderer(root: window).render(size: TUIKit.Size(width: 20, height: 6))
+    #expect(buffer[TUIKit.Point(x: 0, y: 5)].style.background == .named(.white), "H thumb at the left")
+    #expect(buffer[TUIKit.Point(x: 19, y: 5)].style.background == .named(.brightBlack), "H track to the right")
+
+    // Grab the thumb and drag right → scrolled to the end horizontally.
+    _ = editor.mouseEvent(MouseInput(position: TUIKit.Point(x: 0, y: 5), action: .press, button: .left))
+    _ = editor.mouseEvent(MouseInput(position: TUIKit.Point(x: 19, y: 5), action: .drag, button: .left))
+    let scrolled = SceneRenderer(root: window).render(size: TUIKit.Size(width: 20, height: 6))
+    #expect(scrolled[TUIKit.Point(x: 0, y: 5)].style.background == .named(.brightBlack), "thumb left the far-left")
+    #expect(scrolled[TUIKit.Point(x: 19, y: 5)].style.background == .named(.white), "thumb dragged to the right end")
+}
+
 @Test @MainActor func syntaxEditorReadOnlyIgnoresEditsAndHidesCursor() {
     let editor = SyntaxTextView(text: "let x = 1", language: "swift")
     editor.isEditable = false
