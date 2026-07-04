@@ -138,23 +138,26 @@ public final class SplitView: TUIView {
 
     /// Draws the divider line, emphasized while focused or dragging.
     public override func draw(_ painter: Painter) {
-        var style = effectiveTheme.border
+        let theme = effectiveTheme
+        let characters = theme.borderStyle.characters ?? BorderStyle.single.characters!
+        var style = theme.border
 
-        if isFirstResponder || isDraggingDivider {
-            style.flags.insert(.bold)
-            style.flags.insert(.inverse)
+        // Focus/drag cue: recolor the line to the accent only — never bold or
+        // inverse. Bold box-drawing glyphs render unevenly and read as a dashed
+        // line, so this matches the Divider control (no cue on colorless themes).
+        if isFirstResponder || isDraggingDivider, theme.accent != .standard {
+            style.foreground = theme.accent
         }
-        let character: Character = axis == .horizontal ? "│" : "─"
 
         switch axis {
         case .horizontal:
             for y in 0..<bounds.size.height {
-                painter.set(TerminalCell(character: character, style: style), at: Point(x: dividerPosition, y: y))
+                painter.set(TerminalCell(character: characters.vertical, style: style), at: Point(x: dividerPosition, y: y))
             }
 
         case .vertical:
             for x in 0..<bounds.size.width {
-                painter.set(TerminalCell(character: character, style: style), at: Point(x: x, y: dividerPosition))
+                painter.set(TerminalCell(character: characters.horizontal, style: style), at: Point(x: x, y: dividerPosition))
             }
         }
     }

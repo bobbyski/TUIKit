@@ -59,6 +59,15 @@ open class TUIView {
         }
     }
 
+    /// Name for the data layer: dotted-path lookup, bulk form I/O, and
+    /// bindings (`Docs/DataBinding.md`). Distinct from `identifier`, which is
+    /// the stylesheet `#id`.
+    public var name: String?
+
+    /// The value binding attached to this view, when any (set by `bind(...)`).
+    /// Storage lives here so `load()`/`save()` can walk the tree generically.
+    var fieldBinding: FieldBinding?
+
     // MARK: - Style identity (the CSS layer's selector hooks)
 
     /// Unique name for stylesheet `#id` selectors.

@@ -760,6 +760,137 @@ func runFormDemo() async throws {
         return window
     }
 
+    // A read-only table of every saved contact — reopen it after a Save to
+    // confirm the edit reached the global store.
+    func presentContactTable() {
+        let store = ContactStore.shared
+        let window = FloatingWindow(
+            title: "All Contacts (\(store.people.count))",
+            frame: Rect(x: 16, y: 5, width: 72, height: 18)
+        )
+        window.theme = .standard
+        window.onCloseRequest = { [weak window] in if let window { app.dismiss(window) } }
+
+        let table = TableView(columns: [
+            TableColumn("Name"),
+            TableColumn("Born", width: .fixed(12)),
+            TableColumn("Address"),
+        ])
+        table.rows = store.people.map {
+            [$0.name, ContactStore.isoFormatter.string(from: $0.birthday), $0.address]
+        }
+
+        window.content.setContent {
+            VStack(spacing: 1, insets: EdgeInsets(all: 1)) {
+                Label("Saved contacts — reopen after a Save to see changes land").bold()
+                table
+            }
+        }
+        window.makeFirstResponder(table)
+        app.present(window)
+    }
+
+    // The Contact Book: a builder-built form bound to the global store with
+    // @Bound projections. Left = names + ✚ Add; right = fields rebuilt per
+    // selection, with Save/Revert driving load()/save() over the subtree.
+    func makeContactBook(index: Int) -> FloatingWindow {
+        let store = ContactStore.shared
+        let window = FloatingWindow(
+            title: "Contact Book \(index)",
+            frame: Rect(x: 10 + index * 4, y: 3 + index * 2, width: 68, height: 22)
+        )
+        window.theme = .standard
+        window.onCloseRequest = { [weak window] in if let window { app.dismiss(window) } }
+
+        let list = ListView()
+        let detail = VStack()   // right pane, rebuilt on each selection
+        let status = Label("Select a contact, or ✚ Add a new one.", style: CellStyle(flags: .dim))
+
+        func refreshList(select selection: Int?) {
+            list.items = store.people.map { $0.name.isEmpty ? "(new contact)" : $0.name }
+            if let selection { list.select(selection, notify: true) }
+        }
+
+        func showPerson(at personIndex: Int) {
+            guard store.people.indices.contains(personIndex) else {
+                detail.setContent { Label("No contact selected.", style: CellStyle(flags: .dim)) }
+                return
+            }
+
+            let person = store.people[personIndex]
+
+            let notes = SyntaxTextView(language: "text")
+            notes.showsLineNumbers = false
+            notes.bind(person.$notes)
+
+            detail.setContent {
+                VStack(spacing: 1, insets: EdgeInsets(all: 1)) {
+                    Label("Contact details").bold()
+
+                    Form {
+                        Field("Name")    { TextField(placeholder: "full name").bind(person.$name) }
+                        Field("Born")    { DatePicker(mode: .date, calendar: ContactStore.calendar).bind(person.$birthday) }
+                        Field("Address") { TextField().bind(person.$address) }
+                    }
+
+                    Label("Notes").bold()
+                    notes
+
+                    HStack(spacing: 2) {
+                        Spacer()
+                        Button("Revert") { [weak detail] in
+                            detail?.load()
+                            status.text = "reverted"
+                        }
+                        Button("Save") { [weak detail] in
+                            detail?.save()
+                            refreshList(select: list.selectedIndex)
+                            status.text = "saved — open Table to confirm"
+                        }
+                    }
+                }
+            }
+
+            detail.load()   // model → the freshly-built controls
+        }
+
+        list.onSelectionChanged = { selection in
+            if let selection { showPerson(at: selection) }
+        }
+
+        let leftHeader = HStack(spacing: 1, insets: EdgeInsets(top: 0, left: 1, bottom: 0, right: 1)) {
+            Button("✚ Add") {
+                store.add()
+                refreshList(select: store.people.count - 1)
+                status.text = "added a contact — fill it in and Save"
+            }
+            Button("Table") { presentContactTable() }
+            Spacer()
+        }
+
+        let left = VStack(spacing: 0) {
+            leftHeader
+            Divider(axis: .horizontal)
+            list
+        }
+
+        let split = SplitView(.horizontal) { left; detail }
+        split.minimumFirstLength = 16
+        split.minimumSecondLength = 24
+
+        window.content.setContent {
+            VStack(spacing: 0) {
+                split
+                status
+            }
+        }
+        split.setDividerPosition(22)
+
+        refreshList(select: store.people.isEmpty ? nil : 0)
+        window.makeFirstResponder(list)   // focus the list, not the divider
+        return window
+    }
+
     // Root menu strip: File spawns example windows, Theme restyles the key one.
     let menuWindow = MenuBarWindow()
     menuWindow.onQuit = { app.stop() }
@@ -773,6 +904,10 @@ func runFormDemo() async throws {
     fileMenu.addItem("New Manual Example", keyEquivalent: KeyInput(key: .character("m"), modifiers: .control)) {
         exampleCount += 1
         app.present(makeManualExample(index: exampleCount))
+    }
+    fileMenu.addItem("New Contact Book", keyEquivalent: KeyInput(key: .character("b"), modifiers: .control)) {
+        exampleCount += 1
+        app.present(makeContactBook(index: exampleCount))
     }
     fileMenu.addSeparator()
     fileMenu.addItem("Close Window", keyEquivalent: KeyInput(key: .character("w"), modifiers: .control)) {
@@ -818,9 +953,13 @@ func runFormDemo() async throws {
     globalStatus.anchors = AnchorSet(leading: 0, trailing: 0, bottom: 0, height: 1)
     menuWindow.addSubview(globalStatus)
 
-    // The declarative example is the default, on the desktop; the menu strip
-    // runs on top. File ▸ New… opens more of either kind.
+    // Load the global contact list once, at startup.
+    ContactStore.shared.loadIfNeeded()
+
+    // The declarative example is the default; a Contact Book opens beside it so
+    // the new feature is visible. File ▸ New… opens more of any kind.
     app.present(makeDeclarativeExample(index: 0))
+    app.present(makeContactBook(index: 0))
 
     do {
         try await app.run(menuWindow)
@@ -1249,4 +1388,108 @@ demo polish (Phase 8), and the tutorial (Phase 9).
 Live demos:  swift run TUIKitDemo --interactive   (declarative + manual windows)
              swift run TUIKitDemo --events        (driver event viewer)
 """)
+}
+
+// MARK: - Contact Book model (global, JSON-backed)
+
+/// One editable contact. `@Bound` projects a `$` binding per field, so the
+/// Contact Book form binds with `field.bind(person.$name)`.
+@MainActor
+final class Person {
+    @Bound var name = ""
+    @Bound var birthday: Date = Date()   // edited with a DatePicker (calendar control)
+    @Bound var address = ""
+    @Bound var notes = ""
+}
+
+/// JSON transport (Codable); `Person` is a bindable class, so we decode into
+/// this and map across. `birthday` is an ISO `yyyy-MM-dd` string here and a
+/// `Date` on `Person`; the `deathday` key in the seed JSON is simply ignored.
+private struct PersonData: Codable {
+    var name: String
+    var birthday: String
+    var address: String
+    var notes: String
+}
+
+/// The one, global contact list. It lives for the whole run, so closing and
+/// reopening a Contact Book window shows edits made earlier (no on-disk
+/// persistence between runs — as specified).
+@MainActor
+final class ContactStore {
+    static let shared = ContactStore()
+
+    private(set) var people: [Person] = []
+    private var loaded = false
+
+    /// Every contact whose address is unknown falls back to the White House.
+    static let whiteHouse = "1600 Pennsylvania Avenue NW, Washington, DC 20500"
+
+    /// One UTC Gregorian calendar shared by the parser, the `DatePicker`, and
+    /// the table — so a parsed date shows the same day everywhere.
+    static let calendar: Calendar = {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        calendar.locale = Locale(identifier: "en_US")
+        return calendar
+    }()
+
+    /// `yyyy-MM-dd` ↔ `Date` on the shared calendar.
+    static let isoFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
+
+    /// Decodes the seed JSON once, at startup.
+    func loadIfNeeded() {
+        guard !loaded else { return }
+        loaded = true
+
+        let decoded = (try? JSONDecoder().decode([PersonData].self, from: Data(presidentsSeedJSON().utf8))) ?? []
+        people = decoded.map { data in
+            let person = Person()
+            person.name = data.name
+            person.birthday = Self.isoFormatter.date(from: data.birthday) ?? Date()
+            person.address = data.address.isEmpty ? Self.whiteHouse : data.address
+            person.notes = data.notes
+            return person
+        }
+    }
+
+    /// Appends a blank contact and returns it.
+    @discardableResult
+    func add() -> Person {
+        let person = Person()
+        people.append(person)
+        return person
+    }
+}
+
+/// Seed data loaded at startup. A dozen presidents; a couple have an empty
+/// address on purpose, to exercise the White-House fallback.
+///
+/// A function (not a top-level `let`) so it is available regardless of
+/// `main.swift`'s top-level initialization order — `runFormDemo()` runs before
+/// execution reaches this point in the file.
+private func presidentsSeedJSON() -> String {
+    """
+[
+ {"name":"George Washington","birthday":"1732-02-22","deathday":"1799-12-14","address":"Mount Vernon, VA","notes":"1st president. Set the founding precedents, formed the first cabinet, and stepped down after two terms."},
+ {"name":"John Adams","birthday":"1735-10-30","deathday":"1826-07-04","address":"Quincy, MA","notes":"2nd president. Navigated the Quasi-War with France; signed the Alien and Sedition Acts."},
+ {"name":"Thomas Jefferson","birthday":"1743-04-13","deathday":"1826-07-04","address":"Monticello, VA","notes":"3rd president. Made the Louisiana Purchase and sent the Lewis & Clark expedition west."},
+ {"name":"Abraham Lincoln","birthday":"1809-02-12","deathday":"1865-04-15","address":"Springfield, IL","notes":"16th president. Led the Union through the Civil War and issued the Emancipation Proclamation."},
+ {"name":"Ulysses S. Grant","birthday":"1822-04-27","deathday":"1885-07-23","address":"","notes":"18th president. Union general turned president; pushed Reconstruction and civil-rights enforcement."},
+ {"name":"Theodore Roosevelt","birthday":"1858-10-27","deathday":"1919-01-06","address":"Oyster Bay, NY","notes":"26th president. Trust-buster and conservationist; expanded the national parks and built the Panama Canal."},
+ {"name":"Franklin D. Roosevelt","birthday":"1882-01-30","deathday":"1945-04-12","address":"Hyde Park, NY","notes":"32nd president. New Deal architect who led through the Depression and most of World War II."},
+ {"name":"Harry S. Truman","birthday":"1884-05-08","deathday":"1972-12-26","address":"Lamar, MO","notes":"33rd president. Ended WWII, launched the Marshall Plan and NATO, and entered the Korean War."},
+ {"name":"John F. Kennedy","birthday":"1917-05-29","deathday":"1963-11-22","address":"Brookline, MA","notes":"35th president. Faced the Cuban Missile Crisis and set the goal of landing on the Moon."},
+ {"name":"Ronald Reagan","birthday":"1911-02-06","deathday":"2004-06-05","address":"Tampico, IL","notes":"40th president. Cut taxes, escalated then thawed the Cold War with the Soviet Union."},
+ {"name":"Bill Clinton","birthday":"1946-08-19","deathday":"","address":"Hope, AR","notes":"42nd president. Presided over an economic boom and welfare reform; impeached and acquitted."},
+ {"name":"Barack Obama","birthday":"1961-08-04","deathday":"","address":"","notes":"44th president. Passed the Affordable Care Act; the first Black president of the United States."}
+]
+"""
 }
