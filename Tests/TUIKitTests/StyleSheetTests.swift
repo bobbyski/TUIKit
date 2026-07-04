@@ -154,6 +154,27 @@ import Testing
     #expect(lines[3].hasSuffix("╯"))
 }
 
+@Test @MainActor func stylesheetTogglesOnAndOffOverAChosenTheme() {
+    // 8.15: CSS is an on-top layer, orthogonal to the theme. Toggling it off is
+    // just `styleSheet = nil`, and the theme underneath is never touched.
+    let window = Window(frame: Rect(x: 0, y: 0, width: 8, height: 2))
+    window.theme = .ocean
+
+    let label = Label("hi")
+    window.addSubview(label)
+
+    #expect(label.effectiveTheme.background == Theme.ocean.resolved().background, "CSS off → the pure theme")
+
+    // CSS on → overrides just the background; other slots keep the theme.
+    window.styleSheet = StyleSheet("Label { background: #112233; }")
+    #expect(label.effectiveTheme.background == .rgb(red: 0x11, green: 0x22, blue: 0x33))
+    #expect(label.effectiveTheme.accent == Theme.ocean.resolved().accent, "unset slots stay the theme's")
+
+    // Toggle off (= nil) → back to the theme exactly.
+    window.styleSheet = nil
+    #expect(label.effectiveTheme.background == Theme.ocean.resolved().background)
+}
+
 @Test @MainActor func withoutSheetsEverythingIsUnchanged() {
     let window = Window(frame: Rect(x: 0, y: 0, width: 8, height: 2))
     window.theme = .homebrew

@@ -60,6 +60,44 @@ public enum BorderStyle: String, Hashable, Sendable, CaseIterable {
             return ("┣", "┫", "┳", "┻", "╋")
         }
     }
+
+    /// Which side of a frame an interior line abuts.
+    enum TeeSide { case left, right, top, bottom }
+
+    /// Glyph for a frame border of *this* style where an interior line of
+    /// `nub` style meets it from the inside (used when a `Panel` welds an
+    /// interior divider into its frame). Same styles use the standard
+    /// junctions; single↔double pairs use the mixed box-drawing tees (e.g. a
+    /// single divider into a double frame → `╟`); anything else falls back to
+    /// the frame's own junction.
+    func tee(_ side: TeeSide, nub: BorderStyle) -> Character? {
+        switch (self, nub) {
+        case (.double, .single), (.double, .rounded):
+            switch side {
+            case .left: return "╟"
+            case .right: return "╢"
+            case .top: return "╤"
+            case .bottom: return "╧"
+            }
+
+        case (.single, .double), (.rounded, .double):
+            switch side {
+            case .left: return "╞"
+            case .right: return "╡"
+            case .top: return "╥"
+            case .bottom: return "╨"
+            }
+
+        default:
+            guard let junctions else { return nil }
+            switch side {
+            case .left: return junctions.teeLeft
+            case .right: return junctions.teeRight
+            case .top: return junctions.teeTop
+            case .bottom: return junctions.teeBottom
+            }
+        }
+    }
 }
 
 // MARK: - Built-in themes
@@ -260,7 +298,7 @@ extension Theme {
         base.headerAttributes = [.bold]
         base.borderForeground = .rgb(red: 255, green: 255, blue: 255)    // white
         base.borderBackground = .rgb(red: 170, green: 170, blue: 170)
-        base.borderStyle = .double
+        base.borderStyle = .single   // menus, dropdowns, interior lines are single
         base.scrollbarThumb = .rgb(red: 85, green: 85, blue: 85)         // dark gray
         base.scrollbarTrack = .rgb(red: 127, green: 127, blue: 127)     // gray
         base.placeholderForeground = .rgb(red: 85, green: 85, blue: 85)
@@ -280,6 +318,7 @@ extension Theme {
         content.headerBackground = .rgb(red: 0, green: 0, blue: 170)
         content.borderForeground = .rgb(red: 255, green: 255, blue: 255)
         content.borderBackground = .rgb(red: 0, green: 0, blue: 170)
+        content.borderStyle = .double   // floating window frame → double border
         content.scrollbarThumb = .rgb(red: 85, green: 255, blue: 255)    // light cyan
         content.scrollbarTrack = .rgb(red: 0, green: 0, blue: 110)       // navy
         content.placeholderForeground = .rgb(red: 0, green: 170, blue: 170)
@@ -289,7 +328,19 @@ extension Theme {
         desktop.background = .rgb(red: 85, green: 85, blue: 255)     // light blue backdrop
         desktop.foreground = .rgb(red: 255, green: 255, blue: 255)   // white
 
-        return Theme(name: "Turbo Pascal", base: base, desktop: desktop, contentWindow: content)
+        // Dialogs are gray (base) but, being floating windows, wear a double
+        // frame — the only override they need over base.
+        var dialog = ThemePalette()
+        dialog.borderStyle = .double
+
+        return Theme(
+            name: "Turbo Pascal",
+            base: base,
+            desktop: desktop,
+            contentWindow: content,
+            secondaryWindows: dialog,
+            modalWindows: dialog
+        )
     }()
 
     /// Linear blend between two colors, when both have known RGB values

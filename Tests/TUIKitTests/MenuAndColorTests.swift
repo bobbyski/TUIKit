@@ -98,6 +98,48 @@ private func makeMenuWindow() -> (Window, MenuBar, Menu, [String]) {
     #expect(window.firstResponder === bar, "focus returns to the bar")
 }
 
+@Test @MainActor func turboMenuDropdownUsesGrayChromeNotTheBackdrop() {
+    let (window, bar, file, _) = makeMenuWindow()
+    window.theme = .turbo   // nil context — the menu window resolves the gray base
+    file.addItem("Open") {}
+    file.addItem("Save") {}
+    window.makeFirstResponder(bar)
+    window.route(.key(KeyInput(key: .enter)))   // open the File dropdown
+
+    let buffer = SceneRenderer(root: window).render(size: window.frame.size)
+    var backgrounds: [TerminalColor] = []
+    for y in 1..<7 {
+        for x in 0..<12 {
+            backgrounds.append(buffer[Point(x: x, y: y)].style.background)
+        }
+    }
+
+    #expect(backgrounds.contains(.rgb(red: 170, green: 170, blue: 170)), "the dropdown fills with the gray base")
+    #expect(!backgrounds.contains(.rgb(red: 85, green: 85, blue: 255)),
+            "and is never tinted by the blue desktop backdrop (menus are base chrome, not .desktop context)")
+}
+
+@Test @MainActor func menuSeparatorWeldsIntoTheDropdownBorder() {
+    let (window, bar, file, _) = makeMenuWindow()
+    file.addItem("Open") {}
+    file.addSeparator()
+    file.addItem("Quit") {}
+    window.makeFirstResponder(bar)
+    window.route(.key(KeyInput(key: .enter)))   // open the File dropdown
+
+    let buffer = SceneRenderer(root: window).render(size: window.frame.size)
+
+    // Some row is the separator, welded into both side borders with ├ … ┤.
+    var welded = false
+    for y in 1..<7 {
+        let row = (0..<14).map { buffer[Point(x: $0, y: y)].character }
+        if row.contains("├"), row.contains("┤") {
+            welded = true
+        }
+    }
+    #expect(welded, "the separator connects to the menu border with ├ … ┤ tees")
+}
+
 @Test @MainActor func menuHighlightSkipsSeparatorsAndDisabledItems() {
     let (window, bar, file, _) = makeMenuWindow()
 

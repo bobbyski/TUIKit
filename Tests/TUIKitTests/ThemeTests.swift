@@ -28,7 +28,11 @@ import Testing
 
 @Test @MainActor func turboThemeResolvesGrayBaseAndBlueContentWindow() {
     #expect(Theme.builtIn.contains { $0.name == "Turbo Pascal" })
-    #expect(Theme.turbo.base.borderStyle == .double)
+    // Double border is reserved for floating window frames; base (menus,
+    // interior lines) is single.
+    #expect(Theme.turbo.base.borderStyle == .single)
+    #expect(Theme.turbo.contentWindow?.borderStyle == .double)
+    #expect(Theme.turbo.secondaryWindows?.borderStyle == .double)
 
     let panel = TUIKit.Panel("Edit")
     panel.theme = .turbo
@@ -36,19 +40,51 @@ import Testing
     panel.frame = window.bounds
     window.addSubview(panel)
 
-    // No context → the gray dialog `base`, white double border.
+    // No context → the gray `base`, white *single* border.
     var buffer = SceneRenderer(root: window).render(size: Size(width: 12, height: 4))
     let corner = buffer[Point(x: 0, y: 0)]
-    #expect(corner.character == "╔")
+    #expect(corner.character == "┌", "interior/menu borders are single")
     #expect(corner.style.foreground == .rgb(red: 255, green: 255, blue: 255))
     #expect(corner.style.background == .rgb(red: 170, green: 170, blue: 170), "base is the gray surface")
     #expect(buffer[Point(x: 1, y: 1)].style.background == .rgb(red: 170, green: 170, blue: 170))
 
-    // The contentWindow context resolves the blue editor look.
+    // The contentWindow context resolves the blue editor look with a double frame.
     panel.themeContext = .contentWindow
     buffer = SceneRenderer(root: window).render(size: Size(width: 12, height: 4))
+    #expect(buffer[Point(x: 0, y: 0)].character == "╔", "floating window frames are double")
     #expect(buffer[Point(x: 0, y: 0)].style.background == .rgb(red: 0, green: 0, blue: 170), "editor blue")
     #expect(buffer[Point(x: 1, y: 1)].style.background == .rgb(red: 0, green: 0, blue: 170))
+}
+
+@Test func borderTeeMixesFrameAndDividerStyles() {
+    // A single interior line meeting a double frame → mixed tee.
+    #expect(BorderStyle.double.tee(.left, nub: .single) == "╟")
+    #expect(BorderStyle.double.tee(.right, nub: .single) == "╢")
+    #expect(BorderStyle.double.tee(.top, nub: .single) == "╤")
+    #expect(BorderStyle.double.tee(.bottom, nub: .single) == "╧")
+    // Same style on both sides → the standard junctions.
+    #expect(BorderStyle.single.tee(.left, nub: .single) == "├")
+    #expect(BorderStyle.double.tee(.left, nub: .double) == "╠")
+    // The other mix, and no border.
+    #expect(BorderStyle.single.tee(.left, nub: .double) == "╞")
+    #expect(BorderStyle.none.tee(.left, nub: .single) == nil)
+}
+
+@Test @MainActor func turboInteriorLinesStaySingleInDoubleFrameContexts() {
+    // Frames double, interior lines single — even inside a double-framed window.
+    #expect(Theme.turbo.resolved(for: .contentWindow).borderStyle == .double)
+    #expect(Theme.turbo.resolved(for: .contentWindow).dividerStyle == .single)
+
+    let window = Window(frame: Rect(x: 0, y: 0, width: 6, height: 3))
+    window.theme = .turbo
+    window.themeContext = .contentWindow
+
+    let divider = Divider(axis: .vertical)
+    divider.frame = Rect(x: 2, y: 0, width: 1, height: 3)
+    window.addSubview(divider)
+
+    let buffer = SceneRenderer(root: window).render(size: Size(width: 6, height: 3))
+    #expect(buffer[Point(x: 2, y: 1)].character == "│", "interior divider is single, not the double frame's ║")
 }
 
 @Test @MainActor func nearestAncestorThemeWins() {

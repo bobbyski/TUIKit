@@ -1,6 +1,10 @@
 # TUIKit Theme Reference & Design
 
-> **Status: IMPLEMENTING.** Design for the next-generation theme system.
+> **Status: IMPLEMENTING — chunks 1–3 landed** (model + `Codable` + resolution;
+> the big swap to `ResolvedTheme`/context-aware `effectiveTheme`; view-tree
+> context tests + demo context wiring; CSS clarified as an on-top toggle
+> (8.15)). Remaining: field well (8.13), pill buttons (8.8). Design for the
+> next-generation theme system.
 >
 > **Decisions locked (2026-07-04):**
 > 1. **Big-bang replacement** — the flat `Theme` is replaced outright: rename
@@ -149,7 +153,7 @@ Slots become **flat, self-describing keys** so a palette is a plain dictionary
 | `accent` | `accent`, `warningAccent`, `errorAccent` |
 | `selection` | `selectionForeground`, `selectionBackground` |
 | `header` | `headerForeground`, `headerBackground` |
-| `border` | `borderForeground`, `borderBackground`, `borderStyle` |
+| `border` | `borderForeground`, `borderBackground`, `borderStyle` (window/panel **frames**) · `dividerStyle` (**interior** lines — dividers, split bars, separators; usually `single` even when frames are `double`) |
 | `scrollbar` | `scrollbarThumb`, `scrollbarTrack` |
 | `placeholder` | `placeholderForeground`, `placeholderBackground` |
 | *(new — see 8.13)* | `fieldForeground`, `fieldBackground` — the editable "well" |
@@ -187,7 +191,7 @@ is `→ base`). Hex uses the EGA/VGA palette.
 | `headerAttributes` | `[bold]` |
 | `borderForeground` | White `#FFFFFF` |
 | `borderBackground` | Light Gray `#AAAAAA` |
-| `borderStyle` | `double` |
+| `borderStyle` | `single` *(menus/interior; floating frames override to `double`)* |
 | `scrollbarThumb` | Dark Gray `#555555` |
 | `scrollbarTrack` | Gray `#7F7F7F` |
 | `placeholderForeground` | Dark Gray `#555555` |
@@ -213,6 +217,7 @@ is `→ base`). Hex uses the EGA/VGA palette.
 | `headerBackground` | Blue `#0000AA` |
 | `borderForeground` | White `#FFFFFF` |
 | `borderBackground` | Blue `#0000AA` |
+| `borderStyle` | `double` *(floating window frame)* |
 | `scrollbarThumb` | Light Cyan `#55FFFF` |
 | `scrollbarTrack` | Navy `#00006E` |
 | `placeholderForeground` | Cyan `#00AAAA` |
@@ -235,13 +240,15 @@ desktop's own `background` — a light blue that can't come from the now-gray
 
 | Slot | Value |
 |------|-------|
-| *(all)* | `→ base` (gray) |
+| `borderStyle` | `double` *(a floating window frame)* |
+| *(all others)* | `→ base` (gray) |
 
 ### `modalWindows` (modal dialogs)
 
 | Slot | Value |
 |------|-------|
-| *(all)* | `→ base` (gray); modal drop-shadow is separate chrome |
+| `borderStyle` | `double` *(a floating window frame)* |
+| *(all others)* | `→ base` (gray); modal drop-shadow is separate chrome |
 
 ### `accessoryView` (attached to the content window)
 

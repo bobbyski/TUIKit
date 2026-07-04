@@ -146,6 +146,7 @@ public struct ThemePalette: Codable, Hashable, Sendable {
     public var borderForeground: TerminalColor?
     public var borderBackground: TerminalColor?
     public var borderStyle: BorderStyle?
+    public var dividerStyle: BorderStyle?
 
     public var scrollbarThumb: TerminalColor?
     public var scrollbarTrack: TerminalColor?
@@ -192,7 +193,11 @@ public struct ResolvedTheme: Hashable, Sendable {
 
     public var borderForeground: TerminalColor
     public var borderBackground: TerminalColor
+    /// Box-drawing style for window/panel *frames*.
     public var borderStyle: BorderStyle
+    /// Box-drawing style for *interior* lines (dividers, split bars, separators).
+    /// Usually `.single` even when frames are `.double` (the Borland rule).
+    public var dividerStyle: BorderStyle
 
     public var scrollbarThumb: TerminalColor
     public var scrollbarTrack: TerminalColor
@@ -306,10 +311,11 @@ public struct Theme: Codable, Hashable, Sendable {
             return []
         }
 
-        var style: BorderStyle = .single
-        for palette in chain where palette.borderStyle != nil {
-            style = palette.borderStyle!
-            break
+        func borderStyle(_ keyPath: KeyPath<ThemePalette, BorderStyle?>, default fallback: BorderStyle) -> BorderStyle {
+            for palette in chain {
+                if let value = palette[keyPath: keyPath] { return value }
+            }
+            return fallback
         }
 
         return ResolvedTheme(
@@ -327,7 +333,8 @@ public struct Theme: Codable, Hashable, Sendable {
             headerAttributes: flags(\.headerAttributes),
             borderForeground: color(\.borderForeground),
             borderBackground: color(\.borderBackground),
-            borderStyle: style,
+            borderStyle: borderStyle(\.borderStyle, default: .single),
+            dividerStyle: borderStyle(\.dividerStyle, default: .single),
             scrollbarThumb: color(\.scrollbarThumb),
             scrollbarTrack: color(\.scrollbarTrack),
             placeholderForeground: color(\.placeholderForeground),

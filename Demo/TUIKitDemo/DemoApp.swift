@@ -24,6 +24,11 @@ final class DemoApp {
         // Root menu strip: File spawns example windows, Theme restyles the key one.
         let menuWindow = MenuBarWindow()
         menuWindow.onQuit = { app.stop() }
+        // The menu bar, status strip, and dropdowns are gray chrome — they use
+        // the `header`/`base` slots, which resolve gray from `base`. We do NOT
+        // put them in the `.desktop` context: that context's `background` is the
+        // blue *backdrop* (painted directly on the desktop below), which would
+        // wrongly tint the dropdown popups.
 
         // Bottom status-strip text, declared up here so the Theme menu (built
         // next) can re-style it whenever the theme changes.
@@ -61,6 +66,10 @@ final class DemoApp {
         fileMenu.addItem("New Demo Source", keyEquivalent: KeyInput(key: .character("d"), modifiers: .control)) {
             self.exampleCount += 1
             app.present(self.makeDemoSource(index: self.exampleCount))
+        }
+        fileMenu.addItem("New CSS Demo") {
+            self.exampleCount += 1
+            app.present(self.makeStyleTest(index: self.exampleCount))
         }
         fileMenu.addSeparator()
         fileMenu.addItem("Close Window", keyEquivalent: KeyInput(key: .character("w"), modifiers: .control)) {

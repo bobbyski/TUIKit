@@ -432,11 +432,17 @@ final class MenuDropdown: TUIView {
             let y = index + 1
 
             if item.isSeparator {
-                painter.write(
-                    String(repeating: "─", count: innerWidth + 2),
-                    at: Point(x: 1, y: y),
-                    style: theme.border
-                )
+                // A full-width interior line welded into both side borders with
+                // tees (├───┤), so the separator connects to the menu frame.
+                let line = theme.dividerStyle.characters?.horizontal ?? "─"
+                painter.write(String(repeating: line, count: bounds.size.width), at: Point(x: 0, y: y), style: theme.border)
+
+                if let left = theme.borderStyle.tee(.left, nub: theme.dividerStyle) {
+                    painter.set(TerminalCell(character: left, style: theme.border), at: Point(x: 0, y: y))
+                }
+                if let right = theme.borderStyle.tee(.right, nub: theme.dividerStyle) {
+                    painter.set(TerminalCell(character: right, style: theme.border), at: Point(x: bounds.size.width - 1, y: y))
+                }
                 continue
             }
 

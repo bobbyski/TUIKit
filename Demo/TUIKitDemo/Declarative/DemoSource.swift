@@ -66,6 +66,7 @@ extension DemoApp {
         // When this window maximizes, leave the top row (menu bar) and bottom row
         // (global status) visible instead of covering the whole screen.
         window.maximizeInsets = EdgeInsets(top: 1, bottom: 1)
+        window.themeContext = .contentWindow   // an editor surface (Turbo: blue window, yellow text)
 
         let tree = TreeView(roots: [node(for: demoDir)])
         let tabs = TabView()

@@ -28,6 +28,7 @@ extension DemoApp {
         // app just dismisses it. `[weak window]` avoids the window retaining itself
         // through its own callback.
         window.onCloseRequest = { [weak window] in if let window { app.dismiss(window) } }
+        window.themeContext = .secondaryWindows   // a form/dialog surface (Turbo: gray)
 
         let table = TableView(columns: [
             TableColumn("Name"),
@@ -69,6 +70,7 @@ extension DemoApp {
         )
         window.theme = .standard
         window.onCloseRequest = { [weak window] in if let window { app.dismiss(window) } }
+        window.themeContext = .secondaryWindows   // a form/dialog surface (Turbo: gray)
 
         let list = ListView()
 

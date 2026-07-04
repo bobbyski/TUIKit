@@ -13,6 +13,7 @@ extension DemoApp {
             frame: Rect(x: 8 + index * 4, y: 4 + index * 2, width: 54, height: 20)
         )
         window.theme = .standard
+        window.themeContext = .secondaryWindows   // a form/dialog surface (Turbo: gray)
         window.onCloseRequest = { [weak window] in
             if let window { app.dismiss(window) }
         }

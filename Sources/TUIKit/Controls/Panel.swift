@@ -135,10 +135,10 @@ public final class Panel: TUIView {
     // the content edges into this panel's border with tee junctions, so
     // divided layouts read as one piece of chrome.
     private func drawDividerJunctions(_ painter: Painter, theme: ResolvedTheme) {
-        guard let junctions = theme.borderStyle.junctions else {
-            return
-        }
-
+        // The tee welds the interior line (`dividerStyle` — the nub) into the
+        // frame (`borderStyle`), e.g. a single divider into a double frame → ╟.
+        let frame = theme.borderStyle
+        let nub = theme.dividerStyle
         let contentSize = content.frame.size
 
         func visit(_ view: TUIView, offset: Point) {
@@ -157,35 +157,23 @@ public final class Panel: TUIView {
             case .horizontal:
                 let y = origin.y + 1   // content is inset by 1
 
-                if origin.x <= 0 {
-                    painter.set(
-                        TerminalCell(character: junctions.teeLeft, style: theme.border),
-                        at: Point(x: 0, y: y)
-                    )
+                if origin.x <= 0, let glyph = frame.tee(.left, nub: nub) {
+                    painter.set(TerminalCell(character: glyph, style: theme.border), at: Point(x: 0, y: y))
                 }
 
-                if origin.x + divider.frame.size.width >= contentSize.width {
-                    painter.set(
-                        TerminalCell(character: junctions.teeRight, style: theme.border),
-                        at: Point(x: bounds.size.width - 1, y: y)
-                    )
+                if origin.x + divider.frame.size.width >= contentSize.width, let glyph = frame.tee(.right, nub: nub) {
+                    painter.set(TerminalCell(character: glyph, style: theme.border), at: Point(x: bounds.size.width - 1, y: y))
                 }
 
             case .vertical:
                 let x = origin.x + 1
 
-                if origin.y <= 0 {
-                    painter.set(
-                        TerminalCell(character: junctions.teeTop, style: theme.border),
-                        at: Point(x: x, y: 0)
-                    )
+                if origin.y <= 0, let glyph = frame.tee(.top, nub: nub) {
+                    painter.set(TerminalCell(character: glyph, style: theme.border), at: Point(x: x, y: 0))
                 }
 
-                if origin.y + divider.frame.size.height >= contentSize.height {
-                    painter.set(
-                        TerminalCell(character: junctions.teeBottom, style: theme.border),
-                        at: Point(x: x, y: bounds.size.height - 1)
-                    )
+                if origin.y + divider.frame.size.height >= contentSize.height, let glyph = frame.tee(.bottom, nub: nub) {
+                    painter.set(TerminalCell(character: glyph, style: theme.border), at: Point(x: x, y: bounds.size.height - 1))
                 }
             }
         }
