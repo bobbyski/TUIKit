@@ -307,9 +307,18 @@ public struct ResolvedTheme: Hashable, Sendable {
     /// The style for a mnemonic (accelerator) letter sitting on `base`: the
     /// accelerator color and attributes, but `base`'s background — so the red
     /// letter reads against the same menu/button surface as its neighbors.
+    ///
+    /// When the accelerator color *is* the surface's background (surface
+    /// themes derive both from the accent, so a default button's pill and the
+    /// mnemonic collide), the letter keeps the face's own foreground instead —
+    /// the attributes (underline) still mark it, and it stays visible.
     public func accelerator(over base: CellStyle) -> CellStyle {
         var style = base
-        style.foreground = acceleratorColor
+
+        if acceleratorColor != base.background {
+            style.foreground = acceleratorColor
+        }
+
         style.flags.formUnion(acceleratorAttributes)
         return style
     }

@@ -203,7 +203,7 @@ is `→ base`). Hex uses the EGA/VGA palette.
 | `fieldBackground` | Blue `#0000AA` |
 | `buttonForeground` | White `#FFFFFF` |
 | `buttonBackground` | Dark Gray `#555555` *(ordinary buttons — a raised pill, distinct from the green default)* |
-| `buttonShadowColor` | Black `#000000` *(all buttons cast a shadow below, shifted one right; a press sinks the face onto it)* |
+| `buttonShadowColor` | Black `#000000` *(all buttons cast a shadow below, shifted one right; a press sinks the face onto it. The **Modern Turbo** built-in is Turbo with this one slot unset — flat buttons, no press animation)* |
 | `defaultButtonForeground` | White `#FFFFFF` |
 | `defaultButtonBackground` | Green `#00AA00` *(Borland default/OK button)* |
 | `destructiveButtonForeground` | White `#FFFFFF` |

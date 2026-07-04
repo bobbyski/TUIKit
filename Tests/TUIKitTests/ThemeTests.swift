@@ -190,6 +190,26 @@ import Testing
     #expect(standard.base == CellStyle())
 }
 
+@Test @MainActor func modernTurboIsTurboWithoutButtonShadows() {
+    #expect(Theme.builtIn.contains { $0.name == "Modern Turbo" })
+
+    // Same palette, one difference: no button shadow → flat one-row buttons.
+    #expect(Theme.turbo.resolved().buttonShadow != nil)
+    #expect(Theme.modernTurbo.resolved().buttonShadow == nil)
+
+    var flattened = Theme.turbo
+    flattened.name = "Modern Turbo"
+    flattened.base.buttonShadowColor = nil
+    #expect(Theme.modernTurbo == flattened, "everything but the shadow matches Turbo")
+
+    // And a button under it keeps the flat intrinsic.
+    let button = Button("OK")
+    let window = Window(frame: Rect(x: 0, y: 0, width: 8, height: 3))
+    window.theme = .modernTurbo
+    window.addSubview(button)
+    #expect(button.intrinsicContentSize == Size(width: 4, height: 1))
+}
+
 @Test @MainActor func themeSwitchRelayoutsThemeDependentIntrinsics() {
     // Switching the app theme must re-run layout, not just repaint: intrinsic
     // sizes are theme-dependent (Turbo buttons grow a column + row for their

@@ -361,6 +361,16 @@ extension Theme {
         )
     }()
 
+    /// Turbo with flat buttons: the same Borland palette, but no button drop
+    /// shadow (and therefore no press-down animation) — buttons stay one-row
+    /// pills, like every other theme.
+    public static let modernTurbo: Theme = {
+        var theme = Theme.turbo
+        theme.name = "Modern Turbo"
+        theme.base.buttonShadowColor = nil   // unset → resolves .standard → no shadow
+        return theme
+    }()
+
     /// Linear blend between two colors, when both have known RGB values
     /// (true color or the 16 named colors); `nil` otherwise.
     public static func blendColors(
@@ -385,6 +395,7 @@ extension Theme {
         ("Pro", .pro),
         ("Silver Aerogel", .silverAerogel),
         ("Turbo", .turbo),
+        ("Modern Turbo", .modernTurbo),
     ]
 }
 

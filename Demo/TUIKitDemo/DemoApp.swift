@@ -18,8 +18,14 @@ final class DemoApp {
         // styling it here sets the default look, and because themes cascade, its
         // theme is inherited by any window that doesn't set its own.
         let app = self.app
-        app.desktop.fillStyle = CellStyle(background: .rgb(red: 128, green: 128, blue: 128))
-        app.desktop.theme = .dark   // inherited default for un-themed windows
+
+        // The demo's neutral backdrop, used whenever a theme doesn't paint its
+        // own desktop (its desktop-context background resolves to `.standard`,
+        // e.g. Standard/Mono — which would otherwise fall through to the
+        // terminal default and read as a black hole). The startup theme itself
+        // is applied below via `applyDemoTheme`, the same path the Theme menu
+        // takes — so booting into a theme and re-selecting it look identical.
+        let neutralBackdrop = TerminalColor.rgb(red: 128, green: 128, blue: 128)
 
         // Root menu strip: File spawns example windows, Theme restyles the key one.
         let menuWindow = MenuBarWindow()
@@ -48,6 +54,21 @@ final class DemoApp {
             plain.flags.remove(.bold)
             statusHint.style = plain
             clock.style = plain
+        }
+
+        // The ONE path that themes the whole demo — used at startup and by
+        // every Theme menu item, so the boot look and a re-selected theme are
+        // always identical: app-wide theme, the theme's own desktop backdrop
+        // (or the neutral gray when it has none), and the chrome text.
+        func applyDemoTheme(_ theme: Theme) {
+            app.applyTheme(theme)
+
+            let backdrop = theme.resolved(for: .desktop).background
+            app.desktop.fillStyle = CellStyle(
+                background: backdrop == .standard ? neutralBackdrop : backdrop
+            )
+
+            styleStatusChrome()
         }
 
         let fileMenu = Menu("&File")
@@ -86,16 +107,7 @@ final class DemoApp {
         let themeMenu = Menu("&Theme")
         for (name, theme) in TUIKit.Theme.builtIn {
             themeMenu.addItem(name) {
-                // One call themes the whole app — desktop and every window. Views
-                // can still opt out locally (e.g. the declarative window pins its
-                // controls to `.standard`).
-                app.applyTheme(theme)
-                // Paint the desktop from the theme's own `desktop`-context
-                // backdrop — Turbo's light blue; themes without a desktop
-                // overlay resolve to their base background.
-                app.desktop.fillStyle = CellStyle(background: theme.resolved(for: .desktop).background)
-                // Re-color the status text to the new theme's chrome slot.
-                styleStatusChrome()
+                applyDemoTheme(theme)
             }
         }
 
@@ -125,7 +137,9 @@ final class DemoApp {
         globalStatus.anchors = AnchorSet(leading: 0, trailing: 0, bottom: 0, height: 1)
         menuWindow.addSubview(globalStatus)
 
-        styleStatusChrome()   // initial pass, matching the startup theme
+        // Boot into Standard — same path as picking it from the Theme menu, so
+        // startup is indistinguishable from a later re-selection.
+        applyDemoTheme(.standard)
 
         // Load the global contact list once, at startup.
         ContactStore.shared.loadIfNeeded()

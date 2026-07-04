@@ -55,6 +55,26 @@ import Testing
     #expect(buffer[Point(x: 2, y: 0)].style.foreground != .rgb(red: 255, green: 85, blue: 85), "only the mnemonic is red")
 }
 
+@Test @MainActor func mnemonicStaysVisibleOnAccentFilledButtons() {
+    // Surface themes derive the default button's pill AND the accelerator
+    // color from the accent — drawn naively the mnemonic vanishes into the
+    // fill (the invisible "S" on Dark's blue Save pill, 2026-07-04).
+    let button = Button("&Save")
+    button.role = .default
+    let window = Window(frame: Rect(x: 0, y: 0, width: 8, height: 1))
+    window.theme = .dark
+    button.frame = Rect(x: 0, y: 0, width: 6, height: 1)
+    window.addSubview(button)
+
+    let buffer = SceneRenderer(root: window).render(size: Size(width: 8, height: 1))
+    let mnemonic = buffer[Point(x: 1, y: 0)]
+
+    #expect(mnemonic.character == "S")
+    #expect(mnemonic.style.foreground != mnemonic.style.background, "the letter must not vanish into the pill")
+    #expect(mnemonic.style.flags.contains(.underline), "the underline still marks the mnemonic")
+    #expect(mnemonic.style.foreground == buffer[Point(x: 2, y: 0)].style.foreground, "falls back to the face's own text color")
+}
+
 // MARK: - Menus
 
 @Test @MainActor func altOpensTheMatchingMenu() {
