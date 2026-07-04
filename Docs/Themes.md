@@ -153,7 +153,7 @@ Slots become **flat, self-describing keys** so a palette is a plain dictionary
 | `accent` | `accent`, `warningAccent`, `errorAccent` |
 | `selection` | `selectionForeground`, `selectionBackground` |
 | `header` | `headerForeground`, `headerBackground` |
-| `border` | `borderForeground`, `borderBackground`, `borderStyle` (window/panel **frames**) · `dividerStyle` (**interior** lines — dividers, split bars, separators; usually `single` even when frames are `double`) |
+| `border` | `borderForeground`, `borderBackground`, `borderStyle` (window/panel **frames**) · `dividerStyle` (**interior** lines — dividers, split bars, separators; usually `single` even when frames are `double`) · `dividerConnection` (`welded` — tee/cross junctions where lines meet, Borland-style — or `notWelded` — plain unattached lines; gates welding *together with* each `Divider`'s own `isConnected`) |
 | `scrollbar` | `scrollbarThumb`, `scrollbarTrack` |
 | `placeholder` | `placeholderForeground`, `placeholderBackground` |
 | *(new — see 8.13)* | `fieldForeground`, `fieldBackground` — the editable "well" |

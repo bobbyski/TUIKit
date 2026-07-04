@@ -87,6 +87,33 @@ import Testing
     #expect(buffer[Point(x: 2, y: 1)].character == "│", "interior divider is single, not the double frame's ║")
 }
 
+@Test @MainActor func dividerConnectionControlsWelding() {
+    let welded = Theme.standard                       // default → welded
+    var flat = Theme.standard
+    flat.base.dividerConnection = .notWelded
+
+    #expect(welded.resolved().dividerConnection == .welded, "default is welded")
+    #expect(flat.resolved().dividerConnection == .notWelded)
+
+    // A horizontal divider spanning the content welds into the left border with
+    // a tee — unless the theme says notWelded, then the border stays plain.
+    func leftBorderAtDividerRow(_ theme: Theme) -> Character {
+        let panel = Panel("P")
+        panel.theme = theme
+        panel.frame = Rect(x: 0, y: 0, width: 10, height: 5)
+        let divider = Divider(axis: .horizontal)
+        divider.frame = Rect(x: 0, y: 1, width: 8, height: 1)   // spans the content width
+        panel.content.addSubview(divider)
+
+        let window = Window(frame: panel.frame)
+        window.addSubview(panel)
+        return SceneRenderer(root: window).render(size: Size(width: 10, height: 5))[Point(x: 0, y: 2)].character
+    }
+
+    #expect(leftBorderAtDividerRow(welded) == "├", "welded → the divider welds into the border")
+    #expect(leftBorderAtDividerRow(flat) == "│", "notWelded → plain border, no tee")
+}
+
 @Test @MainActor func nearestAncestorThemeWins() {
     let window = Window(frame: Rect(x: 0, y: 0, width: 20, height: 3))
     window.theme = .dark

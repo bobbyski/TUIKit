@@ -135,6 +135,11 @@ public final class Panel: TUIView {
     // the content edges into this panel's border with tee junctions, so
     // divided layouts read as one piece of chrome.
     private func drawDividerJunctions(_ painter: Painter, theme: ResolvedTheme) {
+        // Only weld when the theme asks for it.
+        guard theme.dividerConnection == .welded else {
+            return
+        }
+
         // The tee welds the interior line (`dividerStyle` — the nub) into the
         // frame (`borderStyle`), e.g. a single divider into a double frame → ╟.
         let frame = theme.borderStyle

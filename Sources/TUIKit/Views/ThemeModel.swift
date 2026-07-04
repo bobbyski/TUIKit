@@ -120,6 +120,16 @@ public enum ThemeContext: String, Codable, Sendable, CaseIterable {
     case accessoryView
 }
 
+/// Whether dividers/separators visually connect (weld) into borders and each
+/// other with tee/cross junctions, or read as plain, unattached lines.
+public enum DividerConnection: String, Codable, Hashable, Sendable, CaseIterable {
+    /// Tee/cross junctions where lines meet borders and each other (Borland).
+    case welded
+
+    /// Plain lines — no junctions, nothing welds into a border.
+    case notWelded
+}
+
 // MARK: - Palette (one context's slots — all optional)
 
 /// One context's slot values. Every field is optional: `nil` inherits through
@@ -147,6 +157,7 @@ public struct ThemePalette: Codable, Hashable, Sendable {
     public var borderBackground: TerminalColor?
     public var borderStyle: BorderStyle?
     public var dividerStyle: BorderStyle?
+    public var dividerConnection: DividerConnection?
 
     public var scrollbarThumb: TerminalColor?
     public var scrollbarTrack: TerminalColor?
@@ -198,6 +209,8 @@ public struct ResolvedTheme: Hashable, Sendable {
     /// Box-drawing style for *interior* lines (dividers, split bars, separators).
     /// Usually `.single` even when frames are `.double` (the Borland rule).
     public var dividerStyle: BorderStyle
+    /// Whether dividers weld into borders/each other with junctions.
+    public var dividerConnection: DividerConnection
 
     public var scrollbarThumb: TerminalColor
     public var scrollbarTrack: TerminalColor
@@ -318,6 +331,12 @@ public struct Theme: Codable, Hashable, Sendable {
             return fallback
         }
 
+        var connection: DividerConnection = .welded
+        for palette in chain where palette.dividerConnection != nil {
+            connection = palette.dividerConnection!
+            break
+        }
+
         return ResolvedTheme(
             foreground: color(\.foreground),
             background: color(\.background),
@@ -335,6 +354,7 @@ public struct Theme: Codable, Hashable, Sendable {
             borderBackground: color(\.borderBackground),
             borderStyle: borderStyle(\.borderStyle, default: .single),
             dividerStyle: borderStyle(\.dividerStyle, default: .single),
+            dividerConnection: connection,
             scrollbarThumb: color(\.scrollbarThumb),
             scrollbarTrack: color(\.scrollbarTrack),
             placeholderForeground: color(\.placeholderForeground),

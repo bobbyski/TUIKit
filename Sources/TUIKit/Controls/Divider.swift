@@ -100,7 +100,9 @@ public final class Divider: TUIView {
             }
         }
 
-        if isConnected {
+        // Cross-junctions require both the divider opting in *and* the theme
+        // asking for welded dividers.
+        if isConnected, theme.dividerConnection == .welded {
             drawJunctions(painter, style: style)
         }
     }
