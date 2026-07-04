@@ -286,9 +286,11 @@ public final class Panel: TUIView {
         return Rect(origin: origin, size: client.frame.size)
     }
 
-    // The right-border bar's run, or nil when there's nothing to scroll.
+    // The right-border bar's run, or nil when the client has no vertical axis.
+    // A span that *fits* still gets a bar — embedded bars are permanent chrome
+    // (the Borland look); the thumb just fills the track.
     private func verticalBarRun() -> BarRun? {
-        guard let span = scrollClient?.verticalScrollSpan, span.maxOffset > 0 else {
+        guard let span = scrollClient?.verticalScrollSpan, span.viewport > 0 else {
             return nil
         }
 
@@ -310,9 +312,10 @@ public final class Panel: TUIView {
         return BarRun(start: start, length: length, span: span, hasArrows: length >= 4)
     }
 
-    // The bottom-border bar's run, or nil when there's nothing to scroll.
+    // The bottom-border bar's run, or nil when the client has no horizontal
+    // axis. Permanent chrome, like the vertical bar.
     private func horizontalBarRun() -> BarRun? {
-        guard let span = scrollClient?.horizontalScrollSpan, span.maxOffset > 0 else {
+        guard let span = scrollClient?.horizontalScrollSpan, span.viewport > 0 else {
             return nil
         }
 

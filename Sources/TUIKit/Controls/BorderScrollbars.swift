@@ -50,10 +50,14 @@ public enum BorderScrollbarExtent: Sendable {
 /// view would spend on its own indicator returns to the content.
 @MainActor
 public protocol BorderScrollable: TUIView {
-    /// Vertical scroll state, or `nil` when the axis doesn't overflow.
+    /// Vertical scroll state, or `nil` to draw no bar for the axis.
+    ///
+    /// Embedded bars are permanent chrome (the Borland look): report a span
+    /// even when the content fits — the thumb fills the track — so the bar
+    /// doesn't pop in and out as the window resizes past the content.
     var verticalScrollSpan: ScrollSpan? { get }
 
-    /// Horizontal scroll state, or `nil` when the axis doesn't overflow.
+    /// Horizontal scroll state, or `nil` to draw no bar for the axis.
     var horizontalScrollSpan: ScrollSpan? { get }
 
     /// Whether the view draws its own interior scrollbars.

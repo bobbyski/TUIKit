@@ -599,27 +599,28 @@ public final class SyntaxTextView: TUIView {
 // MARK: - Border-embedded scrollbars
 
 extension SyntaxTextView: BorderScrollable {
-    /// Vertical scroll state, or `nil` while all lines fit.
+    /// Vertical scroll state. Always reported (even when every line fits) so
+    /// an embedding window draws the bar as permanent chrome, Borland-style —
+    /// the thumb simply fills the track while there's nothing to scroll.
     public var verticalScrollSpan: ScrollSpan? {
         let viewport = scrollLayout().contentHeight
 
-        guard lines.count > viewport, viewport > 0 else {
+        guard viewport > 0 else {
             return nil
         }
 
         return ScrollSpan(offset: offset.y, viewport: viewport, content: lines.count)
     }
 
-    /// Horizontal scroll state, or `nil` while the longest line fits.
+    /// Horizontal scroll state; permanent like the vertical span.
     public var horizontalScrollSpan: ScrollSpan? {
         let viewport = scrollLayout().contentWidth
-        let content = longestLine
 
-        guard content > viewport, viewport > 0 else {
+        guard viewport > 0 else {
             return nil
         }
 
-        return ScrollSpan(offset: offset.x, viewport: viewport, content: content)
+        return ScrollSpan(offset: offset.x, viewport: viewport, content: longestLine)
     }
 
     /// Scrolls to a first-visible line, clamped.

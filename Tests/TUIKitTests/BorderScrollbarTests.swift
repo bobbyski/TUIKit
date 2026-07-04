@@ -87,3 +87,26 @@ private func makeEmbeddedWindow() -> (window: FloatingWindow, editor: SyntaxText
     #expect(buffer[Point(x: 29, y: 4)].character == "▴")
     #expect(buffer[Point(x: 29, y: 10)].character == "▾")
 }
+
+@Test @MainActor func embeddedBarsArePermanentChromeEvenWhenContentFits() {
+    let (window, editor) = makeEmbeddedWindow()
+    let renderer = SceneRenderer(root: window)
+
+    // Grow the window (and the editor with it) until everything fits…
+    window.frame = Rect(x: 0, y: 0, width: 80, height: 50)
+    editor.frame = Rect(x: 9, y: 0, width: 69, height: 48)
+    var buffer = renderer.render(size: Size(width: 80, height: 50))
+
+    // …the bars stay, Borland-style, with the thumb filling the track.
+    #expect(buffer[Point(x: 79, y: 1)].character == "▴", "vertical bar stays when lines fit")
+    #expect(buffer[Point(x: 79, y: 48)].character == "▾")
+    #expect(buffer[Point(x: 40, y: 49)].character == " ", "horizontal bar stays when lines fit")
+
+    // Shrinking back re-engages both axes — no bar goes missing.
+    window.frame = Rect(x: 0, y: 0, width: 30, height: 12)
+    editor.frame = Rect(x: 9, y: 0, width: 19, height: 10)
+    buffer = renderer.render(size: Size(width: 30, height: 12))
+    #expect(buffer[Point(x: 29, y: 1)].character == "▴")
+    #expect(buffer[Point(x: 29, y: 10)].character == "▾")
+    #expect(buffer[Point(x: 10, y: 11)].character == "◂")
+}
