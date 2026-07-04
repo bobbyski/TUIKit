@@ -131,18 +131,34 @@ public final class SyntaxTextView: TUIView {
         true
     }
 
+    /// Whether the view draws its own interior scrollbars (the default).
+    /// Window chrome flips this off when it embeds the bars into its border
+    /// (`Panel.embedScrollbars`), returning the reserved column/row to text.
+    public var showsOwnScrollbars = true {
+        didSet {
+            if showsOwnScrollbars != oldValue {
+                setNeedsDisplay()
+            }
+        }
+    }
+
     // The longest line, in characters — the horizontal scroll extent.
     private var longestLine: Int {
         lines.reduce(0) { max($0, $1.count) }
     }
 
     // Which scrollbars are needed and the resulting content area. Two-pass:
-    // reserving one axis's bar can push the other axis into overflow.
+    // reserving one axis's bar can push the other axis into overflow. With
+    // embedded (border) bars nothing is reserved — the full area is content.
     private func scrollLayout() -> (needsV: Bool, needsH: Bool, gutter: Int, contentWidth: Int, contentHeight: Int) {
         let width = bounds.size.width
         let height = bounds.size.height
         let gutter = gutterWidth
         let bareWidth = max(0, width - gutter)
+
+        guard showsOwnScrollbars else {
+            return (false, false, gutter, bareWidth, height)
+        }
 
         var needsV = lines.count > height && bareWidth > 1
         var needsH = longestLine > bareWidth - (needsV ? 1 : 0)
@@ -577,5 +593,46 @@ public final class SyntaxTextView: TUIView {
 
         highlightCache[index] = runs
         return runs
+    }
+}
+
+// MARK: - Border-embedded scrollbars
+
+extension SyntaxTextView: BorderScrollable {
+    /// Vertical scroll state, or `nil` while all lines fit.
+    public var verticalScrollSpan: ScrollSpan? {
+        let viewport = scrollLayout().contentHeight
+
+        guard lines.count > viewport, viewport > 0 else {
+            return nil
+        }
+
+        return ScrollSpan(offset: offset.y, viewport: viewport, content: lines.count)
+    }
+
+    /// Horizontal scroll state, or `nil` while the longest line fits.
+    public var horizontalScrollSpan: ScrollSpan? {
+        let viewport = scrollLayout().contentWidth
+        let content = longestLine
+
+        guard content > viewport, viewport > 0 else {
+            return nil
+        }
+
+        return ScrollSpan(offset: offset.x, viewport: viewport, content: content)
+    }
+
+    /// Scrolls to a first-visible line, clamped.
+    public func setScrollOffset(vertical newOffset: Int) {
+        let viewport = scrollLayout().contentHeight
+        offset.y = min(max(0, lines.count - viewport), max(0, newOffset))
+        setNeedsDisplay()
+    }
+
+    /// Scrolls to a first-visible column, clamped.
+    public func setScrollOffset(horizontal newOffset: Int) {
+        let viewport = scrollLayout().contentWidth
+        offset.x = min(max(0, longestLine - viewport), max(0, newOffset))
+        setNeedsDisplay()
     }
 }

@@ -113,6 +113,32 @@ extension DemoApp {
             }
         }
 
+        // 8.7 — border-embedded scrollbars, the Borland look: the active tab's
+        // editor hands its scrollbars to the window chrome. The vertical bar
+        // rides the right border full-height; the horizontal bar rides the
+        // bottom border *under the editor only* (not the file tree). Re-wired
+        // whenever the active tab changes, since each tab has its own editor.
+        func rewireEmbeddedBars() {
+            func findEditor(in view: TUIView) -> SyntaxTextView? {
+                if let editor = view as? SyntaxTextView {
+                    return editor
+                }
+
+                for subview in view.subviews {
+                    if let editor = findEditor(in: subview) {
+                        return editor
+                    }
+                }
+
+                return nil
+            }
+
+            let pane = tabs.tabCount > 0 ? tabs.content(at: tabs.selectedIndex) : nil
+            window.embedScrollbars(for: pane.flatMap(findEditor))
+        }
+
+        tabs.onSelectionChanged = { _ in rewireEmbeddedBars() }
+
         // Opens a file into the tab area. `newTab` (or having no tabs yet) adds a
         // fresh tab; otherwise it replaces the current tab's content in place
         // (`setTab`) — a "preview tab" that single-clicks reuse, so browsing files
@@ -140,6 +166,7 @@ extension DemoApp {
             }
 
             window.content.setNeedsLayout()   // the new/updated tab content needs positioning
+            rewireEmbeddedBars()              // the border bars follow the new active editor
         }
 
         // The two callbacks split single from double click. The click events are
@@ -160,6 +187,7 @@ extension DemoApp {
                 ? "all tabs closed — pick a file to open one"
                 : "closed a tab — \(tabs.tabCount) open"
             window.content.setNeedsLayout()
+            rewireEmbeddedBars()   // the border bars follow the surviving tab
         }
 
         // Left column: a bold "Files" caption, a rule, then the flexible tree.
