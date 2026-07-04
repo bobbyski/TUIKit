@@ -113,6 +113,9 @@ public final class ListView: TUIView {
     // Shared navigation core.
     private var navigation = RowNavigationState()
 
+    // In-flight scrollbar-thumb drag: the grab offset within the thumb.
+    private var scrollbarGrab: Int?
+
     /// Creates a list.
     ///
     /// - Parameter items: Row titles.
@@ -207,18 +210,24 @@ public final class ListView: TUIView {
     // A solid proportional indicator (dim track, bright thumb — no glyph
     // patterns), reusing ScrollView's indicator styling.
     private func drawScrollbar(_ painter: Painter, at column: Int, height: Int) {
-        let count = items.count
         let (track, thumb) = ScrollView.indicatorStyles(for: effectiveTheme, focused: isFirstResponder)
-
-        let thumbLength = max(1, height * height / count)
-        let maxThumbStart = max(0, height - thumbLength)
-        let maxOffset = max(1, count - height)
-        let thumbStart = min(maxThumbStart, navigation.scrollOffset * maxThumbStart / maxOffset)
+        let (start, length) = scrollbarThumb(height: height)
 
         for y in 0..<height {
-            let inThumb = y >= thumbStart && y < thumbStart + thumbLength
+            let inThumb = y >= start && y < start + length
             painter.set(TerminalCell(character: " ", style: inThumb ? thumb : track), at: Point(x: column, y: y))
         }
+    }
+
+    // Thumb start row and length for the current scroll — shared by drawing
+    // and dragging so the thumb the user grabs is the one drawn.
+    private func scrollbarThumb(height: Int) -> (start: Int, length: Int) {
+        let count = items.count
+        let length = max(1, height * height / count)
+        let maxStart = max(0, height - length)
+        let maxOffset = max(1, count - height)
+        let start = min(maxStart, navigation.scrollOffset * maxStart / maxOffset)
+        return (start, length)
     }
 
     /// Navigation and activation keys.
@@ -268,8 +277,17 @@ public final class ListView: TUIView {
 
     /// Click selects; the wheel scrolls without moving the selection.
     public override func mouseEvent(_ mouse: MouseInput) -> Bool {
+        let height = bounds.size.height
+        let overflow = items.count > height && bounds.size.width > 1
+
         switch mouse.action {
         case .press where mouse.button == .left:
+            // The reserved last column is the scrollbar: drag the thumb, or
+            // click the track to page toward the click.
+            if overflow, mouse.position.x == bounds.size.width - 1 {
+                return pressScrollbar(atRow: mouse.position.y, height: height)
+            }
+
             let index = navigation.scrollOffset + mouse.position.y
 
             guard index < items.count else {
@@ -279,19 +297,53 @@ public final class ListView: TUIView {
             moveSelection(to: index)
             return true
 
+        case .drag where scrollbarGrab != nil:
+            dragScrollbar(toRow: mouse.position.y, height: height)
+            return true
+
+        case .release where scrollbarGrab != nil:
+            scrollbarGrab = nil
+            return true
+
         case .scrollUp:
-            navigation.scroll(by: -1, height: bounds.size.height)
+            navigation.scroll(by: -1, height: height)
             setNeedsDisplay()
             return true
 
         case .scrollDown:
-            navigation.scroll(by: 1, height: bounds.size.height)
+            navigation.scroll(by: 1, height: height)
             setNeedsDisplay()
             return true
 
         default:
             return false
         }
+    }
+
+    // Press on the scrollbar: grab the thumb, or page the track.
+    private func pressScrollbar(atRow row: Int, height: Int) -> Bool {
+        let (start, length) = scrollbarThumb(height: height)
+
+        if row >= start, row < start + length {
+            scrollbarGrab = row - start
+        } else {
+            let page = max(1, height - 1)
+            navigation.scroll(by: row < start ? -page : page, height: height)
+            setNeedsDisplay()
+        }
+
+        return true
+    }
+
+    // Drag maps the thumb's top row to a proportional scroll offset.
+    private func dragScrollbar(toRow row: Int, height: Int) {
+        let (_, length) = scrollbarThumb(height: height)
+        let maxStart = max(0, height - length)
+        let targetStart = min(maxStart, max(0, row - (scrollbarGrab ?? 0)))
+        let maxOffset = max(0, items.count - height)
+
+        navigation.scrollOffset = maxStart > 0 ? targetStart * maxOffset / maxStart : 0
+        setNeedsDisplay()
     }
 
     private func moveSelection(by offset: Int) {

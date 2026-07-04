@@ -142,6 +142,16 @@ extension SyntaxTextView: Bindable {
     }
 }
 
+extension TextView: Bindable {
+    @discardableResult
+    public func bind(_ binding: Binding<String>, live: Bool) -> TextView {
+        setFieldBinding(pull: { [weak self] in self?.setText(binding.get()) },
+                        push: { [weak self] in self.map { binding.set($0.text) } })
+        if live { let prev = onChanged; onChanged = { binding.set($0); prev($0) } }
+        return self
+    }
+}
+
 extension PathControl: Bindable {
     @discardableResult
     public func bind(_ binding: Binding<String>, live: Bool) -> PathControl {

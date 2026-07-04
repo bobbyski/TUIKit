@@ -190,3 +190,22 @@ private func makeList(_ count: Int, height: Int) -> ListView {
     let line = SceneRenderer(root: w2).render(size: Size(width: 12, height: 5)).textLines()[0]
     #expect(line.hasPrefix("a"))
 }
+
+@Test @MainActor func listViewScrollbarThumbDragsTheList() {
+    let list = ListView(items: (1...40).map { "Item \($0)" })
+    let window = Window(frame: Rect(x: 0, y: 0, width: 12, height: 8))
+    list.frame = window.bounds
+    window.addSubview(list)
+    _ = SceneRenderer(root: window).render(size: window.frame.size)   // lay out
+    #expect(list.scrollOffset == 0)
+
+    // Grab the thumb (top) and drag to the bottom row → scrolled to the end.
+    _ = list.mouseEvent(MouseInput(position: Point(x: 11, y: 0), action: .press, button: .left))
+    _ = list.mouseEvent(MouseInput(position: Point(x: 11, y: 7), action: .drag, button: .left))
+    #expect(list.scrollOffset == 40 - 8, "dragging the thumb to the bottom scrolls to the end")
+    _ = list.mouseEvent(MouseInput(position: Point(x: 11, y: 7), action: .release, button: .left))
+
+    // Click the track above the thumb → pages up.
+    _ = list.mouseEvent(MouseInput(position: Point(x: 11, y: 0), action: .press, button: .left))
+    #expect(list.scrollOffset < 32, "track click above the thumb pages up")
+}

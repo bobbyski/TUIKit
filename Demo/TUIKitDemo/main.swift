@@ -777,7 +777,7 @@ func runFormDemo() async throws {
             TableColumn("Address"),
         ])
         table.rows = store.people.map {
-            [$0.name, ContactStore.isoFormatter.string(from: $0.birthday), $0.address]
+            [$0.name, ContactStore.displayFormatter.string(from: $0.birthday), $0.address]
         }
 
         window.content.setContent {
@@ -822,8 +822,7 @@ func runFormDemo() async throws {
 
             let person = store.people[personIndex]
 
-            let notes = SyntaxTextView(language: "text")
-            notes.showsLineNumbers = false
+            let notes = TextView()
             notes.bind(person.$notes)
 
             detail.setContent {
@@ -1437,13 +1436,23 @@ final class ContactStore {
         return calendar
     }()
 
-    /// `yyyy-MM-dd` ↔ `Date` on the shared calendar.
+    /// `yyyy-MM-dd` ↔ `Date` on the shared calendar (parses the seed JSON).
     static let isoFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.calendar = calendar
         formatter.timeZone = calendar.timeZone
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
+
+    /// Human-readable US date for display (e.g. "Feb 22, 1732").
+    static let displayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.locale = Locale(identifier: "en_US")
+        formatter.dateStyle = .medium
         return formatter
     }()
 

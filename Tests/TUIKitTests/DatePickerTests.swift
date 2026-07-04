@@ -32,22 +32,22 @@ private func makeDate(
     window.addSubview(picker)
 
     let line = SceneRenderer(root: window).render(size: Size(width: 14, height: 1)).textLines()[0]
-    #expect(line.hasPrefix("2026-07-03 ▾"))
+    #expect(line.hasPrefix("07/03/2026 ▾"), "US MM/DD/YYYY order")
 
     var changes: [Date] = []
     picker.onDateChanged = { changes.append($0) }
     window.makeFirstResponder(picker)
 
-    window.route(.key(KeyInput(key: .up)))       // year → 2027
-    window.route(.key(KeyInput(key: .right)))    // focus month (no change)
-    window.route(.key(KeyInput(key: .up)))       // month → August
+    window.route(.key(KeyInput(key: .up)))       // month → August (first segment)
     window.route(.key(KeyInput(key: .right)))    // focus day (no change)
-    window.route(.key(KeyInput(key: .down)))     // day → 2
+    window.route(.key(KeyInput(key: .up)))       // day → 4
+    window.route(.key(KeyInput(key: .right)))    // focus year (no change)
+    window.route(.key(KeyInput(key: .down)))     // year → 2025
 
     let components = calendar.dateComponents([.year, .month, .day], from: picker.date)
-    #expect(components.year == 2027)
+    #expect(components.year == 2025)
     #expect(components.month == 8)
-    #expect(components.day == 2)
+    #expect(components.day == 4)
     #expect(changes.count == 3, "only the three steps fire; segment moves are silent")
 }
 

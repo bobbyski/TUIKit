@@ -93,6 +93,11 @@ extension SyntaxTextView: ValueControl {
     public func setAnyValue(_ value: Any) throws { setText(try Coerce.string(value)) }
 }
 
+extension TextView: ValueControl {
+    public func anyValue() -> Any { text }
+    public func setAnyValue(_ value: Any) throws { setText(try Coerce.string(value)) }
+}
+
 extension PathControl: ValueControl {
     public func anyValue() -> Any { path }
     public func setAnyValue(_ value: Any) throws { setPath(try Coerce.string(value)) }

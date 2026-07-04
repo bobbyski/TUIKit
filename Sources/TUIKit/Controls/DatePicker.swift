@@ -3,7 +3,7 @@ import Foundation
 /// Date, time, or calendar editor backed by Foundation's `Calendar`.
 ///
 /// ```text
-///   2026-07-03 ▾      .date     — Y/M/D segments + a calendar popup
+///   07/03/2026 ▾      .date     — M/D/Y (US) segments + a calendar popup
 ///   14:30             .time     — H/M segments
 ///   ┌ Jul 2026  ▲▼┐   .calendar — an inline month grid (▲▼ step months)
 ///   │ Su Mo Tu …  │
@@ -195,10 +195,11 @@ public final class DatePicker: TUIView {
     private var segments: [Segment] {
         switch mode {
         case .date:
+            // US order: MM/DD/YYYY.
             return [
-                Segment(component: .year, range: 0..<4),
-                Segment(component: .month, range: 5..<7),
-                Segment(component: .day, range: 8..<10),
+                Segment(component: .month, range: 0..<2),
+                Segment(component: .day, range: 3..<5),
+                Segment(component: .year, range: 6..<10),
             ]
 
         case .time:
@@ -217,7 +218,7 @@ public final class DatePicker: TUIView {
 
         switch mode {
         case .date, .calendar:
-            return String(format: "%04d-%02d-%02d", components.year ?? 0, components.month ?? 0, components.day ?? 0)
+            return String(format: "%02d/%02d/%04d", components.month ?? 0, components.day ?? 0, components.year ?? 0)
 
         case .time:
             return String(format: "%02d:%02d", components.hour ?? 0, components.minute ?? 0)

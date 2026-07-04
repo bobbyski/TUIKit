@@ -14,6 +14,9 @@ import RichSwift
 /// characters insert at the cursor. The viewport follows the cursor on both
 /// axes; the wheel scrolls vertically. Clicking places the cursor.
 ///
+/// For prose (notes, comments) that should wrap rather than scroll sideways,
+/// use `TextView` instead — the plain-text counterpart with word wrap.
+///
 /// Highlighting is per line through RichSwift `Syntax` (see the RichSwift
 /// integration section in PLAN.md) with a per-line cache, so editing one
 /// line re-highlights only that line.
