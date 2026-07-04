@@ -39,7 +39,7 @@ Phase 8 · Demo & Polish               ███░░░░░░░░░░�
 Phase 9 · Tutorial                    ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending
 Phase 10 · VTG Vector Graphics        ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending (rev 2)
 Phase 11 · Controls v3                ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending (rev 2: search, sheets, images, tokens, tooltips)
-Phase 12 · TUIBuilder (declarative)   ████████░░░░░░░░░░░░░░░░░░   33%  🔄 Core + containers + modifiers in; demo default window uses it
+Phase 12 · TUIBuilder (declarative)   ██████████████████████░░░░   86%  🔄 Core/containers/modifiers/Form/hosting in; only Grid DSL left
 Phase 13 · TUIView base rename        ██████████████████████████  100%  ✅ Done — base class View → TUIView (SwiftUI coexistence)
 ```
 
@@ -303,9 +303,10 @@ state graph, no diffing.
 | 12.1 | Core: `Component` / `Composable` / `@NodeBuilder` | ✅ Done | `Component` = `makeView()` currency (every `TUIView` conforms); `Composable` = compounds with a `body` (split from `Component` to avoid colliding with `Dialog.body`); `NodeBuilder` supports lists, `if`/`else`, `for`. 4 builder tests. |
 | 12.2 | Containers + `Spacer` | ✅ Done | Result-builder `convenience init`s on `VStack`/`HStack`/`ScrollView`/`Panel`; `Spacer(minLength:)`. Default `.fill` cross-alignment = "line up in the parent." |
 | 12.3 | Modifiers | ✅ Done | Structural (`Configured`: `padding`/`frame`/`fill`/`centered`/`anchors`/`id`/`styleClass`/`theme`/`hidden`/`configure`) + typed per-control chainable setters (`onActivate`/`onChange`/`onSubmit`/`onSelectionChanged`/`onValueChanged`/`style`/`bold`/…) + `Ref<T>`. |
-| 12.4 | Hosting (`Window.setContent`, `App.run { }`) | ⏳ Pending | Convenience seams to the run loop (demo currently builds + `addSubview`s the root directly). |
-| 12.5 | `Form`/`Field`, `Grid`/`GridRow`, `ZStack` | ⏳ Pending | Aligned form + placement-grid + overlay containers (B6–B7 in the design doc). |
-| 12.6 | Demo: declarative example window | ✅ Done | The `--interactive` default window is built with the DSL (form: fields, toggle, segmented, slider→progress, buttons), proving compounds/controls compose with defaults. |
+| 12.4 | Hosting (`TUIView.setContent`, `App.run { }`) | ✅ Done | `setContent { }` replaces a view's children with one fill-anchored root (several → a `VStack`); `App.run { }` runs a window whose content is the built tree. Both tested (incl. headless `run`). |
+| 12.5 | `Form`/`Field` + `ZStack` | ✅ Done | `Form { Field("Name") { … } }` lowers to a `GridView` (fixed right-aligned label column + flexible control column) and computes its own intrinsic size, so the labels line up and controls fill with **zero** layout code — principle #2 made real. `ZStack` overlays fill-anchored children. Tested (label alignment across rows, overlap order). |
+| 12.6 | Demo: declarative example window | ✅ Done | The `--interactive` default window is built with the DSL (`Form` rows + toggle + slider→progress + buttons), hosted via `setContent`. Proves compounds/controls/`Form` compose with defaults. |
+| 12.7 | `Grid`/`GridRow` DSL | ⏳ Pending | The general placement-metadata grid builder (`Grid(columns:) { GridRow { … } }` + `.gridSpan`); `Form` already uses `GridView` directly. |
 
 ## Phase 13 — TUIView base rename ✅
 

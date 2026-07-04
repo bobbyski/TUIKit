@@ -11,6 +11,38 @@ public final class Spacer: TUIView {
     }
 }
 
+/// Overlapping children, each fill-anchored — later ones draw over earlier
+/// ones (badges, overlays, watermarks). Its natural size is the largest
+/// child's.
+public final class ZStack: TUIView {
+    /// Builds a Z-stack from a component list.
+    ///
+    /// - Parameter content: The overlapping children, back to front.
+    public init(@NodeBuilder _ content: () -> [any Component]) {
+        super.init(frame: .zero)
+
+        for child in content() {
+            let view = child.makeView()
+            view.anchors = .fill()
+            addSubview(view)
+        }
+    }
+
+    /// The largest child's natural size.
+    public override var intrinsicContentSize: Size? {
+        let sizes = subviews.compactMap(\.intrinsicContentSize)
+
+        guard !sizes.isEmpty else {
+            return nil
+        }
+
+        return Size(
+            width: sizes.map(\.width).max() ?? 0,
+            height: sizes.map(\.height).max() ?? 0
+        )
+    }
+}
+
 public extension VStack {
     /// Builds a vertical stack from a component list.
     ///

@@ -721,45 +721,41 @@ func runFormDemo() async throws {
         let nameField = TextField(placeholder: "type a name")
         nameField.onSubmit { status.text = "name: \($0)" }
 
-        let content = VStack(spacing: 1, insets: EdgeInsets(all: 1)) {
-            Label("A form, declared").bold()
+        // The whole content declared once. `Form` lines the labeled rows up
+        // for free; `setContent` fill-anchors the root into the window.
+        window.content.setContent {
+            VStack(spacing: 1, insets: EdgeInsets(all: 1)) {
+                Label("A form, declared with TUIBuilder").bold()
 
-            HStack(spacing: 1) {
-                Label("Name:").bold()
-                nameField
-            }
-
-            Toggle("Wrap lines").onChange { status.text = "wrap: \($0)" }
-
-            HStack(spacing: 1) {
-                Label("Mode:").bold()
-                SegmentedControl(["Fast", "Balanced", "Accurate"], selectedIndex: 1)
-                    .onSelectionChanged { status.text = "mode \($0)" }
-            }
-
-            HStack(spacing: 1) {
-                Label("Fill:").bold()
-                Slider(value: 40, in: 0...100, step: 5).onValueChanged { value in
-                    progress.doubleValue = Double(value)
-                    status.text = "fill \(value)%"
+                Form {
+                    Field("Name") { nameField }
+                    Field("Mode") {
+                        SegmentedControl(["Fast", "Balanced", "Accurate"], selectedIndex: 1)
+                            .onSelectionChanged { status.text = "mode \($0)" }
+                    }
+                    Field("Fill") {
+                        Slider(value: 40, in: 0...100, step: 5).onValueChanged { value in
+                            progress.doubleValue = Double(value)
+                            status.text = "fill \(value)%"
+                        }
+                    }
                 }
-            }
 
-            progress
+                Toggle("Wrap lines").onChange { status.text = "wrap: \($0)" }
+                progress
 
-            Spacer()
-
-            HStack(spacing: 2) {
                 Spacer()
-                Button("Reset") { status.text = "reset" }
-                Button("Save") { status.text = "saved" }
-            }
 
-            status
+                HStack(spacing: 2) {
+                    Spacer()
+                    Button("Reset") { status.text = "reset" }
+                    Button("Save") { status.text = "saved" }
+                }
+
+                status
+            }
         }
 
-        content.anchors = .fill()
-        window.content.addSubview(content)
         window.makeFirstResponder(nameField)
         return window
     }

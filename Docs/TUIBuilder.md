@@ -1,12 +1,14 @@
 # TUIBuilder — a declarative builder for TUIKit
 
-**Status: core implemented; layer growing.** The core (`Component`,
-`Composable`, `NodeBuilder`), container builder-inits (`VStack`/`HStack`/
-`ScrollView`/`Panel`), `Spacer`, structural + typed modifiers, and `Ref` ship
-in `Sources/TUIKit/Builder/`; the `--interactive` demo's default window is
-built with them. Still to come: `Form`/`Field`, `Grid`/`GridRow`, `ZStack`,
-and `App.run { }` hosting (see §13). This document describes the whole
-*optional* declarative layer over TUIKit's controls. It reads like SwiftUI
+**Status: core implemented; layer growing.** Shipping in
+`Sources/TUIKit/Builder/`: the core (`Component`, `Composable`, `NodeBuilder`);
+containers `VStack`/`HStack`/`ZStack`/`ScrollView`/`Panel` + `Spacer`;
+structural + typed modifiers + `Ref`; the auto-aligning `Form`/`Field`; and
+hosting (`TUIView.setContent { }`, `App.run { }`). The `--interactive` demo's
+default window is built with them (a `Form`-based screen hosted via
+`setContent`). Still to come: the general `Grid`/`GridRow` DSL (see §13). This
+document describes the whole *optional* declarative layer over TUIKit's
+controls. It reads like SwiftUI
 at the call site — nested containers, trailing-closure children, chained
 modifiers — but it is **not reactive**: there is no state graph, no bindings,
 no diffing, no invalidation. It is a construction convenience that builds a
@@ -767,17 +769,16 @@ lifts up to declarative for free. There is never a wrapper to unwrap.
 Small, phased, each phase independently useful and independently tested. This
 is an optional module; it can ship after TUIKit 1.0 without blocking anything.
 
-| Phase | Deliverable | Notes |
-|-------|-------------|-------|
-| B0 | `Component`, `@NodeBuilder`, `TUIView`/`Never` conformances | The core; unlocks every existing control in the DSL. |
-| B1 | Container initializers: `VStack`/`HStack`/`ZStack`/`ScrollView`/`Panel` | Result-builder `convenience init`s; `ZStack` is a new ~30-line container. |
-| B2 | Structural modifiers + `Configured` + `Spacer`/`Ref` | `padding`, `frame`, `anchors`/`fill`/`centered`, `theme`, `id`, `styleClass`, `hidden`, `configure`. |
-| B3 | Typed modifiers per control | `onActivate`/`onChange`/`style`/`bold`/… — mechanical, one small extension per control. |
-| B4 | Hosting: `Window.setContent`, `App.run { }` | Connects to the run loop. |
-| B5 | `TabView`/`SplitView` builders | `Tab("…") { }` / two-pane closure. |
-| B6 | `Grid` + `GridRow` + `@GridBuilder` + `.gridSpan` | The placement-metadata container; the fiddliest, so it comes late. |
-| B7 | `Form` + `Field` (over `Grid`) | The auto-aligning labeled form — principle #2's flagship; builds on B6. |
-| B8 | Docs + a declarative rewrite of one demo tab | Prove the DSL builds the *same* tree the imperative demo does (headless-identical). |
+| Phase | Deliverable | Status |
+|-------|-------------|--------|
+| B0 | `Component`, `Composable`, `@NodeBuilder`; `TUIView` conforms | ✅ Done |
+| B1 | Containers: `VStack`/`HStack`/`ZStack`/`ScrollView`/`Panel` + `Spacer` | ✅ Done |
+| B2 | Structural modifiers + `Configured` + `Ref` | ✅ Done (`padding`, `frame`, `anchors`/`fill`/`centered`, `theme`, `id`, `styleClass`, `hidden`, `configure`) |
+| B3 | Typed per-control modifiers | ✅ Done (`onActivate`/`onChange`/`onSubmit`/`onSelectionChanged`/`onValueChanged`/`style`/`bold`/…) |
+| B4 | Hosting: `TUIView.setContent`, `App.run { }` | ✅ Done |
+| B5 | `Form` + `Field` (over `GridView`) — the auto-aligning form | ✅ Done |
+| B6 | Demo: default window built with the DSL (`Form` + `setContent`) | ✅ Done |
+| B7 | `Grid`/`GridRow`/`@GridBuilder`/`.gridSpan`; `TabView`/`SplitView` builders | ⏳ Pending — the general placement grid (fiddliest) + tab/split sugar |
 
 **File layout** (new, under `Sources/TUIKit/Builder/`):
 

@@ -70,3 +70,74 @@ private struct LabeledField: Composable {
     #expect(view.identifier == "greeting")
     #expect(view.minimumSize.width == 12)
 }
+
+@Test @MainActor func formAlignsTheLabelColumn() {
+    let form = Form(spacing: 0) {
+        Field("A")    { TextField(placeholder: "x") }
+        Field("Name") { TextField(placeholder: "y") }
+    }
+
+    let window = Window(frame: Rect(x: 0, y: 0, width: 24, height: 2))
+    form.anchors = .fill()
+    window.addSubview(form)
+
+    #expect(form.intrinsicContentSize?.height == 2)
+
+    let lines = SceneRenderer(root: window).render(size: Size(width: 24, height: 2)).textLines()
+    #expect(lines[0].hasPrefix("   A:"), "the short label right-aligns to the colon")
+    #expect(lines[1].hasPrefix("Name:"))
+    #expect(Array(lines[0])[4] == ":" && Array(lines[1])[4] == ":", "colons align across rows")
+}
+
+@Test @MainActor func zStackOverlapsChildren() {
+    let z = ZStack {
+        Label("background")
+        Label("FG")
+    }
+
+    let window = Window(frame: Rect(x: 0, y: 0, width: 12, height: 1))
+    z.anchors = .fill()
+    window.addSubview(z)
+    window.layoutIfNeeded()
+
+    #expect(z.subviews.count == 2)
+    #expect(z.subviews[1].frame == Rect(x: 0, y: 0, width: 12, height: 1), "children fill")
+
+    // The later child draws over the earlier one.
+    let line = SceneRenderer(root: window).render(size: Size(width: 12, height: 1)).textLines()[0]
+    #expect(line.hasPrefix("FG"))
+}
+
+@Test @MainActor func setContentInstallsAFillAnchoredRoot() {
+    let window = Window(frame: Rect(x: 0, y: 0, width: 20, height: 3))
+    window.setContent {
+        VStack { Label("one"); Label("two") }
+    }
+
+    #expect(window.subviews.count == 1)
+    #expect(window.subviews[0] is VStack)
+    #expect(window.subviews[0].anchors == .fill())
+
+    window.layoutIfNeeded()
+    #expect(window.subviews[0].frame == Rect(x: 0, y: 0, width: 20, height: 3))
+}
+
+@Test @MainActor func appRunBuilderPresentsBuiltContent() async throws {
+    let driver = HeadlessDriver(size: Size(width: 8, height: 1))
+    let app = App(driver: driver)
+
+    let session = Task {
+        try await app.run {
+            Label("hello")
+        }
+    }
+
+    while await driver.presentCount == 0 {
+        await Task.yield()
+    }
+
+    #expect(await driver.snapshotText().first?.contains("hello") == true)
+
+    await driver.send(.key(KeyInput(key: .character("c"), modifiers: .control)))
+    try await session.value
+}
