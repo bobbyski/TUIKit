@@ -26,6 +26,28 @@ import Testing
     #expect(buffer[Point(x: 0, y: 1)].style.background == .rgb(red: 0, green: 0, blue: 0))
 }
 
+@Test @MainActor func turboThemeUsesBorlandPaletteAndDoubleBorders() {
+    // Registered in the picker.
+    #expect(Theme.builtIn.contains { $0.name == "Turbo Pascal" })
+    #expect(Theme.turbo.borderStyle == .double)
+
+    let panel = TUIKit.Panel("Edit")
+    panel.theme = .turbo
+    let window = Window(frame: Rect(x: 0, y: 0, width: 12, height: 4))
+    panel.frame = window.bounds
+    window.addSubview(panel)
+    let buffer = SceneRenderer(root: window).render(size: Size(width: 12, height: 4))
+
+    // Top-left corner: a double-line glyph, white on Borland blue.
+    let corner = buffer[Point(x: 0, y: 0)]
+    #expect(corner.character == "╔")
+    #expect(corner.style.foreground == .rgb(red: 255, green: 255, blue: 255))
+    #expect(corner.style.background == .rgb(red: 0, green: 0, blue: 170))
+
+    // Interior fills with the base background (blue).
+    #expect(buffer[Point(x: 1, y: 1)].style.background == .rgb(red: 0, green: 0, blue: 170))
+}
+
 @Test @MainActor func nearestAncestorThemeWins() {
     let window = Window(frame: Rect(x: 0, y: 0, width: 20, height: 3))
     window.theme = .dark

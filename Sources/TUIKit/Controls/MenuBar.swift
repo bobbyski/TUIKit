@@ -149,13 +149,19 @@ public final class MenuBar: TUIView {
         true
     }
 
-    /// Draws the titles; the highlighted one lights up while focused or open.
+    /// Draws the bar in the theme's `header` (chrome) slot, then the titles;
+    /// the highlighted one lights up while focused or open.
     public override func draw(_ painter: Painter) {
         let theme = effectiveTheme
+
+        // The whole bar wears the header slot (e.g. the Borland gray menu bar),
+        // so it reads as one strip of chrome rather than window content.
+        painter.fill(bounds, with: TerminalCell(character: " ", style: theme.header))
+
         var x = 0
 
         for (index, menu) in menus.enumerated() {
-            var style = CellStyle()
+            var style = theme.header
 
             if index == selectedMenuIndex, (isFirstResponder && isActive) || isMenuOpen {
                 style = theme.selection

@@ -28,6 +28,20 @@ private func makeMenuWindow() -> (Window, MenuBar, Menu, [String]) {
     #expect(lines[0].hasPrefix(" File  Edit "))
 }
 
+@Test @MainActor func menuBarPaintsWholeStripWithHeaderSlot() {
+    let (window, _, _, _) = makeMenuWindow()
+    window.theme = .turbo   // header = black on light gray
+    let buffer = SceneRenderer(root: window).render(size: window.frame.size)
+
+    // A title cell (the 'F' of File) is black-on-gray from the header slot…
+    let title = buffer[Point(x: 1, y: 0)].style
+    #expect(title.foreground == .rgb(red: 0, green: 0, blue: 0))
+    #expect(title.background == .rgb(red: 170, green: 170, blue: 170))
+
+    // …and so is the empty tail of the bar (filled, not window-blue).
+    #expect(buffer[Point(x: 29, y: 0)].style.background == .rgb(red: 170, green: 170, blue: 170))
+}
+
 @Test @MainActor func menuBarStaysIdleUntilEngaged() {
     let (window, bar, _, _) = makeMenuWindow()
     window.makeFirstResponder(bar)

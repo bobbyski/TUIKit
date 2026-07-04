@@ -278,6 +278,41 @@ public struct Theme: Hashable, Sendable {
         accent: .rgb(red: 240, green: 240, blue: 240)
     )
 
+    /// Turbo Pascal / Borland IDE — yellow text on royal blue, white double
+    /// borders, a light-gray menu bar, and a cyan highlight. Uses the classic
+    /// EGA/VGA 16-color values.
+    ///
+    /// **Baseline (Phase 8.5).** This is the best the *current* semantic slots
+    /// can do; it deliberately reuses `header` for both the menu bar and panel
+    /// titles, and `selection` for both list rows and menu highlights. The
+    /// planned refinements (a dedicated menu-bar slot, filled-pill buttons,
+    /// red accelerator hints, border-embedded scrollbars) build on this.
+    public static let turbo = Theme(
+        // Yellow text on Borland blue.
+        base: CellStyle(foreground: .rgb(red: 255, green: 255, blue: 85),
+                        background: .rgb(red: 0, green: 0, blue: 170)),
+        // Light cyan — the IDE's bright highlight color.
+        accent: .rgb(red: 85, green: 255, blue: 255),
+        // Black on cyan: the selected-row / highlighted-item bar.
+        selection: CellStyle(foreground: .rgb(red: 0, green: 0, blue: 0),
+                             background: .rgb(red: 0, green: 170, blue: 170)),
+        // Black on light gray: the menu bar (and, for now, panel titles).
+        header: CellStyle(foreground: .rgb(red: 0, green: 0, blue: 0),
+                          background: .rgb(red: 170, green: 170, blue: 170),
+                          flags: .bold),
+        // Crisp white double lines framing each blue window.
+        border: CellStyle(foreground: .rgb(red: 255, green: 255, blue: 255),
+                          background: .rgb(red: 0, green: 0, blue: 170)),
+        borderStyle: .double,
+        // Light-cyan thumb over a dark-navy track.
+        scrollbar: CellStyle(foreground: .rgb(red: 85, green: 255, blue: 255),
+                             background: .rgb(red: 0, green: 0, blue: 110)),
+        // Dim cyan for de-emphasized text on the blue.
+        placeholder: CellStyle(foreground: .rgb(red: 0, green: 170, blue: 170),
+                               background: .rgb(red: 0, green: 0, blue: 170),
+                               flags: .dim)
+    )
+
     /// Linear blend between two colors, when both have known RGB values
     /// (true color or the 16 named colors); `nil` otherwise.
     ///
@@ -306,6 +341,7 @@ public struct Theme: Hashable, Sendable {
         ("Novel", .novel),
         ("Pro", .pro),
         ("Silver Aerogel", .silverAerogel),
+        ("Turbo Pascal", .turbo),
     ]
 }
 

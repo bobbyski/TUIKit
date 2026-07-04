@@ -25,6 +25,26 @@ final class DemoApp {
         let menuWindow = MenuBarWindow()
         menuWindow.onQuit = { app.stop() }
 
+        // Bottom status-strip text, declared up here so the Theme menu (built
+        // next) can re-style it whenever the theme changes.
+        let statusTitle = Label(" TUIKit Demo")
+        let statusHint = Label("File ▸ New… opens examples · close a window to dismiss it")
+        let clock = Label("--:--:--")
+
+        // The menu bar and status strip are *chrome*, so their text wears the
+        // theme's `header` slot (Turbo's gray bar, etc.). The bars themselves
+        // already fill with `header`; this makes their content match instead of
+        // rendering as window-colored (blue/yellow) text on the gray strip.
+        // Called at startup and again on every theme switch below.
+        func styleStatusChrome() {
+            let header = menuWindow.effectiveTheme.header
+            statusTitle.style = header           // bold title
+            var plain = header
+            plain.flags.remove(.bold)
+            statusHint.style = plain
+            clock.style = plain
+        }
+
         let fileMenu = Menu("File")
         fileMenu.addItem("New Declarative Example", keyEquivalent: KeyInput(key: .character("n"), modifiers: .control)) {
             self.exampleCount += 1
@@ -61,20 +81,32 @@ final class DemoApp {
                 // can still opt out locally (e.g. the declarative window pins its
                 // controls to `.standard`).
                 app.applyTheme(theme)
+                // Paint the desktop with a *lightened* version of the theme
+                // background, so windows (drawn on the theme background) stand
+                // out against a distinct backdrop — Turbo Pascal's light-blue
+                // desktop under its royal-blue windows. Uses the existing
+                // Desktop.fillStyle + Theme.blendColors; colorless themes (no RGB
+                // to blend) fall back to the plain background.
+                let bg = theme.base.background
+                let backdrop = TUIKit.Theme.blendColors(bg, toward: .named(.white), fraction: 0.3) ?? bg
+                app.desktop.fillStyle = CellStyle(background: backdrop)
+                // Re-color the status text to the new theme's chrome slot.
+                styleStatusChrome()
             }
         }
 
         let menuBar = MenuBar()
         menuBar.addMenu(fileMenu)
         menuBar.addMenu(themeMenu)
-        menuBar.anchors = AnchorSet(leading: 0, top: 0, height: 1)
+        // Span the full width so the whole menu row is gray chrome, not just the
+        // titles' width (trailing: 0 stretches it edge-to-edge).
+        menuBar.anchors = AnchorSet(leading: 0, trailing: 0, top: 0, height: 1)
         menuWindow.addSubview(menuBar)
         menuWindow.menuBar = menuBar
         menuWindow.makeFirstResponder(menuBar)
 
-        // Global status bar + live clock along the very bottom (also a second use
-        // of the non-blocking App timer).
-        let clock = Label("--:--:--")
+        // Global status bar along the very bottom, hosting the chrome labels
+        // declared above and a live clock (a second use of the App timer).
         let clockFormatter = DateFormatter()
         clockFormatter.dateFormat = "HH:mm:ss"
         func refreshClock() { clock.text = clockFormatter.string(from: Date()) }
@@ -82,11 +114,14 @@ final class DemoApp {
         app.addTimer(every: .seconds(1)) { refreshClock() }
 
         let globalStatus = StatusBar()
-        globalStatus.addSegment(Label(" TUIKit Demo", style: CellStyle(flags: .bold)), minimumWidth: 14)
-        globalStatus.addSegment(Label("File ▸ New… opens examples · close a window to dismiss it"), percentage: 100)
+        globalStatus.showsSeparators = false   // Borland-style: one flat strip, no │ dividers
+        globalStatus.addSegment(statusTitle, minimumWidth: 14)
+        globalStatus.addSegment(statusHint, percentage: 100)
         globalStatus.addSegment(clock, minimumWidth: 10)
         globalStatus.anchors = AnchorSet(leading: 0, trailing: 0, bottom: 0, height: 1)
         menuWindow.addSubview(globalStatus)
+
+        styleStatusChrome()   // initial pass, matching the startup theme
 
         // Load the global contact list once, at startup.
         ContactStore.shared.loadIfNeeded()
