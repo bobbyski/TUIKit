@@ -53,8 +53,15 @@ classDiagram
         +alignment : TextAlignment
     }
 
+    class ControlStyle {
+        <<enum>>
+        tinted
+        bordered
+    }
+
     class Button {
         +title : String
+        +style : ControlStyle
         +onActivate : () -> Void
         +isPressed : Bool
         +activate()
@@ -270,6 +277,7 @@ classDiagram
 
     class PopUpButton {
         +items : [String]
+        +style : ControlStyle
         +selectedIndex : Int?
         +isOpen : Bool
         +onSelectionChanged : (Int) -> Void
@@ -368,6 +376,7 @@ classDiagram
 
     class Toolbar {
         +items : [ToolbarItem]
+        +style : ControlStyle
         +addItem(title, icon, isEnabled, action) ToolbarItem
     }
 
@@ -494,6 +503,9 @@ classDiagram
     TreeView *-- RowNavigationState : uses
     Browser *-- RowNavigationState : per column
     Toolbar o-- ToolbarItem : items
+    Button ..> ControlStyle : styled by
+    PopUpButton ..> ControlStyle : styled by
+    Toolbar ..> ControlStyle : styled by
     Browser o-- BrowserItem : rows
     Browser ..> BrowserDataSource : columns via
     BrowserDataSource <|.. FileSystemBrowserDataSource

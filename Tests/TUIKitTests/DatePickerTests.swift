@@ -88,7 +88,7 @@ private func makeDate(
     // Space drops the month grid.
     window.route(.key(KeyInput(key: .character(" "))))
     let lines = SceneRenderer(root: window).render(size: Size(width: 30, height: 14)).textLines()
-    #expect(lines.contains { $0.contains("July 2026") })
+    #expect(lines.contains { $0.contains("Jul 2026") })
     #expect(lines.contains { $0.contains("Su Mo Tu We Th Fr Sa") })
 
     // Move a day forward in the popup and choose it; the field updates and
@@ -99,7 +99,7 @@ private func makeDate(
     #expect(calendar.component(.day, from: picker.date) == 4)
 
     let closed = SceneRenderer(root: window).render(size: Size(width: 30, height: 14)).textLines()
-    #expect(!closed.contains { $0.contains("July 2026") }, "the popup dismissed after choosing")
+    #expect(!closed.contains { $0.contains("Jul 2026") }, "the popup dismissed after choosing")
 }
 
 // MARK: - Inline calendar mode
@@ -114,7 +114,7 @@ private func makeDate(
     window.layoutIfNeeded()
 
     let lines = SceneRenderer(root: window).render(size: Size(width: 20, height: 8)).textLines()
-    #expect(lines[0].hasPrefix("July 2026"))
+    #expect(lines[0].hasPrefix("Jul 2026"))
     #expect(lines[1].hasPrefix("Su Mo Tu We Th Fr Sa"))
 
     var changed: [Date] = []
@@ -132,4 +132,31 @@ private func makeDate(
     #expect(calendar.component(.month, from: picker.date) == 8)
 
     #expect(changed.count == 3)
+}
+
+@Test @MainActor func calendarMonthSteppersClickToChangeMonth() {
+    let calendar = fixedCalendar()
+    let picker = DatePicker(mode: .calendar, date: makeDate(calendar, 2026, 7, 3), calendar: calendar)
+
+    let window = Window(frame: Rect(x: 0, y: 0, width: 20, height: 8))
+    picker.frame = window.bounds
+    window.addSubview(picker)
+    window.layoutIfNeeded()
+
+    // The title reads a month name, never an ISO "M07" code.
+    let title = SceneRenderer(root: window).render(size: Size(width: 20, height: 8)).textLines()[0]
+    #expect(title.hasPrefix("Jul 2026"))
+
+    var changed: [Date] = []
+    picker.onDateChanged = { changed.append($0) }
+
+    // ▼ at the right of the title row → next month.
+    window.route(.mouse(MouseInput(position: Point(x: 19, y: 0), action: .press, button: .left)))
+    #expect(calendar.component(.month, from: picker.date) == 8)
+
+    // ▲ → previous month, back to July.
+    window.route(.mouse(MouseInput(position: Point(x: 17, y: 0), action: .press, button: .left)))
+    #expect(calendar.component(.month, from: picker.date) == 7)
+
+    #expect(changed.count == 2)
 }

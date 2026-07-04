@@ -72,6 +72,17 @@ public final class Toolbar: View {
     /// Commands in display order.
     public private(set) var items: [ToolbarItem] = []
 
+    /// How items signal they are actionable: accent color (`.tinted`, the
+    /// default) or bracketed (`.bordered`).
+    public var style: ControlStyle = .tinted {
+        didSet {
+            if style != oldValue {
+                superview?.setNeedsLayout()
+                setNeedsDisplay()
+            }
+        }
+    }
+
     // Focused slot: a visible item index, or the overflow slot when it
     // equals the visible-item count.
     private var focusedSlot = 0
@@ -133,7 +144,7 @@ public final class Toolbar: View {
                 items[slot].label,
                 at: segment.x,
                 width: segment.width,
-                style: style(forSlot: slot, item: items[slot], plan: plan, theme: theme),
+                style: slotStyle(forSlot: slot, item: items[slot], theme: theme),
                 painter: painter
             )
         }
@@ -142,8 +153,8 @@ public final class Toolbar: View {
             drawSegment(
                 "»",
                 at: overflowX,
-                width: 5,
-                style: style(forSlot: plan.visibleCount, item: nil, plan: plan, theme: theme),
+                width: overflowWidth,
+                style: slotStyle(forSlot: plan.visibleCount, item: nil, theme: theme),
                 painter: painter
             )
         }
@@ -204,7 +215,7 @@ public final class Toolbar: View {
         }
 
         if plan.hasOverflow, let overflowX = plan.overflowX,
-           mouse.position.x >= overflowX, mouse.position.x < overflowX + 5 {
+           mouse.position.x >= overflowX, mouse.position.x < overflowX + overflowWidth {
             focusedSlot = plan.visibleCount
             activate(slot: plan.visibleCount, plan: plan)
             return true
@@ -282,7 +293,7 @@ public final class Toolbar: View {
 
     // MARK: - Drawing helpers
 
-    private func style(forSlot slot: Int, item: ToolbarItem?, plan: Layout, theme: Theme) -> CellStyle {
+    private func slotStyle(forSlot slot: Int, item: ToolbarItem?, theme: Theme) -> CellStyle {
         if let item, !item.isEnabled {
             return theme.placeholder
         }
@@ -291,14 +302,27 @@ public final class Toolbar: View {
             return theme.selection
         }
 
-        return theme.header
+        // Resting: the header slot, tinted with the accent (or underlined on
+        // a colorless theme) when the tinted style is active.
+        var resting = theme.header
+
+        if style == .tinted {
+            if theme.accent != .standard {
+                resting.foreground = theme.accent
+                resting.flags.insert(.bold)
+            } else {
+                resting.flags.insert(.underline)
+            }
+        }
+
+        return resting
     }
 
-    private func drawSegment(_ label: String, at x: Int, width: Int, style: CellStyle, painter: Painter) {
-        let inner = Label.truncated(label, width: max(0, width - 4))
-        let padding = max(0, width - 4 - inner.count)
-        let text = "[ " + inner + String(repeating: " ", count: padding) + " ]"
-        painter.write(text, at: Point(x: x, y: 0), style: style)
+    private func drawSegment(_ label: String, at x: Int, width: Int, style cellStyle: CellStyle, painter: Painter) {
+        let pad = style.horizontalPadding
+        let inner = Label.truncated(label, width: max(0, width - pad))
+        let content = inner + String(repeating: " ", count: max(0, width - pad - inner.count))
+        painter.write(style.decorate(content), at: Point(x: x, y: 0), style: cellStyle)
     }
 
     // MARK: - Layout
@@ -317,9 +341,14 @@ public final class Toolbar: View {
         }
     }
 
-    // Segment width for an item's `[ label ]` rendering.
+    // Segment width for an item's decorated rendering.
     private func segmentWidth(_ item: ToolbarItem) -> Int {
-        item.label.count + 4
+        item.label.count + style.horizontalPadding
+    }
+
+    // Width of the trailing `»` overflow button in the current style.
+    private var overflowWidth: Int {
+        1 + style.horizontalPadding
     }
 
     // Width needed to show every item, single-space separated.
@@ -348,9 +377,9 @@ public final class Toolbar: View {
             return Layout(visibleCount: items.count, hasOverflow: false, segments: segments, overflowX: nil)
         }
 
-        // Overflow needed: reserve room for the trailing `[ » ]` (5 cells)
-        // plus the space before it.
-        let overflowReserve = 5 + 1
+        // Overflow needed: reserve room for the trailing `»` button plus the
+        // space before it.
+        let overflowReserve = overflowWidth + 1
         var segments: [(x: Int, width: Int)] = []
         var x = 0
         var visible = 0

@@ -37,6 +37,17 @@ public final class PopUpButton: View {
     /// Index of the chosen item, when any.
     public private(set) var selectedIndex: Int?
 
+    /// How the button signals it is actionable: accent color (`.tinted`,
+    /// the default) or bracketed (`.bordered`).
+    public var style: ControlStyle = .tinted {
+        didSet {
+            if style != oldValue {
+                superview?.setNeedsLayout()
+                setNeedsDisplay()
+            }
+        }
+    }
+
     /// Called when the chosen item changes.
     public var onSelectionChanged: (Int) -> Void = { _ in }
 
@@ -68,10 +79,10 @@ public final class PopUpButton: View {
         true
     }
 
-    /// One row at `[ longest-item ▾ ]` width.
+    /// One row wide enough for the longest item plus the `▾` and decoration.
     public override var intrinsicContentSize: Size? {
         let widest = items.map(\.count).max() ?? 0
-        return Size(width: widest + 6, height: 1)
+        return Size(width: widest + style.horizontalPadding + 2, height: 1)   // + " ▾"
     }
 
     /// Selects an item programmatically.
@@ -94,23 +105,28 @@ public final class PopUpButton: View {
         }
     }
 
-    /// Draws `[ value ▾ ]`, inverted while focused or open.
+    /// Draws the selected value and `▾`, accent-tinted (or bracketed) at rest
+    /// and in the selection style while focused or open.
     public override func draw(_ painter: Painter) {
-        var style = CellStyle()
+        let theme = effectiveTheme
+        var cellStyle: CellStyle
 
-        if isFirstResponder || isOpen {
-            style.flags.insert(.inverse)
-
-            if isOpen {
-                style.flags.insert(.bold)
-            }
+        if isOpen {
+            cellStyle = theme.selection
+            cellStyle.flags.insert(.bold)
+        } else if isFirstResponder {
+            cellStyle = theme.selection
+        } else {
+            cellStyle = style.restingStyle(theme: theme)
         }
 
+        let (lead, trail) = style == .bordered ? ("[ ", " ▾ ]") : (" ", " ▾ ")
+        let reserved = lead.count + trail.count
         let value = selectedIndex.map { items[$0] } ?? ""
-        let inner = Label.truncated(value, width: max(0, bounds.size.width - 6))
-        let padding = max(0, bounds.size.width - 6 - inner.count)
-        let text = "[ " + inner + String(repeating: " ", count: padding) + " ▾ ]"
-        painter.write(text, at: .zero, style: style)
+        let inner = Label.truncated(value, width: max(0, bounds.size.width - reserved))
+        let padding = max(0, bounds.size.width - reserved - inner.count)
+        let text = lead + inner + String(repeating: " ", count: padding) + trail
+        painter.write(text, at: .zero, style: cellStyle)
     }
 
     /// Space/Return/Down opens the popup.

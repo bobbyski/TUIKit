@@ -213,6 +213,7 @@ import Testing
 
 @Test @MainActor func toolbarFitsItemsSkipsDisabledAndActivates() {
     let bar = Toolbar()
+    bar.style = .bordered   // assert the bracketed layout geometry
     var log: [String] = []
     bar.addItem("Run") { log.append("run") }
     let stop = bar.addItem("Stop") { log.append("stop") }
@@ -243,6 +244,7 @@ import Testing
 
 @Test @MainActor func toolbarOverflowMenuHoldsTrailingItems() {
     let bar = Toolbar()
+    bar.style = .bordered   // assert the bracketed overflow geometry
     var log: [String] = []
     bar.addItem("Run") { log.append("run") }
     bar.addItem("Stop") { log.append("stop") }
@@ -267,6 +269,38 @@ import Testing
     window.route(.key(KeyInput(key: .down)))
     window.route(.key(KeyInput(key: .enter)))
     #expect(log == ["reset"])
+}
+
+// MARK: - Tinted control style (color instead of brackets)
+
+@Test @MainActor func tintedButtonUsesAccentColorNotBrackets() {
+    let window = Window(frame: Rect(x: 0, y: 0, width: 12, height: 1))
+    let button = Button("Go")   // default is .tinted
+    button.frame = Rect(x: 0, y: 0, width: 4, height: 1)
+    window.addSubview(button)
+
+    let buffer = SceneRenderer(root: window).render(size: Size(width: 12, height: 1))
+    let line = buffer.textLines()[0]
+    #expect(line.hasPrefix(" Go "))
+    #expect(!line.contains("["), "the tinted default drops the brackets")
+
+    // The label is drawn in the theme accent, bold.
+    #expect(buffer[Point(x: 1, y: 0)].style.foreground == .named(.brightCyan))
+    #expect(buffer[Point(x: 1, y: 0)].style.flags.contains(.bold))
+}
+
+@Test @MainActor func tintedToolbarDropsBrackets() {
+    let bar = Toolbar()   // default is .tinted
+    bar.addItem("Run") {}
+    bar.addItem("Stop") {}
+
+    let window = Window(frame: Rect(x: 0, y: 0, width: 20, height: 1))
+    bar.frame = window.bounds
+    window.addSubview(bar)
+
+    let line = SceneRenderer(root: window).render(size: Size(width: 20, height: 1)).textLines()[0]
+    #expect(line.contains("Run") && line.contains("Stop"))
+    #expect(!line.contains("["), "tinted toolbar items have no brackets")
 }
 
 // MARK: - StatusBar welding

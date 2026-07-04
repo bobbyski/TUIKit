@@ -13,9 +13,17 @@ import Testing
 
     #expect(bar.fractionCompleted == 0.5)
 
-    // 20 wide − " 50%" (4) = 16 track; half filled = 8 blocks.
-    let line = SceneRenderer(root: window).render(size: Size(width: 20, height: 1)).textLines()[0]
-    #expect(line == "████████░░░░░░░░ 50%")
+    // 20 wide − " 50%" (4) = 16 track; half filled = 8 cells. Cells are
+    // solid backgrounds (accent fill over a dim track), never shaded glyphs.
+    let buffer = SceneRenderer(root: window).render(size: Size(width: 20, height: 1))
+    #expect(buffer[Point(x: 0, y: 0)].style.background == .named(.brightCyan), "accent fill")
+    #expect(buffer[Point(x: 7, y: 0)].style.background == .named(.brightCyan))
+    #expect(buffer[Point(x: 8, y: 0)].style.background == .named(.brightBlack), "dim track")
+    #expect(buffer[Point(x: 15, y: 0)].style.background == .named(.brightBlack))
+
+    let line = buffer.textLines()[0]
+    #expect(line.hasSuffix("50%"))
+    #expect(!line.contains("░") && !line.contains("█"), "never a hash/shade pattern")
 }
 
 @Test @MainActor func progressBarClampsValue() {

@@ -43,8 +43,14 @@ private func press(_ character: Character) -> KeyInput {
 @Test @MainActor func buttonRendersTitleAndReportsSize() {
     let button = Button("OK")
 
-    #expect(renderedLines(button, size: Size(width: 6, height: 1)) == ["[ OK ]"])
+    // Default: tinted — color carries the affordance, no brackets.
+    #expect(button.intrinsicContentSize == Size(width: 4, height: 1))
+    #expect(renderedLines(button, size: Size(width: 4, height: 1)) == [" OK "])
+
+    // Bordered keeps the classic bracketed look.
+    button.style = .bordered
     #expect(button.intrinsicContentSize == Size(width: 6, height: 1))
+    #expect(renderedLines(button, size: Size(width: 6, height: 1)) == ["[ OK ]"])
 }
 
 @Test @MainActor func buttonActivatesOnEnterSpaceAndClickRelease() {

@@ -32,10 +32,15 @@ final class MenuBarWindow: Window {
     /// quitting.
     weak var menuBar: MenuBar?
 
-    /// Only the bar row gets chrome; the desktop shows through the rest.
+    /// The menu row (top) and the global status row (bottom) get a solid
+    /// backing; the desktop shows through everything between.
     override func draw(_ painter: Painter) {
         painter.fill(
             Rect(x: 0, y: 0, width: bounds.size.width, height: 1),
+            with: .blank
+        )
+        painter.fill(
+            Rect(x: 0, y: bounds.size.height - 1, width: bounds.size.width, height: 1),
             with: .blank
         )
     }
@@ -800,6 +805,27 @@ func runFormDemo() async throws {
     menuWindow.addSubview(menuBar)
     menuWindow.menuBar = menuBar
     menuWindow.makeFirstResponder(menuBar)
+
+    // A global StatusBar pinned to the very bottom of the screen — proof a
+    // StatusBar works as root-window chrome, and a second live use of the
+    // App timer: the clock ticks once a second without ever blocking.
+    let clock = Label("--:--:--")
+    let clockFormatter = DateFormatter()
+    clockFormatter.dateFormat = "HH:mm:ss"
+
+    func refreshClock() {
+        clock.text = clockFormatter.string(from: Date())
+    }
+
+    refreshClock()
+    app.addTimer(every: .seconds(1)) { refreshClock() }
+
+    let globalStatus = StatusBar()
+    globalStatus.addSegment(Label(" TUIKit Demo", style: CellStyle(flags: .bold)), minimumWidth: 14)
+    globalStatus.addSegment(Label("menu ▸ File · click a window to focus · Esc quits"), percentage: 100)
+    globalStatus.addSegment(clock, minimumWidth: 10)
+    globalStatus.anchors = AnchorSet(leading: 0, trailing: 0, bottom: 0, height: 1)
+    menuWindow.addSubview(globalStatus)
 
     // The controls float goes onto the desktop first; running presents the
     // menu window above it. Click either to make it key.

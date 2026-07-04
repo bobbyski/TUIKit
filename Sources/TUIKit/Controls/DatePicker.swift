@@ -5,7 +5,7 @@ import Foundation
 /// ```text
 ///   2026-07-03 ▾      .date     — Y/M/D segments + a calendar popup
 ///   14:30             .time     — H/M segments
-///   ┌ July 2026 ──┐   .calendar — an inline month grid
+///   ┌ Jul 2026  ▲▼┐   .calendar — an inline month grid (▲▼ step months)
 ///   │ Su Mo Tu …  │
 ///   │  … 3  4  5  │
 ///   └─────────────┘

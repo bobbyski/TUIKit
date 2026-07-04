@@ -191,22 +191,15 @@ public final class ProgressIndicator: View {
         let theme = effectiveTheme
         let label = showsPercentage ? " \(percentString)" : ""
         let trackWidth = max(0, width - label.count)
-
-        var fillStyle = CellStyle()
-
-        if theme.accent != .standard {
-            fillStyle.foreground = theme.accent
-        }
-
+        let (trackStyle, fillStyle) = Self.barStyles(for: theme)
         let filled = Int((fractionCompleted * Double(trackWidth)).rounded())
 
+        // Solid cells only — a blank painted on a background color, never a
+        // shaded glyph. The track is a filled dim bar; the fill is the accent.
         for x in 0..<trackWidth {
             let isFilled = x < filled
             painter.set(
-                TerminalCell(
-                    character: isFilled ? "█" : "░",
-                    style: isFilled ? fillStyle : theme.placeholder
-                ),
+                TerminalCell(character: " ", style: isFilled ? fillStyle : trackStyle),
                 at: Point(x: x, y: 0)
             )
         }
@@ -214,6 +207,27 @@ public final class ProgressIndicator: View {
         if !label.isEmpty {
             painter.write(label, at: Point(x: trackWidth, y: 0), style: CellStyle())
         }
+    }
+
+    // Solid track/fill styles — background colors only, never glyph patterns,
+    // mirroring ScrollView's indicator styling and its colorless fallback.
+    static func barStyles(for theme: Theme) -> (track: CellStyle, fill: CellStyle) {
+        let slot = theme.scrollbar
+
+        guard slot.foreground != .standard, slot.background != .standard else {
+            // Colorless theme (e.g. mono): solid video-attribute blocks.
+            var track = theme.border
+            track.flags.insert(.inverse)
+            track.flags.insert(.dim)
+
+            var fill = theme.border
+            fill.flags.insert(.inverse)
+            return (track, fill)
+        }
+
+        let track = CellStyle(background: slot.background)
+        let fill = CellStyle(background: theme.accent != .standard ? theme.accent : slot.foreground)
+        return (track, fill)
     }
 
     private func drawSpinner(_ painter: Painter) {

@@ -49,6 +49,7 @@ private func makePopUp(buttonY: Int, windowHeight: Int = 10) -> (PopUpButton, Wi
 
 @Test @MainActor func popUpRendersSelectionAndOpensBelow() {
     let (popUp, window) = makePopUp(buttonY: 1)
+    popUp.style = .bordered   // assert the classic bracketed face
 
     #expect(popUp.intrinsicContentSize == Size(width: 14, height: 1), "longest item + 6")
 

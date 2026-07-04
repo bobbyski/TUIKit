@@ -20,6 +20,17 @@ public final class Button: View {
         }
     }
 
+    /// How the button signals it is actionable: accent color (`.tinted`,
+    /// the default) or bracketed (`.bordered`).
+    public var style: ControlStyle = .tinted {
+        didSet {
+            if style != oldValue {
+                superview?.setNeedsLayout()
+                setNeedsDisplay()
+            }
+        }
+    }
+
     /// Called when the button activates.
     public var onActivate: () -> Void
 
@@ -48,9 +59,9 @@ public final class Button: View {
         true
     }
 
-    /// One row at `[ Title ]` width.
+    /// One row at the decorated title width.
     public override var intrinsicContentSize: Size? {
-        Size(width: title.count + 4, height: 1)
+        Size(width: title.count + style.horizontalPadding, height: 1)
     }
 
     /// Activates the button, exactly as user interaction would.
@@ -58,18 +69,23 @@ public final class Button: View {
         onActivate()
     }
 
-    /// Draws the button, inverting when focused or pressed.
+    /// Draws the button: accent-tinted (or bracketed) at rest, the selection
+    /// style when focused, and emphasized while pressed.
     public override func draw(_ painter: Painter) {
-        var style = CellStyle()
+        let theme = effectiveTheme
+        var cellStyle: CellStyle
 
         if isPressed {
-            style.flags = [.inverse, .bold]
+            cellStyle = theme.selection
+            cellStyle.flags.insert(.bold)
         } else if isFirstResponder {
-            style.flags = .inverse
+            cellStyle = theme.selection
+        } else {
+            cellStyle = style.restingStyle(theme: theme)
         }
 
-        let text = "[ \(Label.truncated(title, width: max(0, bounds.size.width - 4))) ]"
-        painter.write(text, at: .zero, style: style)
+        let inner = Label.truncated(title, width: max(0, bounds.size.width - style.horizontalPadding))
+        painter.write(style.decorate(inner), at: .zero, style: cellStyle)
     }
 
     /// Return or Space activates.

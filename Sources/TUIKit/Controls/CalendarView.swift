@@ -17,6 +17,21 @@ final class CalendarView: View {
     // first weekday at render time.
     private static let weekdayLabels = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
 
+    // Month names, hardcoded like the weekday labels so the title reads as a
+    // name regardless of the calendar's (possibly root/ISO) locale, which
+    // otherwise renders as "M07".
+    private static let monthNames = [
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ]
+
+    // Grid geometry: seven day columns three cells wide, less the trailing gap.
+    private static let gridWidth = 20
+
+    // Clickable month steppers on the title row.
+    private static let previousMonthColumn = gridWidth - 3   // ▲
+    private static let nextMonthColumn = gridWidth - 1       // ▼
+
     init(date: Date, calendar: Calendar, isPopup: Bool) {
         self.date = date
         self.calendar = calendar
@@ -109,8 +124,18 @@ final class CalendarView: View {
 
         let grid = monthGrid()
 
-        // Title (centered-ish): "July 2026".
+        // Title, e.g. "Jul 2026".
         painter.write(grid.title, at: contentOrigin, style: theme.header)
+
+        // Clickable month steppers on the title line: ▲ previous, ▼ next.
+        var arrowStyle = CellStyle()
+
+        if theme.accent != .standard {
+            arrowStyle.foreground = theme.accent
+        }
+
+        painter.set(TerminalCell(character: "▲", style: arrowStyle), at: contentOrigin + Point(x: Self.previousMonthColumn, y: 0))
+        painter.set(TerminalCell(character: "▼", style: arrowStyle), at: contentOrigin + Point(x: Self.nextMonthColumn, y: 0))
 
         // Weekday header, rotated to the first weekday.
         var header = ""
@@ -187,6 +212,23 @@ final class CalendarView: View {
         }
 
         let contentOrigin = isPopup ? Point(x: 1, y: 1) : .zero
+
+        // Month steppers live on the title row.
+        if mouse.position.y == contentOrigin.y {
+            switch mouse.position.x - contentOrigin.x {
+            case Self.previousMonthColumn:
+                move(byMonths: -1)
+                return true
+
+            case Self.nextMonthColumn:
+                move(byMonths: 1)
+                return true
+
+            default:
+                return false
+            }
+        }
+
         let row = mouse.position.y - contentOrigin.y - 2
         let column = (mouse.position.x - contentOrigin.x) / 3
 
@@ -283,7 +325,7 @@ final class CalendarView: View {
 
         let weeks = stride(from: 0, to: cells.count, by: 7).map { Array(cells[$0..<$0 + 7]) }
 
-        let monthName = calendar.monthSymbols[(components.month ?? 1) - 1]
+        let monthName = Self.monthNames[(components.month ?? 1) - 1]
         let title = "\(monthName) \(components.year ?? 0)"
 
         return (title, weeks)

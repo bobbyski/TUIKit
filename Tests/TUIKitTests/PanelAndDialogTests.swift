@@ -49,8 +49,8 @@ import Testing
 
 @Test @MainActor func dialogRendersChromeMessageAndButtons() {
     let dialog = Dialog(title: "Confirm", message: "Are you sure?")
-    dialog.addButton("Cancel", isCancel: true)
-    dialog.addButton("OK", isDefault: true)
+    dialog.addButton("Cancel", isCancel: true).style = .bordered
+    dialog.addButton("OK", isDefault: true).style = .bordered
 
     dialog.frame = Rect(origin: .zero, size: dialog.preferredSize)
     let lines = SceneRenderer(root: dialog).render(size: dialog.frame.size).textLines()
@@ -64,8 +64,8 @@ import Testing
 
 @Test @MainActor func dialogPreferredSizeAndCentering() {
     let dialog = Dialog(title: "Confirm", message: "Are you sure?")
-    dialog.addButton("Cancel", isCancel: true)
-    dialog.addButton("OK", isDefault: true)
+    dialog.addButton("Cancel", isCancel: true).style = .bordered
+    dialog.addButton("OK", isDefault: true).style = .bordered
 
     // Width: buttons 16 + spacer/inter gaps 4 + chrome 4;
     // height: border 2 + message 1 + gap 1 + row 1.
