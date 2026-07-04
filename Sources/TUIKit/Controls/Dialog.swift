@@ -80,8 +80,11 @@ public class Dialog: Window {
     ///
     /// - Parameters:
     ///   - title: Button title.
-    ///   - isDefault: Whether Return activates it from anywhere.
+    ///   - isDefault: Whether Return activates it from anywhere. Default
+    ///     buttons draw as a filled pill from the theme's `defaultButton` slot.
     ///   - isCancel: Whether Esc activates it.
+    ///   - isDestructive: Whether the button is a dangerous choice; draws as a
+    ///     filled pill from the theme's `destructiveButton` slot.
     ///   - action: Called on activation, before `onDismiss`.
     /// - Returns: The created button.
     @discardableResult
@@ -89,6 +92,7 @@ public class Dialog: Window {
         _ title: String,
         isDefault: Bool = false,
         isCancel: Bool = false,
+        isDestructive: Bool = false,
         action: @escaping () -> Void = {}
     ) -> Button {
         let button = Button(title)
@@ -96,6 +100,12 @@ public class Dialog: Window {
         button.onActivate = { [weak self] in
             action()
             self?.onDismiss()
+        }
+
+        if isDestructive {
+            button.role = .destructive
+        } else if isDefault {
+            button.role = .default
         }
 
         buttons.append(button)

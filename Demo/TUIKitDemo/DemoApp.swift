@@ -50,40 +50,40 @@ final class DemoApp {
             clock.style = plain
         }
 
-        let fileMenu = Menu("File")
-        fileMenu.addItem("New Declarative Example", keyEquivalent: KeyInput(key: .character("n"), modifiers: .control)) {
+        let fileMenu = Menu("&File")
+        fileMenu.addItem("New &Declarative Example", keyEquivalent: KeyInput(key: .character("n"), modifiers: .control)) {
             self.exampleCount += 1
             app.present(self.makeDeclarativeExample(index: self.exampleCount))
         }
-        fileMenu.addItem("New Manual Example", keyEquivalent: KeyInput(key: .character("m"), modifiers: .control)) {
+        fileMenu.addItem("New &Manual Example", keyEquivalent: KeyInput(key: .character("m"), modifiers: .control)) {
             self.exampleCount += 1
             app.present(self.makeManualExample(index: self.exampleCount))
         }
-        fileMenu.addItem("New Contact Book", keyEquivalent: KeyInput(key: .character("b"), modifiers: .control)) {
+        fileMenu.addItem("New Contact &Book", keyEquivalent: KeyInput(key: .character("b"), modifiers: .control)) {
             self.exampleCount += 1
             app.present(self.makeContactBook(index: self.exampleCount))
         }
-        fileMenu.addItem("New Demo Source", keyEquivalent: KeyInput(key: .character("d"), modifiers: .control)) {
+        fileMenu.addItem("New Demo &Source", keyEquivalent: KeyInput(key: .character("d"), modifiers: .control)) {
             self.exampleCount += 1
             app.present(self.makeDemoSource(index: self.exampleCount))
         }
-        fileMenu.addItem("New CSS Demo") {
+        fileMenu.addItem("New &CSS Demo") {
             self.exampleCount += 1
             app.present(self.makeStyleTest(index: self.exampleCount))
         }
         fileMenu.addSeparator()
-        fileMenu.addItem("Close Window", keyEquivalent: KeyInput(key: .character("w"), modifiers: .control)) {
+        fileMenu.addItem("&Close Window", keyEquivalent: KeyInput(key: .character("w"), modifiers: .control)) {
             // Opening the menu made the strip key, so target the top-most example.
             if let target = app.windows.last(where: { $0 !== menuWindow }) {
                 app.dismiss(target)
             }
         }
         fileMenu.addSeparator()
-        fileMenu.addItem("Quit", keyEquivalent: KeyInput(key: .character("q"), modifiers: .control)) {
+        fileMenu.addItem("&Quit", keyEquivalent: KeyInput(key: .character("q"), modifiers: .control)) {
             app.stop()
         }
 
-        let themeMenu = Menu("Theme")
+        let themeMenu = Menu("&Theme")
         for (name, theme) in TUIKit.Theme.builtIn {
             themeMenu.addItem(name) {
                 // One call themes the whole app — desktop and every window. Views
@@ -91,7 +91,7 @@ final class DemoApp {
                 // controls to `.standard`).
                 app.applyTheme(theme)
                 // Paint the desktop from the theme's own `desktop`-context
-                // backdrop — Turbo Pascal's light blue; themes without a desktop
+                // backdrop — Turbo's light blue; themes without a desktop
                 // overlay resolve to their base background.
                 app.desktop.fillStyle = CellStyle(background: theme.resolved(for: .desktop).background)
                 // Re-color the status text to the new theme's chrome slot.

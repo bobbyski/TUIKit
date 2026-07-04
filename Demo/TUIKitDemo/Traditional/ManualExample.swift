@@ -144,21 +144,21 @@ extension DemoApp {
 
         // Right-click the list for a context menu.
         let fileActions = Menu("File Actions")
-        fileActions.addItem("Open") {
+        fileActions.addItem("&Open") {
             status.text = files.selectedIndex.map { "context: open \(files.items[$0])" } ?? "context: open"
         }
-        fileActions.addItem("Rename…") { status.text = "context: rename" }
+        fileActions.addItem("&Rename…") { status.text = "context: rename" }
         fileActions.addSeparator()
-        fileActions.addItem("Delete") { status.text = "context: delete (not really)" }
+        fileActions.addItem("&Delete") { status.text = "context: delete (not really)" }
         files.contextMenu = fileActions
 
-        let summary = Button("Summary") {
+        let summary = Button("&Summary") {
             status.text = "name='\(name.text)' wrap=\(wrap.isChecked) mode=\(mode.selectedIndex ?? -1)"
         }
-        let quit = Button("Quit") {
+        let quit = Button("&Quit") {
             let dialog = Dialog(title: "Quit?", message: "Leave the TUIKit demo?")
-            dialog.addButton("Cancel", isCancel: true)
-            dialog.addButton("Quit", isDefault: true) { app.stop() }
+            dialog.addButton("&Cancel", isCancel: true)
+            dialog.addButton("&Quit", isDefault: true) { app.stop() }
             dialog.onDismiss = { [weak dialog] in
                 if let dialog {
                     app.dismiss(dialog)

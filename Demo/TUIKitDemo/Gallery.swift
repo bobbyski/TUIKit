@@ -299,8 +299,8 @@ galleryPanel.frame = Rect(x: 0, y: 0, width: 46, height: 4)
 show(SceneRenderer(root: galleryPanel).render(size: Size(width: 46, height: 4)))
 
 let galleryDialog = Dialog(title: "Delete file?", message: "This cannot be undone.")
-galleryDialog.addButton("Cancel", isCancel: true)
-galleryDialog.addButton("Delete", isDefault: true)
+galleryDialog.addButton("&Cancel", isCancel: true)
+galleryDialog.addButton("&Delete", isDefault: true, isDestructive: true)
 galleryDialog.frame = Rect(origin: .zero, size: galleryDialog.preferredSize)
 
 show(SceneRenderer(root: galleryDialog).render(size: galleryDialog.frame.size))

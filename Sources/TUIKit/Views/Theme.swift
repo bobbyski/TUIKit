@@ -104,7 +104,7 @@ public enum BorderStyle: String, Hashable, Sendable, CaseIterable {
 //
 // The `Theme` type itself (the slot × context matrix) lives in ThemeModel.swift.
 // These are the shipped themes. Most are *single-surface* — one `base` palette
-// that every context inherits — built with `surface(...)`. Turbo Pascal is the
+// that every context inherits — built with `surface(...)`. Turbo is the
 // multi-context example (gray chrome/dialogs, a blue content window).
 
 extension Theme {
@@ -133,6 +133,8 @@ extension Theme {
         base.accent = accent
         base.warningAccent = .named(.brightYellow)
         base.errorAccent = .named(.brightRed)
+        base.acceleratorColor = accent
+        base.acceleratorAttributes = [.underline]
         base.selectionForeground = background
         base.selectionBackground = accent
         base.headerForeground = accent
@@ -166,6 +168,8 @@ extension Theme {
         base.accent = .named(.brightCyan)
         base.warningAccent = .named(.brightYellow)
         base.errorAccent = .named(.brightRed)
+        base.acceleratorColor = .standard
+        base.acceleratorAttributes = [.underline]
         base.selectionForeground = .standard
         base.selectionBackground = .standard
         base.selectionAttributes = [.inverse]
@@ -281,9 +285,10 @@ extension Theme {
         accent: .rgb(red: 240, green: 240, blue: 240)
     )
 
-    /// Turbo Pascal / Borland IDE — the multi-context example. `base` is the
-    /// gray chrome/dialog surface; `contentWindow` is the blue code editor;
-    /// `desktop` paints a lighter-blue backdrop. (See Docs/Themes.md.)
+    /// Turbo / Borland IDE (Turbo Pascal, Turbo C, …) — the multi-context
+    /// example. `base` is the gray chrome/dialog surface; `contentWindow` is
+    /// the blue code editor; `desktop` paints a lighter-blue backdrop. (See
+    /// Docs/Themes.md.)
     public static let turbo: Theme = {
         var base = ThemePalette()
         base.foreground = .rgb(red: 0, green: 0, blue: 0)            // black
@@ -291,6 +296,8 @@ extension Theme {
         base.accent = .rgb(red: 0, green: 170, blue: 0)             // green
         base.warningAccent = .rgb(red: 255, green: 170, blue: 0)    // amber
         base.errorAccent = .rgb(red: 255, green: 0, blue: 0)       // red
+        base.acceleratorColor = .rgb(red: 255, green: 85, blue: 85)   // bright red mnemonic
+        base.acceleratorAttributes = []   // the color carries it — no underline (Borland)
         base.selectionForeground = .rgb(red: 0, green: 0, blue: 0)
         base.selectionBackground = .rgb(red: 0, green: 170, blue: 170)   // cyan
         base.headerForeground = .rgb(red: 0, green: 0, blue: 0)
@@ -334,7 +341,7 @@ extension Theme {
         dialog.borderStyle = .double
 
         return Theme(
-            name: "Turbo Pascal",
+            name: "Turbo",
             base: base,
             desktop: desktop,
             contentWindow: content,
@@ -366,7 +373,7 @@ extension Theme {
         ("Novel", .novel),
         ("Pro", .pro),
         ("Silver Aerogel", .silverAerogel),
-        ("Turbo Pascal", .turbo),
+        ("Turbo", .turbo),
     ]
 }
 

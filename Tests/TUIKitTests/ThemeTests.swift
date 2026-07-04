@@ -27,7 +27,7 @@ import Testing
 }
 
 @Test @MainActor func turboThemeResolvesGrayBaseAndBlueContentWindow() {
-    #expect(Theme.builtIn.contains { $0.name == "Turbo Pascal" })
+    #expect(Theme.builtIn.contains { $0.name == "Turbo" })
     // Double border is reserved for floating window frames; base (menus,
     // interior lines) is single.
     #expect(Theme.turbo.base.borderStyle == .single)

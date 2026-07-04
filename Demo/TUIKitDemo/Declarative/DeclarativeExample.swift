@@ -60,8 +60,8 @@ extension DemoApp {
 
                 HStack(spacing: 2) {
                     Spacer()
-                    Button("Reset") { status.text = "reset" }
-                    Button("Save") { status.text = "saved" }
+                    Button("&Reset") { status.text = "reset" }
+                    Button("&Save") { status.text = "saved" }.role(.default)
                 }
 
                 status

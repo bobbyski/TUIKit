@@ -53,6 +53,28 @@ private func press(_ character: Character) -> KeyInput {
     #expect(renderedLines(button, size: Size(width: 6, height: 1)) == ["[ OK ]"])
 }
 
+@Test @MainActor func defaultAndDestructiveButtonsFillFromTheirThemeSlots() {
+    func fill(_ role: Button.Role) -> CellStyle {
+        let button = Button("OK")
+        button.role = role
+        let window = Window(frame: Rect(x: 0, y: 0, width: 4, height: 1))
+        window.theme = .turbo
+        button.frame = window.bounds
+        window.addSubview(button)
+        // Column 1 is inside the " OK " pill, past the leading pad.
+        return SceneRenderer(root: window).render(size: Size(width: 4, height: 1))[Point(x: 1, y: 0)].style
+    }
+
+    // Turbo: default is a solid green pill, destructive a solid red one.
+    let def = fill(.default)
+    #expect(def.background == .rgb(red: 0, green: 170, blue: 0))
+    #expect(def.foreground == .rgb(red: 255, green: 255, blue: 255))
+
+    let bad = fill(.destructive)
+    #expect(bad.background == .rgb(red: 170, green: 0, blue: 0))
+    #expect(bad.foreground == .rgb(red: 255, green: 255, blue: 255))
+}
+
 @Test @MainActor func buttonActivatesOnEnterSpaceAndClickRelease() {
     var activations = 0
     let button = Button("Go") { activations += 1 }
@@ -121,6 +143,27 @@ private func press(_ character: Character) -> KeyInput {
 
     let focusedLines = renderedLines(field, size: Size(width: 6, height: 1), focused: true)
     #expect(focusedLines == ["      "], "focused empty field shows no placeholder")
+}
+
+@Test @MainActor func textFieldWellUsesTheThemeFieldSlot() {
+    // Standard: underline marks the well, no color.
+    let plain = TextField(text: "hi")
+    let w1 = Window(frame: Rect(x: 0, y: 0, width: 6, height: 1))
+    plain.frame = w1.bounds
+    w1.addSubview(plain)
+    let a = SceneRenderer(root: w1).render(size: Size(width: 6, height: 1))[Point(x: 0, y: 0)].style
+    #expect(a.flags.contains(.underline))
+
+    // Turbo: a solid blue well with yellow text, no underline.
+    let turbo = TextField(text: "hi")
+    let w2 = Window(frame: Rect(x: 0, y: 0, width: 6, height: 1))
+    w2.theme = .turbo
+    turbo.frame = w2.bounds
+    w2.addSubview(turbo)
+    let b = SceneRenderer(root: w2).render(size: Size(width: 6, height: 1))[Point(x: 0, y: 0)].style
+    #expect(b.background == .rgb(red: 0, green: 0, blue: 170), "blue field well")
+    #expect(b.foreground == .rgb(red: 255, green: 255, blue: 85), "yellow field text")
+    #expect(!b.flags.contains(.underline), "the color is the cue in Turbo, not an underline")
 }
 
 @Test @MainActor func textFieldScrollsLongText() {

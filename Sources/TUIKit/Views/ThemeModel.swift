@@ -145,6 +145,9 @@ public struct ThemePalette: Codable, Hashable, Sendable {
     public var warningAccent: TerminalColor?
     public var errorAccent: TerminalColor?
 
+    public var acceleratorColor: TerminalColor?
+    public var acceleratorAttributes: CellFlags?
+
     public var selectionForeground: TerminalColor?
     public var selectionBackground: TerminalColor?
     public var selectionAttributes: CellFlags?
@@ -193,6 +196,12 @@ public struct ResolvedTheme: Hashable, Sendable {
     public var accent: TerminalColor
     public var warningAccent: TerminalColor
     public var errorAccent: TerminalColor
+
+    /// The mnemonic (accelerator) letter's color — red in Turbo. Overlaid on
+    /// the surrounding cell's background, keeping menus/buttons intact.
+    public var acceleratorColor: TerminalColor
+    /// Attributes for the mnemonic letter (e.g. `.underline` on colorless themes).
+    public var acceleratorAttributes: CellFlags
 
     public var selectionForeground: TerminalColor
     public var selectionBackground: TerminalColor
@@ -269,6 +278,16 @@ public struct ResolvedTheme: Hashable, Sendable {
     public var destructiveButton: CellStyle {
         CellStyle(foreground: destructiveButtonForeground, background: destructiveButtonBackground)
     }
+
+    /// The style for a mnemonic (accelerator) letter sitting on `base`: the
+    /// accelerator color and attributes, but `base`'s background — so the red
+    /// letter reads against the same menu/button surface as its neighbors.
+    public func accelerator(over base: CellStyle) -> CellStyle {
+        var style = base
+        style.foreground = acceleratorColor
+        style.flags.formUnion(acceleratorAttributes)
+        return style
+    }
 }
 
 // MARK: - Theme definition (the matrix)
@@ -344,6 +363,8 @@ public struct Theme: Codable, Hashable, Sendable {
             accent: color(\.accent),
             warningAccent: color(\.warningAccent),
             errorAccent: color(\.errorAccent),
+            acceleratorColor: color(\.acceleratorColor),
+            acceleratorAttributes: flags(\.acceleratorAttributes),
             selectionForeground: color(\.selectionForeground),
             selectionBackground: color(\.selectionBackground),
             selectionAttributes: flags(\.selectionAttributes),

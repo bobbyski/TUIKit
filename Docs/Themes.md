@@ -151,6 +151,7 @@ Slots become **flat, self-describing keys** so a palette is a plain dictionary
 |-------------|--------------------|
 | `base` | `foreground`, `background` |
 | `accent` | `accent`, `warningAccent`, `errorAccent` |
+| *(new — see 8.6)* | `acceleratorColor`, `acceleratorAttributes` — the mnemonic (Alt+letter) letter on menus/buttons; overlaid on the surrounding surface's background |
 | `selection` | `selectionForeground`, `selectionBackground` |
 | `header` | `headerForeground`, `headerBackground` |
 | `border` | `borderForeground`, `borderBackground`, `borderStyle` (window/panel **frames**) · `dividerStyle` (**interior** lines — dividers, split bars, separators; usually `single` even when frames are `double`) · `dividerConnection` (`welded` — tee/cross junctions where lines meet, Borland-style — or `notWelded` — plain unattached lines; gates welding *together with* each `Divider`'s own `isConnected`) |
@@ -170,7 +171,7 @@ A color value is one of: a hex string `"#RRGGBB"`, a named color `"brightCyan"`,
 or `null` (inherit `base`; illegal in `base`). `borderStyle` is one of
 `single | rounded | double | heavy | none`.
 
-## Turbo Pascal — the matrix
+## Turbo — the matrix
 
 `base` is complete; each context lists only its **overrides** (everything else
 is `→ base`). Hex uses the EGA/VGA palette.
@@ -184,6 +185,7 @@ is `→ base`). Hex uses the EGA/VGA palette.
 | `accent` | Green `#00AA00` *(Borland action/OK green)* |
 | `warningAccent` | Amber `#FFAA00` |
 | `errorAccent` | Red `#FF0000` |
+| `acceleratorColor` / `acceleratorAttributes` | Bright Red `#FF5555` / — *(the color carries the mnemonic — no underline)* |
 | `selectionForeground` | Black `#000000` |
 | `selectionBackground` | Cyan `#00AAAA` |
 | `headerForeground` | Black `#000000` |
@@ -266,6 +268,7 @@ attributes, and **every context inherits `base`** (no per-context styling).
 | `foreground` / `background` | `null`-equivalent → terminal default |
 | `accent` | Bright Cyan `#00FFFF` *(named)* |
 | `warningAccent` / `errorAccent` | Yellow `#FFFF00` / Red `#FF0000` *(named — error/warning stay colored even in Standard)* |
+| `acceleratorColor` / `acceleratorAttributes` | — ; `[underline]` *(colorless — the underline marks the mnemonic)* |
 | `selectionForeground` / `selectionBackground` | — ; `selectionAttributes = [inverse]` |
 | `headerForeground` / `headerBackground` | — ; `headerAttributes = [bold]` |
 | `borderForeground` / `borderBackground` | — |
@@ -288,13 +291,14 @@ required and complete; the five contexts are optional and sparse.
 
 ```jsonc
 {
-  "name": "Turbo Pascal",
+  "name": "Turbo",
   "base": {
     "foreground": "#000000",
     "background": "#AAAAAA",
     "accent": "#00AA00",
     "warningAccent": "#FFAA00",
     "errorAccent": "#FF0000",
+    "acceleratorColor": "#FF5555",
     "selectionForeground": "#000000",
     "selectionBackground": "#00AAAA",
     "headerForeground": "#000000",
@@ -398,7 +402,7 @@ on/off (set it or `nil` it) to see it layer over whatever theme is active.
 The single flat palette currently in `Theme` (pre-redesign), for reference.
 This is what the code uses right now.
 
-| Slot | Turbo Pascal (shipping) | Standard |
+| Slot | Turbo (shipping) | Standard |
 |------|-------------------------|----------|
 | `base` fg / bg | Yellow `#FFFF55` / Blue `#0000AA` | — *(terminal default)* |
 | `accent` | Light Cyan `#55FFFF` | Bright Cyan `#00FFFF` |
