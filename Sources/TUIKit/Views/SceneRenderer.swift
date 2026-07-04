@@ -6,7 +6,7 @@
 /// compose — while views own only their local drawing.
 ///
 /// ```text
-///   View tree ──> SceneRenderer.renderIfNeeded(size:) ──> CellBuffer?
+///   TUIView tree ──> SceneRenderer.renderIfNeeded(size:) ──> CellBuffer?
 ///                                                            │
 ///                                              driver.present(buffer)
 /// ```
@@ -17,7 +17,7 @@
 @MainActor
 public final class SceneRenderer {
     /// Root of the rendered view tree.
-    public let root: View
+    public let root: TUIView
 
     // Size of the previous frame; a size change forces a render.
     private var lastRenderedSize: Size?
@@ -26,7 +26,7 @@ public final class SceneRenderer {
     ///
     /// - Parameter root: Root view. Its frame is expressed in screen
     ///   coordinates.
-    public init(root: View) {
+    public init(root: TUIView) {
         self.root = root
     }
 
@@ -52,9 +52,14 @@ public final class SceneRenderer {
 
     /// Renders a frame unconditionally.
     ///
+    /// Pending layout runs first, so a presented frame always reflects
+    /// settled geometry.
+    ///
     /// - Parameter size: Target frame size in cells.
     /// - Returns: The composed frame.
     public func render(size: Size) -> CellBuffer {
+        root.layoutIfNeeded()
+
         let target = RenderTarget(size: size)
         let screen = Rect(origin: .zero, size: size)
         let painter = Painter(

@@ -80,11 +80,15 @@ public actor ANSIDriver: TerminalDriver {
         let flags = fcntl(inputDescriptor, F_GETFL)
         _ = fcntl(inputDescriptor, F_SETFL, flags | O_NONBLOCK)
 
-        currentSize = Self.probeSize(descriptor: outputDescriptor) ?? currentSize
         isActive = true
 
         // Alternate screen, hidden cursor, SGR mouse reporting.
         await write("\u{1B}[?1049h\u{1B}[?25l\u{1B}[?1002h\u{1B}[?1006h\u{1B}[2J\u{1B}[H")
+
+        // Probe AFTER switching to the alternate screen: it reflects the full
+        // window, whereas a probe on a normal screen with heavy scrollback can
+        // report a reduced content area.
+        currentSize = Self.probeSize(descriptor: outputDescriptor) ?? currentSize
 
         startReadSource()
         startResizeSource()
@@ -301,11 +305,26 @@ public actor ANSIDriver: TerminalDriver {
                         #endif
                     }
 
-                    guard written > 0 else {
-                        break
+                    if written > 0 {
+                        offset += written
+                        continue
                     }
 
-                    offset += written
+                    // On a terminal, stdin/stdout share one file description,
+                    // so the O_NONBLOCK set for input reads also applies here:
+                    // a large frame can return EAGAIN when the terminal's
+                    // write buffer is full. Wait for writability and retry
+                    // rather than dropping the rest of the frame (which would
+                    // truncate the display). This waits on the dedicated
+                    // output queue, never a cooperative thread.
+                    if written == -1, errno == EAGAIN || errno == EWOULDBLOCK {
+                        var descriptorSet = pollfd(fd: descriptor, events: Int16(POLLOUT), revents: 0)
+                        _ = poll(&descriptorSet, 1, 100)
+                        continue
+                    }
+
+                    // A genuine error; stop.
+                    break
                 }
 
                 continuation.resume()

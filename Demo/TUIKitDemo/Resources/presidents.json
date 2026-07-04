@@ -1,0 +1,272 @@
+[
+ {
+  "name": "George Washington",
+  "birthday": "1732-02-22",
+  "address": "Westmoreland County, Virginia",
+  "notes": "#1 · 1789–1797\n\nCommander of the Continental Army in the Revolutionary War and the first president of the United States.\nHe set enduring precedents, including a formal cabinet and the two-term tradition, and steered the young republic to neutrality abroad."
+ },
+ {
+  "name": "John Adams",
+  "birthday": "1735-10-30",
+  "address": "Braintree (Quincy), Massachusetts",
+  "notes": "#2 · 1797–1801\n\nA Founding Father and the first vice president, Adams was a leading Federalist.\nHe kept the nation out of full war with France during the Quasi-War but drew fire for the Alien and Sedition Acts."
+ },
+ {
+  "name": "Thomas Jefferson",
+  "birthday": "1743-04-13",
+  "address": "Shadwell, Virginia",
+  "notes": "#3 · 1801–1809\n\nPrincipal author of the Declaration of Independence.\nAs president he doubled the country with the Louisiana Purchase and dispatched the Lewis and Clark Expedition."
+ },
+ {
+  "name": "James Madison",
+  "birthday": "1751-03-16",
+  "address": "Port Conway, Virginia",
+  "notes": "#4 · 1809–1817\n\nKnown as the Father of the Constitution and a co-author of the Federalist Papers.\nHe led the United States through the War of 1812 against Britain."
+ },
+ {
+  "name": "James Monroe",
+  "birthday": "1758-04-28",
+  "address": "Westmoreland County, Virginia",
+  "notes": "#5 · 1817–1825\n\nHis presidency is called the Era of Good Feelings.\nHe issued the Monroe Doctrine, warning European powers against further colonization of the Americas."
+ },
+ {
+  "name": "John Quincy Adams",
+  "birthday": "1767-07-11",
+  "address": "Braintree (Quincy), Massachusetts",
+  "notes": "#6 · 1825–1829\n\nSon of John Adams and a distinguished diplomat who negotiated the Treaty of Ghent.\nHe championed internal improvements, then served nearly two decades in Congress as a fierce opponent of slavery."
+ },
+ {
+  "name": "Andrew Jackson",
+  "birthday": "1767-03-15",
+  "address": "",
+  "notes": "#7 · 1829–1837\n\nA populist war hero nicknamed Old Hickory who reshaped the presidency and the Democratic Party.\nHe dismantled the national bank and signed the Indian Removal Act, leading to the Trail of Tears."
+ },
+ {
+  "name": "Martin Van Buren",
+  "birthday": "1782-12-05",
+  "address": "Kinderhook, New York",
+  "notes": "#8 · 1837–1841\n\nA skilled political organizer who helped build the modern Democratic Party.\nHis single term was consumed by the economic depression of the Panic of 1837."
+ },
+ {
+  "name": "William Henry Harrison",
+  "birthday": "1773-02-09",
+  "address": "Charles City County, Virginia",
+  "notes": "#9 · 1841\n\nA general famed for the Battle of Tippecanoe.\nHe died of illness just 31 days into office, the shortest presidency in U.S. history."
+ },
+ {
+  "name": "John Tyler",
+  "birthday": "1790-03-29",
+  "address": "Charles City County, Virginia",
+  "notes": "#10 · 1841–1845\n\nThe first vice president to succeed on a president's death, establishing the succession precedent.\nHe annexed Texas near the end of his term and was largely abandoned by his party."
+ },
+ {
+  "name": "James K. Polk",
+  "birthday": "1795-11-02",
+  "address": "Pineville, North Carolina",
+  "notes": "#11 · 1845–1849\n\nA driven expansionist who fulfilled Manifest Destiny.\nThe Mexican–American War added California and the Southwest, and he settled the Oregon boundary with Britain."
+ },
+ {
+  "name": "Zachary Taylor",
+  "birthday": "1784-11-24",
+  "address": "Barboursville, Virginia",
+  "notes": "#12 · 1849–1850\n\nA Mexican–American War hero called Old Rough and Ready.\nHe died after 16 months in office as the slavery crisis intensified."
+ },
+ {
+  "name": "Millard Fillmore",
+  "birthday": "1800-01-07",
+  "address": "Moravia, New York",
+  "notes": "#13 · 1850–1853\n\nSucceeded Taylor and signed the Compromise of 1850.\nIts Fugitive Slave Act enraged the North and hastened sectional conflict."
+ },
+ {
+  "name": "Franklin Pierce",
+  "birthday": "1804-11-23",
+  "address": "Hillsborough, New Hampshire",
+  "notes": "#14 · 1853–1857\n\nA Northern Democrat sympathetic to Southern interests.\nHe signed the Kansas–Nebraska Act, which reopened the question of slavery in the territories."
+ },
+ {
+  "name": "James Buchanan",
+  "birthday": "1791-04-23",
+  "address": "Cove Gap, Pennsylvania",
+  "notes": "#15 · 1857–1861\n\nThe last president before the Civil War.\nHe viewed secession as illegal but believed he lacked power to stop it, and is often ranked among the worst presidents."
+ },
+ {
+  "name": "Abraham Lincoln",
+  "birthday": "1809-02-12",
+  "address": "Hodgenville, Kentucky",
+  "notes": "#16 · 1861–1865\n\nLed the Union through the Civil War and preserved the nation.\nHe issued the Emancipation Proclamation and championed the Thirteenth Amendment, and was assassinated days after the war's end."
+ },
+ {
+  "name": "Andrew Johnson",
+  "birthday": "1808-12-29",
+  "address": "Raleigh, North Carolina",
+  "notes": "#17 · 1865–1869\n\nA Southern Unionist who succeeded Lincoln.\nHis lenient Reconstruction clashed with Radical Republicans, and he became the first president to be impeached — acquitted by one vote."
+ },
+ {
+  "name": "Ulysses S. Grant",
+  "birthday": "1822-04-27",
+  "address": "Point Pleasant, Ohio",
+  "notes": "#18 · 1869–1877\n\nThe Union's commanding general who won the Civil War.\nAs president he enforced Reconstruction and pursued civil rights, though his administration was dogged by scandal."
+ },
+ {
+  "name": "Rutherford B. Hayes",
+  "birthday": "1822-10-04",
+  "address": "Delaware, Ohio",
+  "notes": "#19 · 1877–1881\n\nWon the bitterly disputed 1876 election.\nThe Compromise of 1877 that secured his victory ended Reconstruction in the South."
+ },
+ {
+  "name": "James A. Garfield",
+  "birthday": "1831-11-19",
+  "address": "Moreland Hills, Ohio",
+  "notes": "#20 · 1881\n\nA Civil War general and scholar.\nHe was shot months into his term and died weeks later, spurring civil-service reform."
+ },
+ {
+  "name": "Chester A. Arthur",
+  "birthday": "1829-10-05",
+  "address": "",
+  "notes": "#21 · 1881–1885\n\nA machine politician who unexpectedly became a reformer after succeeding Garfield.\nHe signed the Pendleton Civil Service Reform Act, ending much of the spoils system."
+ },
+ {
+  "name": "Grover Cleveland",
+  "birthday": "1837-03-18",
+  "address": "Caldwell, New Jersey",
+  "notes": "#22 & 24 · 1885–1889, 1893–1897\n\nThe only president to serve two non-consecutive terms.\nA fiscal conservative and reformer, his second term was overwhelmed by the Panic of 1893."
+ },
+ {
+  "name": "Benjamin Harrison",
+  "birthday": "1833-08-20",
+  "address": "North Bend, Ohio",
+  "notes": "#23 · 1889–1893\n\nGrandson of William Henry Harrison.\nHe signed the Sherman Antitrust Act and oversaw the admission of six new states."
+ },
+ {
+  "name": "William McKinley",
+  "birthday": "1843-01-29",
+  "address": "Niles, Ohio",
+  "notes": "#25 · 1897–1901\n\nLed the nation to victory in the Spanish–American War, making the U.S. a world power.\nHe was assassinated early in his second term."
+ },
+ {
+  "name": "Theodore Roosevelt",
+  "birthday": "1858-10-27",
+  "address": "New York, New York",
+  "notes": "#26 · 1901–1909\n\nAt 42 the youngest to assume the office, a trust-busting progressive and conservationist.\nHe brokered the Panama Canal and won the Nobel Peace Prize for ending the Russo-Japanese War."
+ },
+ {
+  "name": "William Howard Taft",
+  "birthday": "1857-09-15",
+  "address": "Cincinnati, Ohio",
+  "notes": "#27 · 1909–1913\n\nContinued antitrust enforcement but split the Republican Party.\nHe is the only person to serve as both president and Chief Justice of the United States."
+ },
+ {
+  "name": "Woodrow Wilson",
+  "birthday": "1856-12-28",
+  "address": "Staunton, Virginia",
+  "notes": "#28 · 1913–1921\n\nA progressive who created the Federal Reserve.\nHe led the U.S. through World War I and championed the League of Nations, though the Senate rejected it."
+ },
+ {
+  "name": "Warren G. Harding",
+  "birthday": "1865-11-02",
+  "address": "Blooming Grove, Ohio",
+  "notes": "#29 · 1921–1923\n\nWon on a promise of a return to normalcy after the war.\nHe died in office, and his administration was later stained by the Teapot Dome scandal."
+ },
+ {
+  "name": "Calvin Coolidge",
+  "birthday": "1872-07-04",
+  "address": "Plymouth Notch, Vermont",
+  "notes": "#30 · 1923–1929\n\nQuiet and frugal, nicknamed Silent Cal.\nHe presided over the prosperity of the Roaring Twenties and favored limited government."
+ },
+ {
+  "name": "Herbert Hoover",
+  "birthday": "1874-08-10",
+  "address": "West Branch, Iowa",
+  "notes": "#31 · 1929–1933\n\nA celebrated humanitarian engineer before the presidency.\nThe Great Depression began months into his term, and his response was widely judged inadequate."
+ },
+ {
+  "name": "Franklin D. Roosevelt",
+  "birthday": "1882-01-30",
+  "address": "Hyde Park, New York",
+  "notes": "#32 · 1933–1945\n\nThe only president elected four times.\nHis New Deal reshaped the government during the Depression, and he led the Allies through most of World War II."
+ },
+ {
+  "name": "Harry S. Truman",
+  "birthday": "1884-05-08",
+  "address": "Lamar, Missouri",
+  "notes": "#33 · 1945–1953\n\nEnded World War II by authorizing the atomic bombings of Japan.\nHe launched the Marshall Plan and NATO, desegregated the armed forces, and led the country into the Korean War."
+ },
+ {
+  "name": "Dwight D. Eisenhower",
+  "birthday": "1890-10-14",
+  "address": "Denison, Texas",
+  "notes": "#34 · 1953–1961\n\nSupreme Allied Commander in Europe in World War II.\nAs president he ended the Korean War, built the Interstate Highway System, and warned of the military-industrial complex."
+ },
+ {
+  "name": "John F. Kennedy",
+  "birthday": "1917-05-29",
+  "address": "Brookline, Massachusetts",
+  "notes": "#35 · 1961–1963\n\nFaced down the Soviet Union in the Cuban Missile Crisis.\nHe set the goal of landing on the Moon and was assassinated in Dallas in November 1963."
+ },
+ {
+  "name": "Lyndon B. Johnson",
+  "birthday": "1908-08-27",
+  "address": "Stonewall, Texas",
+  "notes": "#36 · 1963–1969\n\nPassed the landmark Civil Rights and Voting Rights Acts and the Great Society programs.\nHis presidency was ultimately consumed by the escalation of the Vietnam War."
+ },
+ {
+  "name": "Richard Nixon",
+  "birthday": "1913-01-09",
+  "address": "Yorba Linda, California",
+  "notes": "#37 · 1969–1974\n\nOpened relations with China and pursued détente with the Soviet Union.\nHe ended U.S. involvement in Vietnam but resigned in disgrace over the Watergate scandal."
+ },
+ {
+  "name": "Gerald Ford",
+  "birthday": "1913-07-14",
+  "address": "Omaha, Nebraska",
+  "notes": "#38 · 1974–1977\n\nThe only person to serve as president without being elected president or vice president.\nHe pardoned Nixon and grappled with stagflation and the end of the Vietnam War."
+ },
+ {
+  "name": "Jimmy Carter",
+  "birthday": "1924-10-01",
+  "address": "Plains, Georgia",
+  "notes": "#39 · 1977–1981\n\nBrokered the Camp David Accords between Egypt and Israel.\nHis term was strained by an energy crisis and the Iran hostage crisis; he later became a celebrated humanitarian."
+ },
+ {
+  "name": "Ronald Reagan",
+  "birthday": "1911-02-06",
+  "address": "Tampico, Illinois",
+  "notes": "#40 · 1981–1989\n\nA former actor whose conservative agenda cut taxes and expanded the military.\nHis later arms agreements with Gorbachev helped wind down the Cold War."
+ },
+ {
+  "name": "George H. W. Bush",
+  "birthday": "1924-06-12",
+  "address": "Milton, Massachusetts",
+  "notes": "#41 · 1989–1993\n\nA WWII pilot, diplomat, and CIA director before the presidency.\nHe oversaw the peaceful end of the Cold War and led the coalition that won the Gulf War."
+ },
+ {
+  "name": "Bill Clinton",
+  "birthday": "1946-08-19",
+  "address": "Hope, Arkansas",
+  "notes": "#42 · 1993–2001\n\nPresided over a long economic boom and budget surpluses.\nHe signed welfare reform and NAFTA, and was impeached and acquitted."
+ },
+ {
+  "name": "George W. Bush",
+  "birthday": "1946-07-06",
+  "address": "New Haven, Connecticut",
+  "notes": "#43 · 2001–2009\n\nResponded to the September 11 attacks by launching the war on terror.\nHe led wars in Afghanistan and Iraq, and his second term ended amid the 2008 financial crisis."
+ },
+ {
+  "name": "Barack Obama",
+  "birthday": "1961-08-04",
+  "address": "Honolulu, Hawaii",
+  "notes": "#44 · 2009–2017\n\nThe first Black president of the United States.\nHe signed the Affordable Care Act and guided the recovery from the Great Recession."
+ },
+ {
+  "name": "Donald Trump",
+  "birthday": "1946-06-14",
+  "address": "Queens, New York",
+  "notes": "#45 & 47 · 2017–2021, 2025–\n\nA businessman and the first president to serve two non-consecutive terms since Cleveland.\nHis first term featured tax cuts and two impeachments, both ending in acquittal."
+ },
+ {
+  "name": "Joe Biden",
+  "birthday": "1942-11-20",
+  "address": "Scranton, Pennsylvania",
+  "notes": "#46 · 2021–2025\n\nA longtime senator and vice president under Obama.\nHe signed major infrastructure and climate legislation and oversaw the withdrawal from Afghanistan."
+ }
+]

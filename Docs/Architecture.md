@@ -2,7 +2,8 @@
 
 TUIKit is an AppKit-inspired terminal UI framework. This document describes
 its layers and the ownership rules between them; the build plan and progress
-live in [`../PLAN.md`](../PLAN.md).
+live in [`../PLAN.md`](../PLAN.md), and the control class hierarchy is
+diagrammed in [`ControlsUML.md`](ControlsUML.md).
 
 ## Layers
 
@@ -19,7 +20,7 @@ live in [`../PLAN.md`](../PLAN.md).
                                 |
 +-------------------------------v-------------------------------+
 |  Views & Layout (Phases 3-5)                                  |
-|  View hierarchy, local coords, clipping, responder chain,     |
+|  TUIView hierarchy, local coords, clipping, responder chain,     |
 |  focus scopes, stack/anchor layout                            |
 +-------------------------------+-------------------------------+
                                 |  CellBuffer out / TerminalInput in
@@ -62,10 +63,41 @@ Phases 1–3 are in place: geometry (`Point`/`Size`/`Rect`), the cell model
 (`TerminalCell`/`CellStyle`/`TerminalColor`/`CellFlags`), `CellBuffer`,
 `TerminalDriver` with both `ANSIDriver` (raw mode, SGR mouse, async input)
 and `HeadlessDriver`, the pure `ANSIInputDecoder` and `ANSIEncoder`, and the
-view system — `View`, `Painter` (mechanical clipping + local coordinates),
-and `SceneRenderer` (dirty-gated frames). The demo gallery
-(`swift run TUIKitDemo`, `--interactive` for the live driver) shows all of
-it. Next: the run loop and responder chain (Phase 4).
+view system — `TUIView`, `Painter` (mechanical clipping + local coordinates),
+and `SceneRenderer` (dirty-gated frames). Phase 4 added the interaction
+layer: the `TUIView` responder surface (typed key/mouse handlers, focus hooks),
+`Window` as the focus scope (first responder, Tab order, hot → focused →
+Tab → cold key routing, hit-tested mouse delivery in local coordinates), and
+`App` — the window stack and the pure-suspension run loop with graceful
+`stop()`. Phase 5 added layout: size preferences
+(`intrinsicContentSize`/min/max) with a proper layout pass
+(`setNeedsLayout`/`layoutIfNeeded`, run by the renderer before drawing),
+`AnchorSet` edge/center pinning applied by the default `layoutSubviews`,
+`HStack`/`VStack` with flexible-space distribution, and `GridView` with
+fixed/fit/flexible tracks and spans. Phase 6 is underway: Label, Button,
+TextField, Checkbox, RadioGroup, and ListView are in, each owning its
+interaction state and emitting semantic events; `RowNavigationState` is the
+pure selection/scrolling core that TableView and TreeView will reuse.
+`swift run TUIKitDemo --interactive` is a live form exercising all of them;
+`--events` keeps the raw driver viewer. Next: the remaining Phase 6
+controls (ScrollView, Window chrome, MenuBar, Dialog, TableView, ...).
+
+## Run Loop & Timers
+
+`App.run(_:)` merges two sources into one `AsyncStream` of loop events —
+driver input and timer ticks — and presents a frame after each. Because a
+tick flows through the same path as a keypress, an animation redraws exactly
+the way input does, and the loop still only ever suspends (never blocks).
+
+Timers are the framework's one timing primitive. `App.addTimer(every:_:)`
+returns a cancellable `AppTimer` whose body runs on the `MainActor` inside
+the loop. The tick source is injectable behind `TimerSource`:
+`ClockTimerSource` uses `Task.sleep` in production (cooperative suspension,
+no blocked thread), and `ManualTimerSource.fire()` drives ticks by hand in
+tests with zero wall-clock time — so animation is headless-scriptable just
+like scripted input. `ProgressIndicator`'s indeterminate spinner is the
+first client (`app.addTimer(every:) { spinner.advance() }`); Phase 11
+tooltips will reuse it.
 
 ## RichSwift
 

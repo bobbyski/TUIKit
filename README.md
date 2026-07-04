@@ -2,6 +2,8 @@
 
 An AppKit-inspired terminal UI framework for Swift.
 
+**Repository:** [github.com/bobbyski/TUIKit](https://github.com/bobbyski/TUIKit)
+
 TUIKit brings the architecture that made desktop UI programming pleasant —
 view hierarchies, a responder chain, focus scopes, rich controls, layout, and
 theming — to the terminal, built on Swift 6 concurrency from the first line.
@@ -38,9 +40,10 @@ afterthought. TUIKit is designed around five commitments:
 
 - Swift 6.3 or later
 - macOS 15+ or Linux (Windows planned)
-- No third-party dependencies (integrates with
+- No third-party dependencies.
   [RichSwift](https://github.com/bobbyski/RichSwift), our in-house terminal
-  formatting library, for rich content rendering)
+  formatting library, is pulled in (and re-exported) automatically for rich
+  content rendering — depending on TUIKit is all you need.
 
 ## Installation
 
@@ -48,32 +51,45 @@ Add TUIKit to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(path: "../TUIKit"), // path dependency while pre-release
+    // Local path while pre-release, so changes are testable without
+    // pushing. At the first tagged release this becomes:
+    //   .package(url: "https://github.com/bobbyski/TUIKit.git", from: "0.1.0")
+    .package(path: "../TUIKit"),
 ],
 targets: [
     .target(name: "YourApp", dependencies: ["TUIKit"]),
 ]
 ```
 
-A versioned Git URL will replace the path dependency at first release.
+## A quick look
 
-## A quick look (design target)
-
-The API below is the design north star, not yet shipping — see `PLAN.md` for
-what exists today.
+Working code against today's API — Controls v1 is complete (see `PLAN.md`
+for the full set: lists, tables, trees, menus, dialogs, split views, a
+markdown reader, a syntax-highlighted editor, and more):
 
 ```swift
 import TUIKit
 
-let window = Window(title: "Hello")
+let app = App(driver: ANSIDriver())
+let window = Window()
+window.theme = .ocean                       // or .homebrew, .manPage, …
+
 let field = TextField(placeholder: "Your name")
 let button = Button("Greet") {
-    window.present(Alert(text: "Hello, \(field.text)!"))
+    let dialog = Dialog(title: "Hello", message: "Hello, \(field.text)!")
+    dialog.addButton("OK", isDefault: true)
+    dialog.onDismiss = { [weak dialog] in dialog.map { app.dismiss($0) } }
+    dialog.sizeToFit(in: window.frame.size)
+    app.present(dialog)
 }
 
-window.content = VStack(spacing: 1) { field; button }
+let form = VStack(spacing: 1, insets: EdgeInsets(all: 1))
+form.addSubview(field)
+form.addSubview(button)
+form.anchors = .fill()
+window.addSubview(form)
 
-try await App(driver: ANSIDriver()).run(window)
+try await app.run(window)
 ```
 
 ## Demo

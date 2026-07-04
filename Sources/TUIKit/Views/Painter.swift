@@ -43,23 +43,32 @@ public struct Painter {
     /// Writable region in buffer coordinates.
     public let clip: Rect
 
+    /// Theme base colors substituted for `.standard` in written cells.
+    ///
+    /// This is how a `Theme` cascades mechanically: views draw with
+    /// `.standard` colors as always, and the painter resolves them against
+    /// the active theme's palette. Explicit colors pass through untouched.
+    public let base: CellStyle
+
     /// Creates a painter.
     ///
     /// - Parameters:
     ///   - target: Frame render destination.
     ///   - origin: Translation from view-local to buffer coordinates.
     ///   - clip: Writable region in buffer coordinates.
-    init(target: RenderTarget, origin: Point, clip: Rect) {
+    ///   - base: Theme base colors for `.standard` substitution.
+    init(target: RenderTarget, origin: Point, clip: Rect, base: CellStyle = CellStyle()) {
         self.target = target
         self.origin = origin
         self.clip = clip
+        self.base = base
     }
 
     /// Writes one cell at a view-local point, subject to clipping.
     ///
     /// - Parameters:
     ///   - cell: Cell to write.
-    ///   - point: View-local position.
+    ///   - point: TUIView-local position.
     public func set(_ cell: TerminalCell, at point: Point) {
         let destination = point + origin
 
@@ -67,7 +76,17 @@ public struct Painter {
             return
         }
 
-        target.buffer[destination] = cell
+        var resolved = cell
+
+        if resolved.style.foreground == .standard {
+            resolved.style.foreground = base.foreground
+        }
+
+        if resolved.style.background == .standard {
+            resolved.style.background = base.background
+        }
+
+        target.buffer[destination] = resolved
     }
 
     /// Writes text starting at a view-local point, subject to clipping.
@@ -76,7 +95,7 @@ public struct Painter {
     ///
     /// - Parameters:
     ///   - text: Text to write.
-    ///   - point: View-local position of the first character.
+    ///   - point: TUIView-local position of the first character.
     ///   - style: Style applied to every written cell.
     public func write(_ text: String, at point: Point, style: CellStyle = .default) {
         var x = point.x
@@ -90,7 +109,7 @@ public struct Painter {
     /// Fills a view-local rectangle, subject to clipping.
     ///
     /// - Parameters:
-    ///   - rect: View-local rectangle to fill.
+    ///   - rect: TUIView-local rectangle to fill.
     ///   - cell: Cell to fill with.
     public func fill(_ rect: Rect, with cell: TerminalCell) {
         for y in rect.minY..<rect.maxY {
@@ -100,13 +119,15 @@ public struct Painter {
         }
     }
 
-    /// Draws a single-line box on a view-local rectangle, subject to clipping.
+    /// Draws a box on a view-local rectangle, subject to clipping.
     ///
     /// - Parameters:
-    ///   - rect: View-local rectangle to outline.
+    ///   - rect: TUIView-local rectangle to outline.
     ///   - style: Style for the border cells.
-    public func drawBox(_ rect: Rect, style: CellStyle = .default) {
-        guard rect.size.width >= 2, rect.size.height >= 2 else {
+    ///   - border: Box-drawing variant; `.none` draws nothing.
+    public func drawBox(_ rect: Rect, style: CellStyle = .default, border: BorderStyle = .single) {
+        guard rect.size.width >= 2, rect.size.height >= 2,
+              let characters = border.characters else {
             return
         }
 
@@ -115,19 +136,19 @@ public struct Painter {
         let y0 = rect.minY
         let y1 = rect.maxY - 1
 
-        set(TerminalCell(character: "┌", style: style), at: Point(x: x0, y: y0))
-        set(TerminalCell(character: "┐", style: style), at: Point(x: x1, y: y0))
-        set(TerminalCell(character: "└", style: style), at: Point(x: x0, y: y1))
-        set(TerminalCell(character: "┘", style: style), at: Point(x: x1, y: y1))
+        set(TerminalCell(character: characters.topLeft, style: style), at: Point(x: x0, y: y0))
+        set(TerminalCell(character: characters.topRight, style: style), at: Point(x: x1, y: y0))
+        set(TerminalCell(character: characters.bottomLeft, style: style), at: Point(x: x0, y: y1))
+        set(TerminalCell(character: characters.bottomRight, style: style), at: Point(x: x1, y: y1))
 
         for x in (x0 + 1)..<x1 {
-            set(TerminalCell(character: "─", style: style), at: Point(x: x, y: y0))
-            set(TerminalCell(character: "─", style: style), at: Point(x: x, y: y1))
+            set(TerminalCell(character: characters.horizontal, style: style), at: Point(x: x, y: y0))
+            set(TerminalCell(character: characters.horizontal, style: style), at: Point(x: x, y: y1))
         }
 
         for y in (y0 + 1)..<y1 {
-            set(TerminalCell(character: "│", style: style), at: Point(x: x0, y: y))
-            set(TerminalCell(character: "│", style: style), at: Point(x: x1, y: y))
+            set(TerminalCell(character: characters.vertical, style: style), at: Point(x: x0, y: y))
+            set(TerminalCell(character: characters.vertical, style: style), at: Point(x: x1, y: y))
         }
     }
 
@@ -146,7 +167,16 @@ public struct Painter {
         return Painter(
             target: target,
             origin: subviewOrigin,
-            clip: clip.intersection(frameInBuffer)
+            clip: clip.intersection(frameInBuffer),
+            base: base
         )
+    }
+
+    /// Derives a painter whose `.standard` colors resolve to a new base.
+    ///
+    /// - Parameter newBase: Theme base colors for the subtree.
+    /// - Returns: Painter with the same translation and clip.
+    func withBase(_ newBase: CellStyle) -> Painter {
+        Painter(target: target, origin: origin, clip: clip, base: newBase)
     }
 }
