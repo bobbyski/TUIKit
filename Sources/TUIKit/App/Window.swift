@@ -66,31 +66,62 @@ open class Window: TUIView {
 
     /// Moves keyboard focus to a view in this window's subtree.
     ///
+    /// A composite that refuses focus itself (a `DirectoryTree` wrapping a
+    /// `TreeView`, a form wrapping its first field) forwards it: focus
+    /// descends depth-first to the composite's first visible focusable
+    /// descendant. A view that refuses focus *and* has no focusable
+    /// descendants still refuses.
+    ///
     /// - Parameter view: TUIView to focus, or `nil` to clear focus.
-    /// - Returns: `true` when focus changed; `false` when the view refuses
-    ///   focus or is not in this window's subtree.
+    /// - Returns: `true` when focus changed; `false` when the view (and its
+    ///   subtree) refuses focus or is not in this window's subtree.
     @discardableResult
     public func makeFirstResponder(_ view: TUIView?) -> Bool {
+        var target = view
+
         if let view {
-            guard view.acceptsFirstResponder, view.isDescendant(of: self) else {
+            guard view.isDescendant(of: self) else {
                 return false
+            }
+
+            if !view.acceptsFirstResponder {
+                guard let descendant = Self.firstFocusableDescendant(of: view) else {
+                    return false
+                }
+
+                target = descendant
             }
         }
 
-        guard firstResponder !== view else {
+        guard firstResponder !== target else {
             return true
         }
 
         let previous = firstResponder
-        firstResponder = view
+        firstResponder = target
 
         previous?.isFirstResponder = false
         previous?.didResignFirstResponder()
 
-        view?.isFirstResponder = true
-        view?.didBecomeFirstResponder()
+        target?.isFirstResponder = true
+        target?.didBecomeFirstResponder()
 
         return true
+    }
+
+    // Depth-first search for the first visible view accepting focus.
+    private static func firstFocusableDescendant(of view: TUIView) -> TUIView? {
+        for subview in view.subviews where !subview.isHidden {
+            if subview.acceptsFirstResponder {
+                return subview
+            }
+
+            if let found = firstFocusableDescendant(of: subview) {
+                return found
+            }
+        }
+
+        return nil
     }
 
     /// Moves focus to the next focusable view in depth-first order, wrapping.
