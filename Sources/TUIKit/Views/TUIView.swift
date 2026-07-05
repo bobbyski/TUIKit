@@ -25,6 +25,25 @@ open class TUIView {
     /// Child views in back-to-front drawing order.
     public private(set) var subviews: [TUIView] = []
 
+    /// The window this view lives in, when attached to one.
+    ///
+    /// Walks the superview chain; a detached view returns `nil`. Windows
+    /// return themselves. Through the window, views reach app services:
+    /// `owningWindow?.app?.pasteboard`.
+    public var owningWindow: Window? {
+        var view: TUIView? = self
+
+        while let current = view {
+            if let window = current as? Window {
+                return window
+            }
+
+            view = current.superview
+        }
+
+        return nil
+    }
+
     /// Position and size in the parent's coordinate space.
     public var frame: Rect {
         didSet {

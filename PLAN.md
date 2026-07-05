@@ -35,6 +35,7 @@ Phase 4 · Run Loop & Responder Chain  █████████████�
 Phase 5 · Layout                      ██████████████████████████  100%  🔄 Code complete, unverified
 Phase 6 · Controls v1                 ██████████████████████████  100%  🔄 Code complete (all 21 controls; full-suite verification pending)
 Phase 6B · Controls v2                ██████████████████████████  100%  🔄 Code complete (all 14; full-suite verification pending)
+Phase 6C · Editor v2 (selection…)     ██████████████████████████  100%  🔄 Code complete on feature/editor-v2 (selection, clipboard incl. OSC 52, undo/redo, find/goto; verification pending)
 Phase 7 · Styling & Theming           ██████████████████████████  100%  🔄 Code complete (verification pending)
 Phase 8 · Demo & Polish               ██████████████████████░░░░   85%  🔄 Turbo theme suite (8.5–8.8, 8.13–8.15), border scrollbars (8.7), multi-click (8.16), API review (8.3), docs (8.4) done; remaining: headless demo test (8.2), minimize trio (8.10–8.12)
 Phase 9 · Tutorial                    ██████████████████████████  100%  ✅ Docs/Tutorial (README + Ch1–6), TUIKitTutorial runner + TUIKitTutorialMilestones library, anti-rot tests render every chapter headlessly
@@ -212,6 +213,27 @@ colorless theme the tinted style falls back to an underline.
 | 6B.12 | Disclosure triangle | ✅ Done | `DisclosureGroup`: `▸/▾ Title` header (header slot; accent triangle while focused); Space/Return/click toggles; content hides (dropping from focus order) and the intrinsic height changes so stacks reflow. Content's natural size falls back to its children's when the container itself has no intrinsic, and toggling invalidates the *whole* ancestor layout chain (stack → scroll view → …), so nesting depth doesn't matter. Silent `setExpanded`, `onExpansionChanged`. |
 | 6B.13 | `Toolbar` | ✅ Done | Header-slot strip of labeled/icon command buttons (`[ ⚙ Settings ]`). A single focus stop: ←/→ move between visible items (skipping disabled), Home/End jump, Return/Space or click activates. When the strip is too narrow, trailing items greedily collapse into a `»` overflow button — the last focus slot — whose menu (the shared context-menu `MenuDropdown`, placed below/above) lists them. `ToolbarItem` carries title/icon/enabled/action; themable via header/border slots. Items default to the color-based `.tinted` `ControlStyle` (accent label, no brackets), with `.bordered` for the classic `[ … ]` look. |
 | 6B.14 | Context menu | ✅ Done | `TUIView.contextMenu: Menu?`; right-click walks the hit chain to the nearest menu and the window presents it at the pointer (below/above by space) via the shared `MenuDropdown`; ↑/↓/Return, Esc, and focus-loss (outside click) dismiss; `Window.presentContextMenu(_:at:)`/`dismissContextMenu()` public for keyboard-driven use. Bonus: `MenuDropdown` now closes on focus loss everywhere, so menu-bar dropdowns dismiss on outside clicks too (6.8's v1 limitation removed) — and neither path steals focus from what was clicked. |
+
+## Phase 6C — Editor v2: selection, clipboard, undo, find 🔄 100% (code complete, on `feature/editor-v2`; verification pending)
+
+Driven by OmegaCLIDE (the IDE dogfood — see its PLAN Phase 3): an editor
+without selection, copy/paste, undo, and find is not an editor. The document
+engine moved out of the view into a pure, unit-tested `TextEditBuffer`
+(rule 43: a real responsibility split, not a cosmetic one) — the view now
+owns only input translation, painting, and the viewport.
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| 6C.1 | `TextEditBuffer` | 🔄 Code complete | Pure editing engine: lines/cursor/selection state, ordered-range normalization, word/line selection, selection-aware insert/delete through ONE `replace` primitive, undo/redo as recorded invertible operations (typing runs coalesce; movement/paste/Return break the run; redo stack clears on new edits), `matches(of:)`/`replaceAll` search. Mutations report an `EditImpact` (`line`/`from`) so the view invalidates exactly the highlight-cache lines that changed. 14 unit tests, no rendering. |
+| 6C.2 | Selection in `SyntaxTextView` | 🔄 Code complete | Shift+arrows/Home/End/Page extend; plain movement collapses (←/→ collapse to the selection's edge, platform-style); `^A` selects all; mouse drag selects (scrollbar grabs keep priority), double-click selects the word, triple-click the line (the 8.16 debounced `.click` counts). Selection paints in the theme's `selection` slot (+bold focused); a selected blank line shows one selected cell so multi-line selections read continuously. |
+| 6C.3 | Clipboard + `Pasteboard` | 🔄 Code complete | Per-app `Pasteboard` (`app.pasteboard`, no globals) reached via the new `TUIView.owningWindow` / `Window.app` backpointers; copies forward to the terminal's system clipboard through the new optional `TerminalDriver.setClipboard` (default no-op) — `ANSIDriver` emits OSC 52, `HeadlessDriver` records for tests. Both chord families: `^C`/`^X`/`^V` and Ctrl+Insert / Shift+Delete / Shift+Insert (`Key.insert` + `CSI 2~` added to the decoder). `^C` is consumed only when a selection exists; editor-hosting apps should set `stopsOnControlC = false`. Read-only editors still select and copy. |
+| 6C.4 | Undo / redo | 🔄 Code complete | `^Z` undo / `^Y` redo / Alt+Backspace alias; `canUndo`/`canRedo` for menu enablement; paste and Return are discrete steps; undo restores cursor *and* selection. |
+| 6C.5 | Find / replace / goto API | 🔄 Code complete | `findMatches(of:caseSensitive:)` highlights every match (selection slot, dimmed; current match full) and stays live across edits; `findNext`/`findPrevious` wrap and select; `replaceCurrentMatch`/`replaceAllMatches`; `clearFind`; `scrollTo(line:column:)` centers the target (the goto-line / jump-to-diagnostic hook). The IDE's find bar is UI over exactly this surface. |
+| 6C.6 | Tests | 🔄 Code complete | `TextEditBufferTests` (14: selection normalization, coalescing runs, undo/redo contracts, multi-line ops, find/replace) + `EditorSelectionTests` (10: chords both families, ^C-bubbles-without-selection, read-only copy, find wrap, paste-as-one-undo-step) — all keyboard-driven through `keyDown`, clipboard through an injected `Pasteboard`. |
+
+Deliberately deferred: bracketed paste (reading the *system* clipboard is a
+driver input feature), `TextView` parity via the shared buffer, and
+column/block selection.
 
 ## Phase 7 — Styling & Theming 🔄 100% (code complete; verification pending)
 

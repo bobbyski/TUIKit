@@ -19,6 +19,19 @@ Bobby whenever an entry is added.
 - [ ] Reviewed by human
 - [ ] Human accepted (as-is or with the noted remedy)
 
+### `Sources/TUIKit/Controls/SyntaxTextView.swift` — ~780 lines after Editor v2
+- Added: 2026-07-04 — Phase 6C moved the document engine OUT (to
+  `TextEditBuffer`, ~470 lines, pure and unit-tested) but added selection
+  overlays, clipboard chords, and the find surface, so the view is over the
+  500-line threshold again. Its remaining responsibilities are input
+  translation, painting, viewport/scrollbars, and the find state.
+- Suggested remedy: the scrollbar geometry + drawing (~150 lines, shared
+  shape with `ScrollView`) is the natural next extraction — a reusable
+  `ScrollbarGeometry` helper would also de-duplicate `ScrollView`; the find
+  state could become a small `FindSession` type if it grows options.
+- [ ] Reviewed by human
+- [ ] Human accepted (as-is or with the noted remedy)
+
 <!-- Entry template:
 ### <path> — <reason>
 - Added: <date> — <why this needs human eyes>

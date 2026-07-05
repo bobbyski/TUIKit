@@ -1,6 +1,7 @@
 import RichSwift
 
-/// Editable multi-line code view with syntax highlighting.
+/// Editable multi-line code view with syntax highlighting, selection,
+/// clipboard, undo, and find.
 ///
 /// ```text
 ///    1 │ func greet() {
@@ -8,18 +9,29 @@ import RichSwift
 ///    3 │ }                      strings, numbers, and comments
 /// ```
 ///
-/// Editing is line-oriented: arrows/Home/End/PageUp/PageDown move the
-/// cursor, Return splits a line, Backspace/Delete edit and join lines, Tab
-/// inserts spaces (Shift+Tab still moves focus away), and printable
-/// characters insert at the cursor. The viewport follows the cursor on both
-/// axes; the wheel scrolls vertically. Clicking places the cursor.
+/// The document itself — lines, cursor, selection, undo history, search —
+/// lives in ``TextEditBuffer``; this view owns input translation, painting,
+/// and the viewport. Editing is line-oriented: arrows/Home/End/Page keys
+/// move (with Shift, they extend the selection), Return splits a line,
+/// Backspace/Delete edit and join lines, Tab inserts spaces (Shift+Tab
+/// still moves focus away), and printable characters insert at the cursor.
 ///
-/// For prose (notes, comments) that should wrap rather than scroll sideways,
-/// use `TextView` instead — the plain-text counterpart with word wrap.
+/// Clipboard and history chords (both modern and classic families):
+/// `^C`/`Ctrl+Insert` copy, `^X`/`Shift+Delete` cut, `^V`/`Shift+Insert`
+/// paste, `^Z`/`Alt+Backspace` undo, `^Y` redo, `^A` select all. Copies
+/// reach the system clipboard through the app pasteboard (OSC 52 on real
+/// terminals). Note: `^C` is only consumed when a selection exists — apps
+/// that keep TUIKit's default Ctrl+C-quit should consider disabling it
+/// (`app.stopsOnControlC = false`) when hosting an editor.
 ///
-/// Highlighting is per line through RichSwift `Syntax` (see the RichSwift
-/// integration section in PLAN.md) with a per-line cache, so editing one
-/// line re-highlights only that line.
+/// Mouse: click places the cursor, drag selects, double-click selects the
+/// word, triple-click selects the line; the wheel scrolls.
+///
+/// A read-only editor (`isEditable = false`) still takes focus, scrolls,
+/// selects, and copies — good for a source viewer — but shows no cursor
+/// and ignores edits.
+///
+/// For prose that should wrap rather than scroll sideways, use `TextView`.
 ///
 /// ```swift
 /// let editor = SyntaxTextView(text: source, language: "swift")
@@ -50,8 +62,8 @@ public final class SyntaxTextView: TUIView {
     public var tabWidth = 4
 
     /// Whether keystrokes edit the text. A read-only editor still takes focus,
-    /// scrolls, and highlights — good for a source viewer — but shows no cursor
-    /// and ignores edits (Tab bubbles for focus movement).
+    /// scrolls, selects, and copies — good for a source viewer — but shows no
+    /// cursor and ignores edits (Tab bubbles for focus movement).
     public var isEditable = true {
         didSet {
             if isEditable != oldValue {
@@ -60,14 +72,20 @@ public final class SyntaxTextView: TUIView {
         }
     }
 
-    /// Called after every edit with the full text.
+    /// Called after every edit with the full text (typing, paste, undo, …).
     public var onChanged: (String) -> Void = { _ in }
 
-    // Line storage; always at least one line.
-    private var lines: [String]
+    /// Pasteboard override, mainly for tests. When `nil` (the default) the
+    /// editor uses its window's application pasteboard.
+    public var pasteboard: Pasteboard?
 
-    // Cursor as (column, line). Column is in characters.
-    private var cursor = Point.zero
+    // The document: lines, cursor, selection, undo, search.
+    private let buffer: TextEditBuffer
+
+    // Convenience alias so viewport/drawing code reads naturally.
+    private var lines: [String] {
+        buffer.lines
+    }
 
     // First visible (column, line).
     private var offset = Point.zero
@@ -76,8 +94,18 @@ public final class SyntaxTextView: TUIView {
     private var scrollbarGrab: Int?    // vertical
     private var hScrollbarGrab: Int?   // horizontal
 
+    // Whether a mouse drag is extending the selection.
+    private var isDragSelecting = false
+
     // Highlighted runs by line index.
     private var highlightCache: [Int: [StyledRun]] = [:]
+
+    // Active find state (nil query = find inactive).
+    private var findQuery: String?
+    private var findCaseSensitive = false
+    private var findMatches: [TextEditBuffer.Match] = []
+    private var findMatchesByLine: [Int: [Range<Int>]] = [:]
+    private var currentMatchIndex: Int?
 
     /// Creates an editor.
     ///
@@ -85,44 +113,35 @@ public final class SyntaxTextView: TUIView {
     ///   - text: Initial contents.
     ///   - language: Language identifier for highlighting.
     public init(text: String = "", language: String = "swift") {
-        self.lines = text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        self.buffer = TextEditBuffer(text: text)
         self.language = language
-
-        if lines.isEmpty {
-            lines = [""]
-        }
-
         super.init(frame: .zero)
     }
 
     /// Full text (lines joined with newlines).
     public var text: String {
-        lines.joined(separator: "\n")
+        buffer.text
     }
 
     /// Number of lines.
     public var lineCount: Int {
-        lines.count
+        buffer.lineCount
     }
 
     /// Cursor position as (column, line).
     public var cursorPosition: Point {
-        cursor
+        buffer.cursor
     }
 
-    /// Replaces the text programmatically (silent; cursor moves to the top).
+    /// Replaces the text programmatically (silent; cursor to the top,
+    /// selection cleared, undo history reset).
     ///
     /// - Parameter newText: New contents.
     public func setText(_ newText: String) {
-        lines = newText.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
-
-        if lines.isEmpty {
-            lines = [""]
-        }
-
-        cursor = .zero
+        buffer.setText(newText)
         offset = .zero
         highlightCache.removeAll()
+        clearFind()
         setNeedsDisplay()
     }
 
@@ -130,6 +149,237 @@ public final class SyntaxTextView: TUIView {
     public override var acceptsFirstResponder: Bool {
         true
     }
+
+    // MARK: - Editing commands (the Edit-menu surface)
+
+    /// Whether a non-empty selection exists.
+    public var hasSelection: Bool {
+        buffer.hasSelection
+    }
+
+    /// The selected text, when any.
+    public var selectedText: String? {
+        buffer.selectedText
+    }
+
+    /// Whether an edit can be undone.
+    public var canUndo: Bool {
+        buffer.canUndo
+    }
+
+    /// Whether an undone edit can be reapplied.
+    public var canRedo: Bool {
+        buffer.canRedo
+    }
+
+    /// Selects the whole document.
+    public func selectAll() {
+        buffer.selectAll()
+        setNeedsDisplay()
+    }
+
+    /// Copies the selection to the pasteboard.
+    ///
+    /// - Returns: True when there was a selection to copy.
+    @discardableResult
+    public func copySelection() -> Bool {
+        guard let selected = buffer.selectedText else {
+            return false
+        }
+
+        resolvedPasteboard?.copy(selected)
+        return true
+    }
+
+    /// Copies the selection, then deletes it.
+    public func cutSelection() {
+        guard isEditable, copySelection() else {
+            return
+        }
+
+        apply(buffer.deleteBackward())
+    }
+
+    /// Inserts the pasteboard contents, replacing any selection.
+    public func paste() {
+        guard isEditable, let contents = resolvedPasteboard?.string, !contents.isEmpty else {
+            return
+        }
+
+        buffer.breakUndoCoalescing()
+        apply(buffer.insert(contents))
+    }
+
+    /// Undoes the most recent edit (a typing run undoes as one step).
+    public func undo() {
+        apply(buffer.undo())
+    }
+
+    /// Reapplies the most recently undone edit.
+    public func redo() {
+        apply(buffer.redo())
+    }
+
+    // The editor's pasteboard: the injected one, or the app's.
+    private var resolvedPasteboard: Pasteboard? {
+        pasteboard ?? owningWindow?.app?.pasteboard
+    }
+
+    // MARK: - Find & goto
+
+    /// Number of active find matches.
+    public var findMatchCount: Int {
+        findMatches.count
+    }
+
+    /// Starts (or updates) a find, highlighting every match. Matches stay
+    /// current across edits until ``clearFind()``.
+    ///
+    /// - Parameters:
+    ///   - query: Text to find; empty clears the find.
+    ///   - caseSensitive: Whether case must match. Defaults to false.
+    /// - Returns: Number of matches.
+    @discardableResult
+    public func findMatches(of query: String, caseSensitive: Bool = false) -> Int {
+        guard !query.isEmpty else {
+            clearFind()
+            return 0
+        }
+
+        findQuery = query
+        findCaseSensitive = caseSensitive
+        currentMatchIndex = nil
+        recomputeMatches()
+        setNeedsDisplay()
+        return findMatches.count
+    }
+
+    /// Ends the find, removing all match highlights.
+    public func clearFind() {
+        findQuery = nil
+        findMatches = []
+        findMatchesByLine = [:]
+        currentMatchIndex = nil
+        setNeedsDisplay()
+    }
+
+    /// Selects and reveals the next match after the cursor, wrapping.
+    ///
+    /// - Returns: True when there was a match to land on.
+    @discardableResult
+    public func findNext() -> Bool {
+        step(forward: true)
+    }
+
+    /// Selects and reveals the previous match before the cursor, wrapping.
+    ///
+    /// - Returns: True when there was a match to land on.
+    @discardableResult
+    public func findPrevious() -> Bool {
+        step(forward: false)
+    }
+
+    /// Replaces the current match (the one `findNext` landed on) and moves
+    /// to the next one.
+    ///
+    /// - Parameter replacement: Text to substitute.
+    /// - Returns: True when a current match was replaced.
+    @discardableResult
+    public func replaceCurrentMatch(with replacement: String) -> Bool {
+        guard isEditable, let index = currentMatchIndex, index < findMatches.count else {
+            return false
+        }
+
+        buffer.select(findMatches[index])
+        buffer.breakUndoCoalescing()
+        apply(buffer.insert(replacement))
+        findNext()
+        return true
+    }
+
+    /// Replaces every match.
+    ///
+    /// - Parameter replacement: Text to substitute.
+    /// - Returns: Number of replacements made.
+    @discardableResult
+    public func replaceAllMatches(with replacement: String) -> Int {
+        guard isEditable, let query = findQuery else {
+            return 0
+        }
+
+        let count = buffer.replaceAll(of: query, with: replacement, caseSensitive: findCaseSensitive)
+        highlightCache.removeAll()
+        recomputeMatches()
+        ensureCursorVisible()
+        setNeedsDisplay()
+
+        if count > 0 {
+            onChanged(text)
+        }
+
+        return count
+    }
+
+    /// Moves the cursor to a position and centers it in the viewport (the
+    /// goto-line / jump-to-diagnostic operation).
+    ///
+    /// - Parameters:
+    ///   - line: Target line index (zero-based, clamped).
+    ///   - column: Target column. Defaults to 0.
+    public func scrollTo(line: Int, column: Int = 0) {
+        buffer.moveCursor(to: Point(x: column, y: line))
+
+        let contentHeight = max(1, scrollLayout().contentHeight)
+        offset.y = min(
+            max(0, lines.count - contentHeight),
+            max(0, buffer.cursor.y - contentHeight / 2)
+        )
+
+        ensureCursorVisible()
+        setNeedsDisplay()
+    }
+
+    // Lands on the next/previous match relative to the cursor, wrapping.
+    private func step(forward: Bool) -> Bool {
+        guard !findMatches.isEmpty else {
+            return false
+        }
+
+        let cursor = buffer.cursor
+        let index: Int
+
+        if forward {
+            index = findMatches.firstIndex {
+                $0.line > cursor.y || ($0.line == cursor.y && $0.range.lowerBound >= cursor.x)
+            } ?? 0
+        } else {
+            index = findMatches.lastIndex {
+                $0.line < cursor.y || ($0.line == cursor.y && $0.range.upperBound < cursor.x)
+            } ?? findMatches.count - 1
+        }
+
+        currentMatchIndex = index
+        buffer.select(findMatches[index])
+        scrollTo(line: findMatches[index].line, column: findMatches[index].range.lowerBound)
+        return true
+    }
+
+    // Recomputes matches from the buffer (after edits or a new query).
+    private func recomputeMatches() {
+        guard let query = findQuery else {
+            return
+        }
+
+        findMatches = buffer.matches(of: query, caseSensitive: findCaseSensitive)
+        findMatchesByLine = Dictionary(grouping: findMatches, by: \.line)
+            .mapValues { $0.map(\.range) }
+
+        if let current = currentMatchIndex, current >= findMatches.count {
+            currentMatchIndex = nil
+        }
+    }
+
+    // MARK: - Scroll geometry
 
     /// Whether the view draws its own interior scrollbars (the default).
     /// Window chrome flips this off when it embeds the bars into its border
@@ -174,7 +424,10 @@ public final class SyntaxTextView: TUIView {
         )
     }
 
-    /// Draws the gutter and the visible, highlighted slice of lines.
+    // MARK: - Drawing
+
+    /// Draws the gutter and the visible, highlighted slice of lines, with
+    /// selection and find-match overlays.
     public override func draw(_ painter: Painter) {
         let width = bounds.size.width
         let height = bounds.size.height
@@ -187,6 +440,8 @@ public final class SyntaxTextView: TUIView {
         let gutter = layout.gutter
         let contentWidth = layout.contentWidth
         let contentHeight = layout.contentHeight
+        let theme = effectiveTheme
+        let currentMatch = currentMatchIndex.map { findMatches[$0] }
 
         for viewportRow in 0..<contentHeight {
             let lineIndex = offset.y + viewportRow
@@ -201,19 +456,56 @@ public final class SyntaxTextView: TUIView {
                 painter.write(padded, at: Point(x: 0, y: viewportRow), style: CellStyle(flags: .dim))
             }
 
-            // Highlighted runs, sliced by the horizontal offset.
-            var column = -offset.x
+            let selection = buffer.selection(onLine: lineIndex)
+            let matchRanges = findMatchesByLine[lineIndex] ?? []
+
+            // Highlighted runs, sliced by the horizontal offset, with the
+            // selection and match overlays applied per character.
+            var documentColumn = 0
 
             for run in highlightedRuns(for: lineIndex) {
                 for character in run.text {
-                    if column >= 0, column < contentWidth {
+                    let viewportColumn = documentColumn - offset.x
+
+                    if viewportColumn >= 0, viewportColumn < contentWidth {
+                        var style = run.style
+
+                        if matchRanges.contains(where: { $0.contains(documentColumn) }) {
+                            let isCurrent = currentMatch?.line == lineIndex
+                                && currentMatch?.range.contains(documentColumn) == true
+                            style = theme.selection
+
+                            if !isCurrent {
+                                style.flags.insert(.dim)
+                            }
+                        }
+
+                        if selection?.contains(documentColumn) == true {
+                            style = theme.selection
+
+                            if isFirstResponder {
+                                style.flags.insert(.bold)
+                            }
+                        }
+
                         painter.set(
-                            TerminalCell(character: character, style: run.style),
-                            at: Point(x: gutter + column, y: viewportRow)
+                            TerminalCell(character: character, style: style),
+                            at: Point(x: gutter + viewportColumn, y: viewportRow)
                         )
                     }
 
-                    column += 1
+                    documentColumn += 1
+                }
+            }
+
+            // A selected empty line still shows one selected cell, so
+            // multi-line selections stay visible across blank lines.
+            if lines[lineIndex].isEmpty, buffer.selection(onLine: lineIndex) != nil || selectedLineIsInside(lineIndex) {
+                if offset.x == 0 {
+                    painter.set(
+                        TerminalCell(character: " ", style: theme.selection),
+                        at: Point(x: gutter, y: viewportRow)
+                    )
                 }
             }
         }
@@ -228,6 +520,8 @@ public final class SyntaxTextView: TUIView {
 
         // Cursor cell inverts while focused (editable only — a read-only
         // viewer scrolls but shows no insertion point).
+        let cursor = buffer.cursor
+
         if isFirstResponder, isEditable,
            cursor.y >= offset.y, cursor.y < offset.y + contentHeight,
            cursor.x >= offset.x, cursor.x < offset.x + contentWidth {
@@ -241,6 +535,15 @@ public final class SyntaxTextView: TUIView {
                 at: Point(x: gutter + cursor.x - offset.x, y: cursor.y - offset.y)
             )
         }
+    }
+
+    // Whether a whole (empty) line sits strictly inside a multi-line selection.
+    private func selectedLineIsInside(_ line: Int) -> Bool {
+        guard let (start, end) = buffer.selectedRange else {
+            return false
+        }
+
+        return line > start.y && line < end.y
     }
 
     // A solid proportional indicator (dim track, bright thumb — no glyph
@@ -285,73 +588,91 @@ public final class SyntaxTextView: TUIView {
         return (start, length)
     }
 
-    /// Movement and editing keys.
+    // MARK: - Keyboard
+
+    /// Movement (Shift extends), editing, clipboard, and history keys.
     public override func keyDown(_ key: KeyInput) -> Bool {
-        guard key.modifiers.isEmpty else {
+        if let handled = handleChord(key) {
+            return handled
+        }
+
+        // Movement accepts plain or Shift (extend); editing accepts plain.
+        // Plain characters may arrive with a stray shift flag on some
+        // terminals, so character insertion tolerates it.
+        let extending = key.modifiers == .shift
+
+        guard key.modifiers.isEmpty || extending else {
             return false
         }
 
+        let cursor = buffer.cursor
+
         switch key.key {
         case .up:
-            moveCursor(line: cursor.y - 1, column: cursor.x)
+            move(to: Point(x: cursor.x, y: cursor.y - 1), extending: extending)
             return true
 
         case .down:
-            moveCursor(line: cursor.y + 1, column: cursor.x)
+            move(to: Point(x: cursor.x, y: cursor.y + 1), extending: extending)
             return true
 
         case .left:
-            if cursor.x > 0 {
-                moveCursor(line: cursor.y, column: cursor.x - 1)
+            if !extending, let (start, _) = buffer.selectedRange {
+                move(to: start, extending: false)   // collapse to the left edge
+            } else if cursor.x > 0 {
+                move(to: Point(x: cursor.x - 1, y: cursor.y), extending: extending)
             } else if cursor.y > 0 {
-                moveCursor(line: cursor.y - 1, column: lines[cursor.y - 1].count)
+                move(to: Point(x: lines[cursor.y - 1].count, y: cursor.y - 1), extending: extending)
             }
 
             return true
 
         case .right:
-            if cursor.x < lines[cursor.y].count {
-                moveCursor(line: cursor.y, column: cursor.x + 1)
+            if !extending, let (_, end) = buffer.selectedRange {
+                move(to: end, extending: false)   // collapse to the right edge
+            } else if cursor.x < lines[cursor.y].count {
+                move(to: Point(x: cursor.x + 1, y: cursor.y), extending: extending)
             } else if cursor.y < lines.count - 1 {
-                moveCursor(line: cursor.y + 1, column: 0)
+                move(to: Point(x: 0, y: cursor.y + 1), extending: extending)
             }
 
             return true
 
         case .home:
-            moveCursor(line: cursor.y, column: 0)
+            move(to: Point(x: 0, y: cursor.y), extending: extending)
             return true
 
         case .end:
-            moveCursor(line: cursor.y, column: lines[cursor.y].count)
+            move(to: Point(x: lines[cursor.y].count, y: cursor.y), extending: extending)
             return true
 
         case .pageUp:
-            moveCursor(line: cursor.y - max(1, bounds.size.height - 1), column: cursor.x)
+            move(to: Point(x: cursor.x, y: cursor.y - max(1, bounds.size.height - 1)), extending: extending)
             return true
 
         case .pageDown:
-            moveCursor(line: cursor.y + max(1, bounds.size.height - 1), column: cursor.x)
+            move(to: Point(x: cursor.x, y: cursor.y + max(1, bounds.size.height - 1)), extending: extending)
             return true
 
-        case .enter where isEditable:
-            splitLine()
+        case .enter where isEditable && !extending:
+            buffer.breakUndoCoalescing()
+            apply(buffer.insert("\n"))
             return true
 
-        case .backspace where isEditable:
-            deleteBackward()
+        case .backspace where isEditable && !extending:
+            apply(buffer.deleteBackward())
             return true
 
-        case .delete where isEditable:
-            deleteForward()
+        case .delete where isEditable && !extending:
+            apply(buffer.deleteForward())
             return true
 
-        case .tab where isEditable:
-            insert(String(repeating: " ", count: max(1, tabWidth)))
+        case .tab where isEditable && !extending:
+            apply(buffer.insert(String(repeating: " ", count: max(1, tabWidth))))
             return true
 
         case .character(let character) where isEditable:
-            insert(String(character))
+            apply(buffer.insert(String(character)))
             return true
 
         default:
@@ -359,7 +680,67 @@ public final class SyntaxTextView: TUIView {
         }
     }
 
-    /// Click places the cursor (or works a scrollbar); the wheel scrolls.
+    // Clipboard/history/select-all chords, both families. Returns nil when
+    // the key is not a chord (movement/editing handling continues).
+    private func handleChord(_ key: KeyInput) -> Bool? {
+        if key.modifiers == .control {
+            switch key.key {
+            case .character("a"):
+                selectAll()
+                return true
+
+            case .character("c") where hasSelection, .insert where hasSelection:
+                copySelection()
+                return true
+
+            case .character("x") where isEditable && hasSelection:
+                cutSelection()
+                return true
+
+            case .character("v") where isEditable:
+                paste()
+                return true
+
+            case .character("z") where isEditable:
+                undo()
+                return true
+
+            case .character("y") where isEditable:
+                redo()
+                return true
+
+            default:
+                return nil
+            }
+        }
+
+        if key.modifiers == .shift {
+            switch key.key {
+            case .insert where isEditable:
+                paste()
+                return true
+
+            case .delete where isEditable && hasSelection:
+                cutSelection()
+                return true
+
+            default:
+                return nil
+            }
+        }
+
+        if key.modifiers == .alt, key.key == .backspace, isEditable {
+            undo()
+            return true
+        }
+
+        return nil
+    }
+
+    // MARK: - Mouse
+
+    /// Click places the cursor (or works a scrollbar), drag selects,
+    /// double-click selects the word, triple-click the line; wheel scrolls.
     public override func mouseEvent(_ mouse: MouseInput) -> Bool {
         let width = bounds.size.width
         let height = bounds.size.height
@@ -380,9 +761,8 @@ public final class SyntaxTextView: TUIView {
                 return true
             }
 
-            let line = min(max(0, offset.y + mouse.position.y), lines.count - 1)
-            let column = max(0, offset.x + mouse.position.x - gutterWidth)
-            moveCursor(line: line, column: column)
+            isDragSelecting = true
+            move(to: documentPosition(of: mouse.position), extending: mouse.modifiers.contains(.shift))
             return true
 
         case .drag where scrollbarGrab != nil:
@@ -393,9 +773,28 @@ public final class SyntaxTextView: TUIView {
             dragHScrollbar(toColumn: mouse.position.x - layout.gutter, width: layout.contentWidth)
             return true
 
-        case .release where scrollbarGrab != nil || hScrollbarGrab != nil:
+        case .drag where isDragSelecting:
+            move(to: documentPosition(of: mouse.position), extending: true)
+            return true
+
+        case .release:
+            guard scrollbarGrab != nil || hScrollbarGrab != nil || isDragSelecting else {
+                return false
+            }
+
             scrollbarGrab = nil
             hScrollbarGrab = nil
+            isDragSelecting = false
+            return true
+
+        case .click where mouse.clickCount == 2:
+            buffer.selectWord(at: documentPosition(of: mouse.position))
+            setNeedsDisplay()
+            return true
+
+        case .click where mouse.clickCount >= 3:
+            buffer.selectLine(documentPosition(of: mouse.position).y)
+            setNeedsDisplay()
             return true
 
         case .scrollUp:
@@ -411,6 +810,14 @@ public final class SyntaxTextView: TUIView {
         default:
             return false
         }
+    }
+
+    // Converts a viewport mouse position to a document position.
+    private func documentPosition(of position: Point) -> Point {
+        Point(
+            x: max(0, offset.x + position.x - gutterWidth),
+            y: min(max(0, offset.y + position.y), lines.count - 1)
+        )
     }
 
     // Press on the vertical scrollbar: grab the thumb, or page the track.
@@ -459,96 +866,40 @@ public final class SyntaxTextView: TUIView {
         setNeedsDisplay()
     }
 
-    // MARK: - Editing
+    // MARK: - Buffer plumbing
 
-    private func insert(_ string: String) {
-        var line = lines[cursor.y]
-        line.insert(contentsOf: string, at: line.index(line.startIndex, offsetBy: cursor.x))
-        replaceLine(cursor.y, with: line)
-        cursor.x += string.count
-        contentsChanged()
+    // Cursor movement (never an edit): move, reveal, repaint.
+    private func move(to target: Point, extending: Bool) {
+        buffer.moveCursor(to: target, extending: extending)
+        ensureCursorVisible()
+        setNeedsDisplay()
     }
 
-    private func splitLine() {
-        let line = lines[cursor.y]
-        let split = line.index(line.startIndex, offsetBy: cursor.x)
+    // Applies a mutation's aftermath: cache invalidation, live find refresh,
+    // viewport, repaint, change notification.
+    private func apply(_ impact: TextEditBuffer.EditImpact) {
+        switch impact {
+        case .none:
+            return
 
-        replaceLine(cursor.y, with: String(line[..<split]))
-        lines.insert(String(line[split...]), at: cursor.y + 1)
-        invalidateHighlights(from: cursor.y)
+        case .line(let line):
+            highlightCache[line] = nil
 
-        cursor = Point(x: 0, y: cursor.y + 1)
-        contentsChanged()
-    }
-
-    private func deleteBackward() {
-        if cursor.x > 0 {
-            var line = lines[cursor.y]
-            let index = line.index(line.startIndex, offsetBy: cursor.x - 1)
-            line.remove(at: index)
-            replaceLine(cursor.y, with: line)
-            cursor.x -= 1
-            contentsChanged()
-        } else if cursor.y > 0 {
-            let removed = lines.remove(at: cursor.y)
-            cursor = Point(x: lines[cursor.y - 1].count, y: cursor.y - 1)
-            replaceLine(cursor.y, with: lines[cursor.y] + removed)
-            invalidateHighlights(from: cursor.y)
-            contentsChanged()
+        case .from(let line):
+            highlightCache = highlightCache.filter { $0.key < line }
         }
-    }
 
-    private func deleteForward() {
-        let line = lines[cursor.y]
-
-        if cursor.x < line.count {
-            var edited = line
-            edited.remove(at: edited.index(edited.startIndex, offsetBy: cursor.x))
-            replaceLine(cursor.y, with: edited)
-            contentsChanged()
-        } else if cursor.y < lines.count - 1 {
-            let next = lines.remove(at: cursor.y + 1)
-            replaceLine(cursor.y, with: line + next)
-            invalidateHighlights(from: cursor.y)
-            contentsChanged()
-        }
-    }
-
-    private func replaceLine(_ index: Int, with newLine: String) {
-        lines[index] = newLine
-        highlightCache[index] = nil
-    }
-
-    // Line insertion/removal shifts every later cached line.
-    private func invalidateHighlights(from index: Int) {
-        highlightCache = highlightCache.filter { $0.key < index }
-    }
-
-    private func contentsChanged() {
+        recomputeMatches()
         ensureCursorVisible()
         setNeedsDisplay()
         onChanged(text)
-    }
-
-    // MARK: - Cursor & viewport
-
-    private func moveCursor(line: Int, column: Int) {
-        let clampedLine = min(max(0, line), lines.count - 1)
-        let clampedColumn = min(max(0, column), lines[clampedLine].count)
-
-        guard Point(x: clampedColumn, y: clampedLine) != cursor else {
-            return
-        }
-
-        cursor = Point(x: clampedColumn, y: clampedLine)
-        ensureCursorVisible()
-        setNeedsDisplay()
     }
 
     private func ensureCursorVisible() {
         let layout = scrollLayout()
         let contentHeight = max(1, layout.contentHeight)
         let contentWidth = max(1, layout.contentWidth)
+        let cursor = buffer.cursor
 
         if cursor.y < offset.y {
             offset.y = cursor.y

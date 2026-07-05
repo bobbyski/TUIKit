@@ -226,6 +226,7 @@ public struct ANSIInputDecoder: Sendable {
     private static func tildeKey(code: Int) -> Key? {
         switch code {
         case 1, 7: .home
+        case 2: .insert
         case 3: .delete
         case 4, 8: .end
         case 5: .pageUp

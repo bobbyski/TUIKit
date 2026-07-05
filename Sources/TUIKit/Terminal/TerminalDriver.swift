@@ -67,4 +67,20 @@ public protocol TerminalDriver: Sendable {
     ///
     /// - Returns: Stream of decoded terminal input.
     func inputStream() async -> AsyncStream<TerminalInput>
+
+    /// Hands text to the terminal's clipboard, when the terminal supports it.
+    ///
+    /// `ANSIDriver` emits OSC 52, which modern terminals (Terminal.app,
+    /// iTerm2, kitty, …) apply to the system clipboard — including over ssh.
+    /// The default implementation does nothing, so drivers without a
+    /// clipboard story remain valid; the in-process `Pasteboard` keeps
+    /// working either way.
+    ///
+    /// - Parameter text: Text to place on the clipboard.
+    func setClipboard(_ text: String) async
+}
+
+extension TerminalDriver {
+    /// Default: no system clipboard; the in-process pasteboard still works.
+    public func setClipboard(_ text: String) async {}
 }
