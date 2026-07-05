@@ -293,7 +293,7 @@ public final class Toolbar: TUIView {
 
     // MARK: - Drawing helpers
 
-    private func slotStyle(forSlot slot: Int, item: ToolbarItem?, theme: Theme) -> CellStyle {
+    private func slotStyle(forSlot slot: Int, item: ToolbarItem?, theme: ResolvedTheme) -> CellStyle {
         if let item, !item.isEnabled {
             return theme.placeholder
         }

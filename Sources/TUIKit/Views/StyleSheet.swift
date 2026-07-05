@@ -62,7 +62,7 @@ public struct StyleSheet: Hashable, Sendable {
     ///   - view: TUIView being resolved.
     ///   - theme: Theme the declarations write into.
     @MainActor
-    func apply(to view: TUIView, theme: inout Theme) {
+    func apply(to view: TUIView, theme: inout ResolvedTheme) {
         var matched: [(specificity: Int, order: Int, rule: StyleRule)] = []
 
         for (order, rule) in rules.enumerated() {
@@ -181,7 +181,7 @@ public struct StyleRule: Hashable, Sendable {
     public var declarations: [StyleDeclaration]
 
     // Writes the declarations into a theme.
-    func apply(to theme: inout Theme) {
+    func apply(to theme: inout ResolvedTheme) {
         for declaration in declarations {
             declaration.apply(to: &theme)
         }
@@ -245,47 +245,47 @@ public struct StyleDeclaration: Hashable, Sendable {
     /// Assigned value.
     public var value: Value
 
-    // Writes one assignment into a theme.
-    func apply(to theme: inout Theme) {
+    // Writes one assignment into the resolved theme (the on-top CSS layer).
+    func apply(to theme: inout ResolvedTheme) {
         switch (property, value) {
         case (.color, .color(let color)):
-            theme.base.foreground = color
+            theme.foreground = color
 
         case (.background, .color(let color)):
-            theme.base.background = color
+            theme.background = color
 
         case (.accent, .color(let color)):
             theme.accent = color
 
         case (.selectionColor, .color(let color)):
-            theme.selection.foreground = color
+            theme.selectionForeground = color
 
         case (.selectionBackground, .color(let color)):
-            theme.selection.background = color
+            theme.selectionBackground = color
 
         case (.headerColor, .color(let color)):
-            theme.header.foreground = color
+            theme.headerForeground = color
 
         case (.headerBackground, .color(let color)):
-            theme.header.background = color
+            theme.headerBackground = color
 
         case (.borderColor, .color(let color)):
-            theme.border.foreground = color
+            theme.borderForeground = color
 
         case (.borderBackground, .color(let color)):
-            theme.border.background = color
+            theme.borderBackground = color
 
         case (.placeholderColor, .color(let color)):
-            theme.placeholder.foreground = color
+            theme.placeholderForeground = color
 
         case (.placeholderBackground, .color(let color)):
-            theme.placeholder.background = color
+            theme.placeholderBackground = color
 
         case (.scrollbarColor, .color(let color)):
-            theme.scrollbar.foreground = color
+            theme.scrollbarThumb = color
 
         case (.scrollbarBackground, .color(let color)):
-            theme.scrollbar.background = color
+            theme.scrollbarTrack = color
 
         case (.border, .border(let style)):
             theme.borderStyle = style
@@ -307,11 +307,11 @@ public struct StyleDeclaration: Hashable, Sendable {
         }
     }
 
-    private static func setFlag(_ flag: CellFlags, to on: Bool, in theme: inout Theme) {
+    private static func setFlag(_ flag: CellFlags, to on: Bool, in theme: inout ResolvedTheme) {
         if on {
-            theme.base.flags.insert(flag)
+            theme.baseAttributes.insert(flag)
         } else {
-            theme.base.flags.remove(flag)
+            theme.baseAttributes.remove(flag)
         }
     }
 }

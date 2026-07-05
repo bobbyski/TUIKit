@@ -4,6 +4,7 @@ public struct Configured<Base: Component>: Component {
     let base: Base
     let apply: (TUIView) -> Void
 
+    /// Builds the base, then applies the configuration.
     public func makeView() -> TUIView {
         let view = base.makeView()
         apply(view)
@@ -113,6 +114,7 @@ public struct Padded<Base: Component>: Component {
     let base: Base
     let insets: EdgeInsets
 
+    /// Builds the base inside a padded single-child container.
     public func makeView() -> TUIView {
         let container = VStack(insets: insets)
         let child = base.makeView()

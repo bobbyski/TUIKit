@@ -293,6 +293,11 @@ final class PopUpList: TUIView {
         return Size(width: widest + 4, height: items.count + 2)
     }
 
+    /// The open list is a transient overlay: an outside press dismisses it.
+    override var dismissesOnOutsidePress: Bool {
+        true
+    }
+
     override func didResignFirstResponder() {
         dismiss()
     }

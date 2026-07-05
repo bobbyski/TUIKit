@@ -39,22 +39,27 @@ public enum ControlStyle: Sendable {
 
     /// The resting style for an actionable, unfocused, un-pressed control.
     ///
-    /// Bordered controls rest plain; tinted controls rest in the accent
-    /// (bold), or underlined when the theme has no accent color.
+    /// Bordered controls rest plain. Tinted controls rest in the theme's
+    /// `button` slot — accent text on the window surface for the minimal look,
+    /// a distinct fill where a theme defines one (Turbo's gray pill). A theme
+    /// with no button color at all drops to an underline so the affordance
+    /// survives on colorless terminals.
     ///
     /// - Parameter theme: The control's effective theme.
     /// - Returns: The resting cell style.
-    func restingStyle(theme: Theme) -> CellStyle {
+    func restingStyle(theme: ResolvedTheme) -> CellStyle {
         switch self {
         case .bordered:
             return CellStyle()
 
         case .tinted:
-            if theme.accent != .standard {
-                return CellStyle(foreground: theme.accent, flags: .bold)
+            if theme.buttonForeground == .standard, theme.buttonBackground == .standard {
+                return CellStyle(flags: .underline)
             }
 
-            return CellStyle(flags: .underline)
+            var style = theme.button
+            style.flags.insert(.bold)   // emphasis carries the minimal (fill-less) look
+            return style
         }
     }
 }

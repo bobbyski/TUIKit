@@ -149,6 +149,121 @@ private final class EchoView: TUIView {
     try await session.value
 }
 
+/// Records the mouse events it receives, separating immediate press/release
+/// from the debounced `.click` (with its count).
+@MainActor
+private final class ClickRecorder: TUIView {
+    var presses = 0
+    var clicks: [Int] = []
+
+    override var acceptsFirstResponder: Bool { true }
+
+    override func mouseEvent(_ mouse: MouseInput) -> Bool {
+        switch mouse.action {
+        case .press: presses += 1
+        case .click: clicks.append(mouse.clickCount)
+        default: break
+        }
+        return true   // consume the gesture so it's ours
+    }
+}
+
+@Test @MainActor func multiClickGuardCoalescesPressesIntoClickCounts() async throws {
+    let driver = HeadlessDriver(size: Size(width: 10, height: 4))
+    let clock = ManualTimerSource()
+    let app = App(driver: driver, timerSource: clock)
+
+    let window = Window(frame: Rect(x: 0, y: 0, width: 10, height: 4))
+    let recorder = ClickRecorder(frame: Rect(x: 0, y: 0, width: 10, height: 4))
+    window.addSubview(recorder)
+
+    let session = Task { try await app.run(window) }
+    while await driver.presentCount == 0 {
+        await Task.yield()
+    }
+
+    func click(at point: Point) async {
+        await driver.send(.mouse(MouseInput(position: point, action: .press, button: .left)))
+        await driver.send(.mouse(MouseInput(position: point, action: .release, button: .left)))
+    }
+
+    // One click: press/release land immediately, but the `.click` is held back
+    // for the guard — so nothing fires ahead of a possible double.
+    await click(at: Point(x: 3, y: 1))
+    while await clock.streamCount < 1 {
+        await Task.yield()
+    }
+    #expect(recorder.presses == 1, "the low-level press is immediate")
+    #expect(recorder.clicks.isEmpty, "no click event before the guard settles")
+
+    // Guard elapses with no follow-up → a single click (count 1).
+    clock.fire()
+    while recorder.clicks.isEmpty {
+        await Task.yield()
+    }
+    #expect(recorder.clicks == [1])
+
+    // Two clicks inside one guard window coalesce into a double (count 2) —
+    // and the single is never delivered on its own.
+    await click(at: Point(x: 3, y: 1))
+    await click(at: Point(x: 3, y: 1))
+    while await clock.streamCount < 3 {
+        await Task.yield()
+    }
+    #expect(recorder.clicks == [1], "the double is still pending, not yet delivered")
+
+    clock.fire()
+    while recorder.clicks.count < 2 {
+        await Task.yield()
+    }
+    #expect(recorder.clicks == [1, 2], "two quick clicks arrive as one double-click")
+
+    await driver.send(.key(KeyInput(key: .character("c"), modifiers: .control)))
+    try await session.value
+}
+
+@Test @MainActor func pressOutsideAnOpenMenuDismissesItButInsideSelects() async throws {
+    let driver = HeadlessDriver(size: Size(width: 20, height: 8))
+    let app = App(driver: driver)
+
+    let root = Window(frame: Rect(x: 0, y: 0, width: 20, height: 8))
+    let bar = MenuBar()
+    let file = Menu("File")
+    var opened = 0
+    file.addItem("Open") { opened += 1 }
+    file.addItem("Save") {}
+    bar.addMenu(file)
+    bar.frame = Rect(x: 0, y: 0, width: 20, height: 1)
+    root.addSubview(bar)
+
+    let session = Task { try await app.run(root) }
+    while await driver.presentCount == 0 {
+        await Task.yield()
+    }
+
+    // A press well outside the open dropdown dismisses it — no item fires.
+    bar.openMenu(at: 0)
+    #expect(bar.isMenuOpen)
+    await driver.send(.mouse(MouseInput(position: Point(x: 18, y: 6), action: .press, button: .left)))
+    while bar.isMenuOpen {
+        await Task.yield()
+    }
+    #expect(opened == 0, "an outside press only dismisses; it does not activate an item")
+
+    // A press *inside* the dropdown still activates the item under it. The
+    // dropdown sits at (0,1); its first item row is y = 1 (origin) + 1 (border).
+    bar.openMenu(at: 0)
+    #expect(bar.isMenuOpen)
+    await driver.send(.mouse(MouseInput(position: Point(x: 2, y: 2), action: .press, button: .left)))
+    while opened == 0 {
+        await Task.yield()
+    }
+    #expect(!bar.isMenuOpen, "activating an item closes the menu")
+
+    await driver.send(.key(KeyInput(key: .character("c"), modifiers: .control)))
+    try await session.value
+}
+
 @Test @MainActor func clickActivatesNonModalWindowsButNotPastAModal() async throws {
     let driver = HeadlessDriver(size: Size(width: 10, height: 4))
     let app = App(driver: driver)

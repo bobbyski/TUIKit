@@ -211,7 +211,7 @@ public final class ProgressIndicator: TUIView {
 
     // Solid track/fill styles — background colors only, never glyph patterns,
     // mirroring ScrollView's indicator styling and its colorless fallback.
-    static func barStyles(for theme: Theme) -> (track: CellStyle, fill: CellStyle) {
+    static func barStyles(for theme: ResolvedTheme) -> (track: CellStyle, fill: CellStyle) {
         let slot = theme.scrollbar
 
         guard slot.foreground != .standard, slot.background != .standard else {

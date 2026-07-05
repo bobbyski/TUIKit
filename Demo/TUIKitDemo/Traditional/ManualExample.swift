@@ -103,6 +103,7 @@ extension DemoApp {
             frame: Rect(x: 3 + index * 4, y: 2 + index * 2, width: 74, height: 22)
         )
         controls.theme = .standard
+        controls.themeContext = .secondaryWindows   // a form/dialog surface (Turbo: gray)
         controls.onCloseRequest = { [weak controls] in
             if let controls { app.dismiss(controls) }   // close the window, not the app
         }
@@ -143,28 +144,32 @@ extension DemoApp {
 
         // Right-click the list for a context menu.
         let fileActions = Menu("File Actions")
-        fileActions.addItem("Open") {
+        fileActions.addItem("&Open") {
             status.text = files.selectedIndex.map { "context: open \(files.items[$0])" } ?? "context: open"
         }
-        fileActions.addItem("Rename…") { status.text = "context: rename" }
+        fileActions.addItem("&Rename…") { status.text = "context: rename" }
         fileActions.addSeparator()
-        fileActions.addItem("Delete") { status.text = "context: delete (not really)" }
+        fileActions.addItem("&Delete") { status.text = "context: delete (not really)" }
         files.contextMenu = fileActions
 
-        let summary = Button("Summary") {
+        let summary = Button("&Summary") {
             status.text = "name='\(name.text)' wrap=\(wrap.isChecked) mode=\(mode.selectedIndex ?? -1)"
         }
-        let quit = Button("Quit") {
+        let quit = Button("&Quit") {
             let dialog = Dialog(title: "Quit?", message: "Leave the TUIKit demo?")
-            dialog.addButton("Cancel", isCancel: true)
-            dialog.addButton("Quit", isDefault: true) { app.stop() }
+            dialog.addButton("&Cancel", isCancel: true)
+            dialog.addButton("&Quit", isDefault: true) { app.stop() }
             dialog.onDismiss = { [weak dialog] in
                 if let dialog {
                     app.dismiss(dialog)
                 }
             }
+            // Size once for a non-zero frame, present (so the dialog inherits
+            // the app theme), then size again — chrome like Turbo's button
+            // drop shadows only measures correctly once themed in the tree.
             dialog.sizeToFit(in: app.desktop.bounds.size)
             app.present(dialog)
+            dialog.sizeToFit(in: app.desktop.bounds.size)
             status.text = "modal dialog open — Esc cancels, Return confirms"
         }
 
@@ -364,11 +369,14 @@ extension DemoApp {
         dataTab.addSubview(dataSplit)
 
         // "Code" tab content: the syntax editor, holding this window's
-        // stylesheet. With Theme ▸ CSS active, edits re-style the window live.
+        // stylesheet. CSS is a *layer on top of the theme*, not a theme — flip
+        // the "CSS" toggle in the status bar and edits re-style the window live
+        // over whatever theme is currently selected.
         let editor = SyntaxTextView(
             text: """
-            /* TUIKit stylesheet — pick Theme > CSS,
-               then edit me and watch the window restyle */
+            /* TUIKit stylesheet — a layer ON TOP of the theme.
+               Flip the "CSS" toggle in the status bar, then edit me
+               and watch the window restyle over whatever theme is active. */
             Panel { border: rounded; border-color: brightCyan; }
             .status { color: brightCyan; }
             Button { bold: true; }
@@ -383,14 +391,14 @@ extension DemoApp {
         editor.onChanged = { source in
             if cssThemeActive {
                 controls.styleSheet = StyleSheet(source)
-                status.text = "CSS re-applied — \(editor.lineCount) lines"
+                status.text = "CSS re-applied over the theme — \(editor.lineCount) lines"
             } else {
-                status.text = "editing — \(editor.lineCount) lines (Theme ▸ CSS applies this)"
+                status.text = "editing — \(editor.lineCount) lines (turn on the CSS toggle to apply)"
             }
         }
 
         let codeTab = VStack(spacing: 1, insets: EdgeInsets(all: 1))
-        codeTab.addSubview(RichText(markup: "[bold]SyntaxTextView[/] — the window's [cyan]stylesheet[/]; live with Theme ▸ CSS"))
+        codeTab.addSubview(RichText(markup: "[bold]SyntaxTextView[/] — the window's [cyan]stylesheet[/], layered over the theme by the [bold]CSS[/] toggle"))
         codeTab.addSubview(editor)
 
         // "Docs" tab content: a scrolling markdown reader.
@@ -589,15 +597,18 @@ extension DemoApp {
         // Fill the controls window, leaving the bottom row for the status bar.
         tabs.anchors = AnchorSet(leading: 0, trailing: 0, top: 0, bottom: 1)
 
-        // Status bar (Controls v2): flexible status label, a live-CSS toggle,
-        // and a theme pop-up whose menu opens *above* (it sits at the bottom).
+        // Status bar (Controls v2): a flexible status label, an independent CSS
+        // toggle, and a theme pop-up — side by side, because a theme and a
+        // stylesheet are orthogonal. Pick any theme, then flip CSS on/off to see
+        // the sheet layer over whatever theme is active. Off is just
+        // `styleSheet = nil` (the theme underneath is never touched).
         let liveToggle = ToggleButton("CSS")
         liveToggle.onChange = { on in
             cssThemeActive = on
             controls.styleSheet = on ? StyleSheet(editor.text) : nil
             status.text = on
-                ? "stylesheet applied — edit it live in the Code tab"
-                : "stylesheet cleared"
+                ? "stylesheet applied over the current theme — edit it live in the Code tab"
+                : "stylesheet cleared (theme unchanged)"
         }
 
         let themePopUp = PopUpButton(items: TUIKit.Theme.builtIn.map(\.name), selectedIndex: 0)

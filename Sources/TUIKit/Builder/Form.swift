@@ -23,11 +23,17 @@ public struct Field {
 @MainActor
 @resultBuilder
 public enum FormBuilder {
+    /// Collects a single field.
     public static func buildExpression(_ field: Field) -> [Field] { [field] }
+    /// Flattens the block's parts.
     public static func buildBlock(_ parts: [Field]...) -> [Field] { parts.flatMap { $0 } }
+    /// Keeps the `if` branch's parts (or none).
     public static func buildOptional(_ part: [Field]?) -> [Field] { part ?? [] }
+    /// Keeps the `if` branch's parts.
     public static func buildEither(first: [Field]) -> [Field] { first }
+    /// Keeps the `else` branch's parts.
     public static func buildEither(second: [Field]) -> [Field] { second }
+    /// Flattens a `for` loop's parts.
     public static func buildArray(_ parts: [[Field]]) -> [Field] { parts.flatMap { $0 } }
 }
 

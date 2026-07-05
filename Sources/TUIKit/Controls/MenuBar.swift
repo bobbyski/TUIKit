@@ -139,9 +139,9 @@ public final class MenuBar: TUIView {
         setNeedsDisplay()
     }
 
-    /// One row at the width of all titles.
+    /// One row at the width of all titles (mnemonic `&` markers don't count).
     public override var intrinsicContentSize: Size? {
-        Size(width: menus.reduce(0) { $0 + $1.title.count + 2 }, height: 1)
+        Size(width: menus.reduce(0) { $0 + Accelerator($1.title).display.count + 2 }, height: 1)
     }
 
     /// Menu bars take keyboard focus.
@@ -149,13 +149,19 @@ public final class MenuBar: TUIView {
         true
     }
 
-    /// Draws the titles; the highlighted one lights up while focused or open.
+    /// Draws the bar in the theme's `header` (chrome) slot, then the titles;
+    /// the highlighted one lights up while focused or open.
     public override func draw(_ painter: Painter) {
         let theme = effectiveTheme
+
+        // The whole bar wears the header slot (e.g. the Borland gray menu bar),
+        // so it reads as one strip of chrome rather than window content.
+        painter.fill(bounds, with: TerminalCell(character: " ", style: theme.header))
+
         var x = 0
 
         for (index, menu) in menus.enumerated() {
-            var style = CellStyle()
+            var style = theme.header
 
             if index == selectedMenuIndex, (isFirstResponder && isActive) || isMenuOpen {
                 style = theme.selection
@@ -165,8 +171,17 @@ public final class MenuBar: TUIView {
                 }
             }
 
-            painter.write(" \(menu.title) ", at: Point(x: x, y: 0), style: style)
-            x += menu.title.count + 2
+            let accelerator = Accelerator(menu.title)
+            painter.write(" \(accelerator.display) ", at: Point(x: x, y: 0), style: style)
+
+            if let mnemonic = accelerator.index {
+                painter.set(
+                    TerminalCell(character: Array(accelerator.display)[mnemonic], style: theme.accelerator(over: style)),
+                    at: Point(x: x + 1 + mnemonic, y: 0)
+                )
+            }
+
+            x += accelerator.display.count + 2
         }
     }
 
@@ -231,8 +246,16 @@ public final class MenuBar: TUIView {
         return true
     }
 
-    /// Item key equivalents fire from anywhere in the window.
+    /// Item key equivalents — and menu-title mnemonics (Alt+letter) — fire from
+    /// anywhere in the window.
     public override func handleHotKey(_ key: KeyInput) -> Bool {
+        // Alt+letter opens the matching menu (Alt+F → File).
+        for (index, menu) in menus.enumerated() where Accelerator(menu.title).matches(key) {
+            isActive = true
+            openMenu(at: index)
+            return true
+        }
+
         for menu in menus {
             for item in menu.items where item.keyEquivalent == key {
                 guard item.isEnabled, !item.isSeparator else {
@@ -347,7 +370,7 @@ public final class MenuBar: TUIView {
 
     // Leading x of a title run.
     private func titleStart(of index: Int) -> Int {
-        menus.prefix(index).reduce(0) { $0 + $1.title.count + 2 }
+        menus.prefix(index).reduce(0) { $0 + Accelerator($1.title).display.count + 2 }
     }
 
     // Menu whose title run contains an x position.
@@ -355,7 +378,7 @@ public final class MenuBar: TUIView {
         var start = 0
 
         for (index, menu) in menus.enumerated() {
-            let width = menu.title.count + 2
+            let width = Accelerator(menu.title).display.count + 2
 
             if x >= start && x < start + width {
                 return index
@@ -403,6 +426,12 @@ final class MenuDropdown: TUIView {
         true
     }
 
+    /// A dropdown is a transient overlay: a press outside it dismisses it,
+    /// even one that lands on the desktop or another window.
+    override var dismissesOnOutsidePress: Bool {
+        true
+    }
+
     /// Losing focus closes the menu — so a click anywhere else dismisses
     /// it without the click being lost.
     override func didResignFirstResponder() {
@@ -410,7 +439,9 @@ final class MenuDropdown: TUIView {
     }
 
     override var intrinsicContentSize: Size? {
-        let widest = menu.items.map { $0.title.count + Self.hint(for: $0.keyEquivalent).count + 2 }.max() ?? 4
+        let widest = menu.items.map {
+            Accelerator($0.title).display.count + Self.hint(for: $0.keyEquivalent).count + 2
+        }.max() ?? 4
         return Size(width: widest + 4, height: menu.items.count + 2)
     }
 
@@ -426,11 +457,17 @@ final class MenuDropdown: TUIView {
             let y = index + 1
 
             if item.isSeparator {
-                painter.write(
-                    String(repeating: "─", count: innerWidth + 2),
-                    at: Point(x: 1, y: y),
-                    style: theme.border
-                )
+                // A full-width interior line welded into both side borders with
+                // tees (├───┤), so the separator connects to the menu frame.
+                let line = theme.dividerStyle.characters?.horizontal ?? "─"
+                painter.write(String(repeating: line, count: bounds.size.width), at: Point(x: 0, y: y), style: theme.border)
+
+                if let left = theme.borderStyle.tee(.left, nub: theme.dividerStyle) {
+                    painter.set(TerminalCell(character: left, style: theme.border), at: Point(x: 0, y: y))
+                }
+                if let right = theme.borderStyle.tee(.right, nub: theme.dividerStyle) {
+                    painter.set(TerminalCell(character: right, style: theme.border), at: Point(x: bounds.size.width - 1, y: y))
+                }
                 continue
             }
 
@@ -442,16 +479,40 @@ final class MenuDropdown: TUIView {
                 style = theme.selection
             }
 
+            let accelerator = Accelerator(item.title)
             let hint = Self.hint(for: item.keyEquivalent)
-            let title = Label.truncated(item.title, width: max(0, innerWidth - hint.count))
+            let title = Label.truncated(accelerator.display, width: max(0, innerWidth - hint.count))
             let padding = max(0, innerWidth - title.count - hint.count)
             let line = " " + title + String(repeating: " ", count: padding) + hint + " "
 
             painter.write(line, at: Point(x: 1, y: y), style: style)
+
+            // Red mnemonic letter, unless the row is disabled (stays dim). The
+            // line is drawn at x=1 with one leading space, so the title starts
+            // at column 2.
+            if item.isEnabled, let mnemonic = accelerator.index, mnemonic < title.count {
+                painter.set(
+                    TerminalCell(character: Array(title)[mnemonic], style: theme.accelerator(over: style)),
+                    at: Point(x: 2 + mnemonic, y: y)
+                )
+            }
         }
     }
 
     override func keyDown(_ key: KeyInput) -> Bool {
+        // A mnemonic letter activates its item directly (bare in an open menu,
+        // the Turbo way — or Alt+letter).
+        if key.modifiers.isEmpty || key.modifiers == .alt,
+           case .character(let character) = key.key {
+            let letter = Character(character.lowercased())
+
+            for (index, item) in menu.items.enumerated()
+            where item.isEnabled && !item.isSeparator && Accelerator(item.title).key == letter {
+                activate(at: index)
+                return true
+            }
+        }
+
         guard key.modifiers.isEmpty else {
             return false
         }

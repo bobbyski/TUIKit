@@ -323,4 +323,28 @@ open class Window: TUIView {
 
         return origin
     }
+
+    /// If a transient overlay (menu dropdown, pop-up list, context menu) holds
+    /// focus and `point` (window-local) falls outside it, dismiss it by moving
+    /// focus off — its `didResignFirstResponder` tears it down. Lets a press on
+    /// the desktop or another window close an open menu, which normal routing
+    /// (which only reacts to presses that hit a view *in this window*) misses.
+    ///
+    /// - Parameter point: The press position in this window's coordinates.
+    /// - Returns: `true` when an overlay was dismissed.
+    @discardableResult
+    func dismissOverlayIfPressOutside(_ point: Point) -> Bool {
+        guard let overlay = firstResponder, overlay.dismissesOnOutsidePress else {
+            return false
+        }
+
+        let frame = Rect(origin: windowOrigin(of: overlay), size: overlay.frame.size)
+
+        guard !frame.contains(point) else {
+            return false   // inside the overlay — let it handle the press
+        }
+
+        makeFirstResponder(nil)
+        return true
+    }
 }

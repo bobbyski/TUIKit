@@ -27,12 +27,19 @@ public extension Component {
 @MainActor
 @resultBuilder
 public enum GridRowBuilder {
+    /// Wraps a bare component in a single-span cell.
     public static func buildExpression(_ component: any Component) -> [GridCell] { [GridCell(component: component)] }
+    /// Collects an explicit (spanning) cell.
     public static func buildExpression(_ cell: GridCell) -> [GridCell] { [cell] }
+    /// Flattens the block's parts.
     public static func buildBlock(_ parts: [GridCell]...) -> [GridCell] { parts.flatMap { $0 } }
+    /// Keeps the `if` branch's parts (or none).
     public static func buildOptional(_ part: [GridCell]?) -> [GridCell] { part ?? [] }
+    /// Keeps the `if` branch's parts.
     public static func buildEither(first: [GridCell]) -> [GridCell] { first }
+    /// Keeps the `else` branch's parts.
     public static func buildEither(second: [GridCell]) -> [GridCell] { second }
+    /// Flattens a `for` loop's parts.
     public static func buildArray(_ parts: [[GridCell]]) -> [GridCell] { parts.flatMap { $0 } }
 }
 
@@ -54,11 +61,17 @@ public struct GridRow {
 @MainActor
 @resultBuilder
 public enum GridBuilder {
+    /// Collects a single row.
     public static func buildExpression(_ row: GridRow) -> [GridRow] { [row] }
+    /// Flattens the block's parts.
     public static func buildBlock(_ parts: [GridRow]...) -> [GridRow] { parts.flatMap { $0 } }
+    /// Keeps the `if` branch's parts (or none).
     public static func buildOptional(_ part: [GridRow]?) -> [GridRow] { part ?? [] }
+    /// Keeps the `if` branch's parts.
     public static func buildEither(first: [GridRow]) -> [GridRow] { first }
+    /// Keeps the `else` branch's parts.
     public static func buildEither(second: [GridRow]) -> [GridRow] { second }
+    /// Flattens a `for` loop's parts.
     public static func buildArray(_ parts: [[GridRow]]) -> [GridRow] { parts.flatMap { $0 } }
 }
 

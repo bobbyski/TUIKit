@@ -113,6 +113,7 @@ public extension TUIView {
 // user's handler still runs.
 
 extension TextField: Bindable {
+    /// Binds the field's text to `binding`; `live` also pushes on every edit.
     @discardableResult
     public func bind(_ binding: Binding<String>, live: Bool) -> TextField {
         setFieldBinding(pull: { [weak self] in self?.setText(binding.get()) },
@@ -123,6 +124,7 @@ extension TextField: Bindable {
 }
 
 extension ComboBox: Bindable {
+    /// Binds the combo box's text to `binding`; `live` also pushes on every edit.
     @discardableResult
     public func bind(_ binding: Binding<String>, live: Bool) -> ComboBox {
         setFieldBinding(pull: { [weak self] in self?.setText(binding.get()) },
@@ -133,6 +135,7 @@ extension ComboBox: Bindable {
 }
 
 extension SyntaxTextView: Bindable {
+    /// Binds the editor's text to `binding`; `live` also pushes on every edit.
     @discardableResult
     public func bind(_ binding: Binding<String>, live: Bool) -> SyntaxTextView {
         setFieldBinding(pull: { [weak self] in self?.setText(binding.get()) },
@@ -143,6 +146,7 @@ extension SyntaxTextView: Bindable {
 }
 
 extension TextView: Bindable {
+    /// Binds the text view's text to `binding`; `live` also pushes on every edit.
     @discardableResult
     public func bind(_ binding: Binding<String>, live: Bool) -> TextView {
         setFieldBinding(pull: { [weak self] in self?.setText(binding.get()) },
@@ -153,6 +157,7 @@ extension TextView: Bindable {
 }
 
 extension PathControl: Bindable {
+    /// Binds the control's path to `binding`; `live` also pushes on every selection.
     @discardableResult
     public func bind(_ binding: Binding<String>, live: Bool) -> PathControl {
         setFieldBinding(pull: { [weak self] in self?.setPath(binding.get()) },
@@ -163,6 +168,7 @@ extension PathControl: Bindable {
 }
 
 extension Label: Bindable {
+    /// Binds the label's text to `binding` (display-only: no live push).
     @discardableResult
     public func bind(_ binding: Binding<String>, live: Bool) -> Label {
         setFieldBinding(pull: { [weak self] in self?.text = binding.get() },
@@ -172,6 +178,7 @@ extension Label: Bindable {
 }
 
 extension Checkbox: Bindable {
+    /// Binds the checkbox's checked state to `binding`; `live` also pushes on every toggle.
     @discardableResult
     public func bind(_ binding: Binding<Bool>, live: Bool) -> Checkbox {
         setFieldBinding(pull: { [weak self] in self?.setChecked(binding.get()) },
@@ -182,6 +189,7 @@ extension Checkbox: Bindable {
 }
 
 extension ToggleButton: Bindable {
+    /// Binds the button's on state to `binding`; `live` also pushes on every toggle.
     @discardableResult
     public func bind(_ binding: Binding<Bool>, live: Bool) -> ToggleButton {
         setFieldBinding(pull: { [weak self] in self?.setOn(binding.get()) },
@@ -192,6 +200,7 @@ extension ToggleButton: Bindable {
 }
 
 extension Slider: Bindable {
+    /// Binds the slider's value to `binding`; `live` also pushes on every change.
     @discardableResult
     public func bind(_ binding: Binding<Int>, live: Bool) -> Slider {
         setFieldBinding(pull: { [weak self] in self?.setValue(binding.get()) },
@@ -202,6 +211,7 @@ extension Slider: Bindable {
 }
 
 extension Stepper: Bindable {
+    /// Binds the stepper's value to `binding`; `live` also pushes on every change.
     @discardableResult
     public func bind(_ binding: Binding<Int>, live: Bool) -> Stepper {
         setFieldBinding(pull: { [weak self] in self?.setValue(binding.get()) },
@@ -212,6 +222,7 @@ extension Stepper: Bindable {
 }
 
 extension LevelIndicator: Bindable {
+    /// Binds the indicator's value to `binding`; `live` also pushes on every change.
     @discardableResult
     public func bind(_ binding: Binding<Int>, live: Bool) -> LevelIndicator {
         setFieldBinding(pull: { [weak self] in self?.setValue(binding.get()) },
@@ -222,6 +233,7 @@ extension LevelIndicator: Bindable {
 }
 
 extension TabView: Bindable {
+    /// Binds the selected tab index to `binding`; `live` also pushes on every switch.
     @discardableResult
     public func bind(_ binding: Binding<Int>, live: Bool) -> TabView {
         setFieldBinding(pull: { [weak self] in self?.select(binding.get()) },
@@ -232,6 +244,7 @@ extension TabView: Bindable {
 }
 
 extension SegmentedControl: Bindable {
+    /// Binds the selected segment index to `binding`; `live` also pushes on every change.
     @discardableResult
     public func bind(_ binding: Binding<Int?>, live: Bool) -> SegmentedControl {
         setFieldBinding(pull: { [weak self] in binding.get().map { self?.select($0) } },
@@ -242,6 +255,7 @@ extension SegmentedControl: Bindable {
 }
 
 extension RadioGroup: Bindable {
+    /// Binds the selected button index to `binding`; `live` also pushes on every change.
     @discardableResult
     public func bind(_ binding: Binding<Int?>, live: Bool) -> RadioGroup {
         setFieldBinding(pull: { [weak self] in binding.get().map { self?.select($0) } },
@@ -252,6 +266,7 @@ extension RadioGroup: Bindable {
 }
 
 extension PopUpButton: Bindable {
+    /// Binds the selected item index to `binding`; `live` also pushes on every change.
     @discardableResult
     public func bind(_ binding: Binding<Int?>, live: Bool) -> PopUpButton {
         setFieldBinding(pull: { [weak self] in self?.select(binding.get()) },
@@ -262,6 +277,7 @@ extension PopUpButton: Bindable {
 }
 
 extension ListView: Bindable {
+    /// Binds the selected row index to `binding`; `live` also pushes on every change.
     @discardableResult
     public func bind(_ binding: Binding<Int?>, live: Bool) -> ListView {
         setFieldBinding(pull: { [weak self] in self?.select(binding.get()) },
@@ -272,6 +288,7 @@ extension ListView: Bindable {
 }
 
 extension TableView: Bindable {
+    /// Binds the selected row index to `binding`; `live` also pushes on every change.
     @discardableResult
     public func bind(_ binding: Binding<Int?>, live: Bool) -> TableView {
         setFieldBinding(pull: { [weak self] in self?.select(binding.get()) },
@@ -282,6 +299,7 @@ extension TableView: Bindable {
 }
 
 extension DatePicker: Bindable {
+    /// Binds the picker's date to `binding`; `live` also pushes on every change.
     @discardableResult
     public func bind(_ binding: Binding<Date>, live: Bool) -> DatePicker {
         setFieldBinding(pull: { [weak self] in self?.setDate(binding.get()) },
@@ -292,6 +310,7 @@ extension DatePicker: Bindable {
 }
 
 extension ColorPicker: Bindable {
+    /// Binds the picker's color to `binding`; `live` also pushes on every change.
     @discardableResult
     public func bind(_ binding: Binding<TerminalColor>, live: Bool) -> ColorPicker {
         setFieldBinding(pull: { [weak self] in self?.setColor(binding.get()) },

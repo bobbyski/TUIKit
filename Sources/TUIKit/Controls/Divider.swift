@@ -75,7 +75,7 @@ public final class Divider: TUIView {
     /// Draws the line, then junctions against perpendicular siblings.
     public override func draw(_ painter: Painter) {
         let theme = effectiveTheme
-        let characters = theme.borderStyle.characters
+        let characters = theme.dividerStyle.characters
             ?? BorderStyle.single.characters!
 
         // Focus/drag cue: the line recolors to the accent — never bold and
@@ -100,7 +100,9 @@ public final class Divider: TUIView {
             }
         }
 
-        if isConnected {
+        // Cross-junctions require both the divider opting in *and* the theme
+        // asking for welded dividers.
+        if isConnected, theme.dividerConnection == .welded {
             drawJunctions(painter, style: style)
         }
     }
@@ -110,7 +112,7 @@ public final class Divider: TUIView {
     // cells (both siblings compute the same glyph), and a sibling's
     // endpoint abutting this line is this divider's cell to decorate.
     private func drawJunctions(_ painter: Painter, style: CellStyle) {
-        guard let junctions = effectiveTheme.borderStyle.junctions
+        guard let junctions = effectiveTheme.dividerStyle.junctions
             ?? BorderStyle.single.junctions else {
             return
         }

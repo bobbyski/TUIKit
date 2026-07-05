@@ -38,6 +38,12 @@ public final class App {
     /// its own commands. Disable for apps that handle it themselves.
     public var stopsOnControlC = true
 
+    /// How long a completed click waits for a follow-up before its `.click`
+    /// event is delivered. A second click within this window makes it a double
+    /// (then a triple), so a single click's semantic event never fires ahead of
+    /// a double. ~280 ms by default, matching desktop conventions.
+    public var multiClickInterval: Duration = .milliseconds(280)
+
     /// Presented windows, bottom to top. The last window is key.
     public private(set) var windows: [Window] = []
 
@@ -65,6 +71,28 @@ public final class App {
 
     // The run loop's event sink while running (input + ticks merge here).
     private var eventContinuation: AsyncStream<LoopEvent>.Continuation?
+
+    // MARK: - Multi-click tracking
+
+    // Screen position of the current unreleased left press, for telling a click
+    // (press + release at the same cell) from a drag.
+    private var leftPressScreen: Point?
+
+    // The click waiting out its guard interval: where it landed, which window
+    // owns it, and how many clicks have stacked up (capped at 3).
+    private var pendingClick: (window: Window, screen: Point, count: Int)?
+
+    // The one-shot timer that delivers `pendingClick` once the guard elapses.
+    private var clickGuardTimer: AppTimer?
+
+    // Presses/releases beyond this many cells apart are a drag, not a click,
+    // and clicks farther apart than this start a fresh count rather than
+    // stacking into a double.
+    private let clickSlop = 1
+
+    // Nobody double-clicks past three (Apple's counter is unbounded, but real
+    // UIs stop here: double = open, triple = select-all).
+    private let maxClickCount = 3
 
     /// Registers a repeating timer that fires on the main thread inside the
     /// run loop, driving a frame present each tick.
@@ -299,6 +327,17 @@ public final class App {
                 return
             }
 
+            // The untranslated screen position, kept for click tracking below.
+            let screen = mouse.position
+
+            // A press outside an open menu / pop-up / context menu dismisses it
+            // first — even when the press lands on the desktop or another window
+            // (the overlay's own window would never see that press otherwise).
+            // The press then routes normally, so it still lands where it points.
+            if mouse.action == .press, mouse.button == .left {
+                key.dismissOverlayIfPressOutside(mouse.position - key.frame.origin)
+            }
+
             var window = key
 
             // Click-to-activate: in a non-modal stack, pressing a window
@@ -325,7 +364,81 @@ public final class App {
             // test.
             mouse.position = mouse.position - window.frame.origin
             window.route(.mouse(mouse))
+
+            // Fold this press/release into the multi-click count. Runs after
+            // routing, so selection (on press) stays instant; only the debounced
+            // `.click` waits out the guard.
+            trackClick(action: mouse.action, button: mouse.button, screen: screen, window: window)
         }
+    }
+
+    // Turns a stream of left presses/releases into debounced `.click` events.
+    // A press remembers where it landed; a release at the same cell completes a
+    // click, which either extends the pending sequence (a nearby click still
+    // inside the guard window → double, then triple) or starts a new one. Each
+    // completed click (re)arms the guard timer; when it fires, the click is
+    // delivered with its final count. A drag (release far from the press)
+    // breaks the sequence.
+    private func trackClick(action: MouseInput.Action, button: MouseInput.Button, screen: Point, window: Window) {
+        guard button == .left else {
+            return
+        }
+
+        switch action {
+        case .press:
+            leftPressScreen = screen
+
+        case .release:
+            guard let pressed = leftPressScreen else {
+                return
+            }
+            leftPressScreen = nil
+
+            guard manhattan(pressed, screen) <= clickSlop else {
+                // A drag, not a click — abandon any pending sequence.
+                clickGuardTimer?.cancel()
+                clickGuardTimer = nil
+                pendingClick = nil
+                return
+            }
+
+            var count = 1
+            if let pending = pendingClick, manhattan(pending.screen, screen) <= clickSlop {
+                count = min(maxClickCount, pending.count + 1)
+            }
+
+            clickGuardTimer?.cancel()
+            pendingClick = (window: window, screen: screen, count: count)
+            clickGuardTimer = schedule(after: multiClickInterval) { [weak self] in
+                self?.deliverPendingClick()
+            }
+
+        default:
+            break
+        }
+    }
+
+    // Routes the settled click to the window it landed on, with its final count.
+    private func deliverPendingClick() {
+        clickGuardTimer = nil
+
+        guard let pending = pendingClick else {
+            return
+        }
+        pendingClick = nil
+
+        // The window may have been dismissed during the guard interval.
+        guard windows.contains(where: { $0 === pending.window }) else {
+            return
+        }
+
+        let local = pending.screen - pending.window.frame.origin
+        let click = MouseInput(position: local, action: .click, button: .left, clickCount: pending.count)
+        pending.window.route(.mouse(click))
+    }
+
+    private func manhattan(_ a: Point, _ b: Point) -> Int {
+        abs(a.x - b.x) + abs(a.y - b.y)
     }
 
     private func applyScreenSize(_ size: Size) {

@@ -389,7 +389,7 @@ public final class ScrollView: TUIView {
     // Solid indicator cells from the theme's scrollbar slot: track from its
     // background, thumb from its foreground (accent while focused). A
     // colorless slot falls back to video-attribute blocks.
-    static func indicatorStyles(for theme: Theme, focused: Bool) -> (track: CellStyle, thumb: CellStyle) {
+    static func indicatorStyles(for theme: ResolvedTheme, focused: Bool) -> (track: CellStyle, thumb: CellStyle) {
         let slot = theme.scrollbar
 
         guard slot.foreground != .standard, slot.background != .standard else {

@@ -98,6 +98,13 @@ public final class StatusBar: TUIView {
         return segment
     }
 
+    /// Paints the bar in the theme's `header` (chrome) slot behind the
+    /// segments, so it reads as one strip like the menu bar. Segment controls
+    /// that should blend in carry the header style too (see the demo).
+    public override func draw(_ painter: Painter) {
+        painter.fill(bounds, with: TerminalCell(character: " ", style: effectiveTheme.header))
+    }
+
     /// One row at the sum of the minimum widths.
     public override var intrinsicContentSize: Size? {
         let widths = segments.reduce(0) { $0 + resolvedMinimum(of: $1) }

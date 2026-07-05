@@ -44,6 +44,23 @@ open class FloatingWindow: Window {
         panel.content
     }
 
+    /// Embeds a view's scrollbars into the window border (the Borland trick):
+    /// the vertical bar rides the right border, the horizontal bar rides the
+    /// bottom border under the client's own span, and the view stops spending
+    /// interior cells on its own indicators. Pass `nil` to restore plain chrome.
+    ///
+    /// - Parameters:
+    ///   - client: The scrollable view (a `content` descendant), or `nil`.
+    ///   - vertical: Run of the right-border bar (default: the full edge).
+    ///   - horizontal: Run of the bottom bar (default: under the client).
+    public func embedScrollbars(
+        for client: BorderScrollable?,
+        vertical: BorderScrollbarExtent = .fullEdge,
+        horizontal: BorderScrollbarExtent = .underClient
+    ) {
+        panel.embedScrollbars(for: client, vertical: vertical, horizontal: horizontal)
+    }
+
     /// Whether the title row drags the window.
     public var isMovable = true
 

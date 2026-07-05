@@ -12,7 +12,9 @@ extension DemoApp {
             title: "Declarative Example \(index)",
             frame: Rect(x: 8 + index * 4, y: 4 + index * 2, width: 54, height: 20)
         )
-        window.theme = .standard
+        // No theme override: inherit the app theme (the desktop), so a window
+        // opened after the user picks Turbo comes up Turbo, not standard.
+        window.themeContext = .secondaryWindows   // a form/dialog surface (Turbo: gray)
         window.onCloseRequest = { [weak window] in
             if let window { app.dismiss(window) }
         }
@@ -59,8 +61,8 @@ extension DemoApp {
 
                 HStack(spacing: 2) {
                     Spacer()
-                    Button("Reset") { status.text = "reset" }
-                    Button("Save") { status.text = "saved" }
+                    Button("&Reset") { status.text = "reset" }
+                    Button("&Save") { status.text = "saved" }.role(.default)
                 }
 
                 status

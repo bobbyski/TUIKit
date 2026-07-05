@@ -85,7 +85,8 @@ public final class TreeNode {
 /// `ListView`'s: arrows, paging, Home/End, wheel scrolling, click to select.
 /// The disclosure keys follow the platform convention: `→` expands (then
 /// steps into the first child), `←` collapses (then steps to the parent).
-/// Clicking a disclosure triangle toggles it; Return activates.
+/// Clicking a disclosure triangle toggles it; Return — or a double-click —
+/// activates a leaf and toggles a branch.
 ///
 /// ```swift
 /// let tree = TreeView(roots: [projectRoot])
@@ -105,7 +106,7 @@ public final class TreeView: TUIView {
     /// Called when the selected node changes (`nil` when cleared).
     public var onSelectionChanged: (TreeNode?) -> Void = { _ in }
 
-    /// Called when a node is activated with Return.
+    /// Called when a leaf node is activated — Return, or a double-click.
     public var onActivate: (TreeNode) -> Void = { _ in }
 
     // Shared navigation core over the flattened rows.
@@ -193,6 +194,11 @@ public final class TreeView: TUIView {
         node.isExpanded = false
         rebuildVisibleRows()
         setNeedsDisplay()
+    }
+
+    /// Collapses an expanded node, or expands a collapsed one.
+    public func toggle(_ node: TreeNode) {
+        node.isExpanded ? collapse(node) : expand(node)
     }
 
     /// Draws the visible rows: indentation, disclosure, title.
@@ -300,10 +306,16 @@ public final class TreeView: TUIView {
         }
     }
 
-    /// Click selects (the disclosure triangle toggles); wheel scrolls.
+    /// A settled click selects; the disclosure triangle (or a double-click on a
+    /// branch) toggles it, and a double-click on a leaf activates it. Nothing
+    /// acts on the raw press, so a double-click never runs the single-click
+    /// action first. The wheel scrolls.
     public override func mouseEvent(_ mouse: MouseInput) -> Bool {
         switch mouse.action {
         case .press where mouse.button == .left:
+            return true   // consume; the settled click does the work
+
+        case .click:
             let index = navigation.scrollOffset + mouse.position.y
 
             guard index < visibleRows.count else {
@@ -311,22 +323,25 @@ public final class TreeView: TUIView {
             }
 
             let (node, depth) = visibleRows[index]
-            let wasSelected = node === selectedNode
-            moveSelection(to: index)
 
-            // A click on the disclosure triangle toggles expansion.
             if mouse.position.x == depth * 2, node.isExpandable {
-                if node.isExpanded {
-                    collapse(node)
+                // The disclosure triangle toggles once, whatever the click
+                // count; the selection follows the click.
+                moveSelection(to: index)
+                toggle(node)
+            } else if mouse.clickCount >= 2 {
+                // A double is ONLY the double action: the highlight moves
+                // silently (no `onSelectionChanged`), then a branch toggles or
+                // a leaf activates.
+                select(node)
+
+                if node.isExpandable {
+                    toggle(node)
                 } else {
-                    expand(node)
+                    onActivate(node)
                 }
-            } else if wasSelected, !node.isExpandable {
-                // A second click on the already-selected leaf activates it —
-                // the timing-free stand-in for a double-click. (First click
-                // selects and fires `onSelectionChanged`; this one fires
-                // `onActivate`, matching Return.)
-                onActivate(node)
+            } else {
+                moveSelection(to: index)
             }
 
             return true

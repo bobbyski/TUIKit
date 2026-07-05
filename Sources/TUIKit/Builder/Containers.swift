@@ -134,11 +134,17 @@ public struct Tab {
 @MainActor
 @resultBuilder
 public enum TabBuilder {
+    /// Collects a single tab.
     public static func buildExpression(_ tab: Tab) -> [Tab] { [tab] }
+    /// Flattens the block's parts.
     public static func buildBlock(_ parts: [Tab]...) -> [Tab] { parts.flatMap { $0 } }
+    /// Keeps the `if` branch's parts (or none).
     public static func buildOptional(_ part: [Tab]?) -> [Tab] { part ?? [] }
+    /// Keeps the `if` branch's parts.
     public static func buildEither(first: [Tab]) -> [Tab] { first }
+    /// Keeps the `else` branch's parts.
     public static func buildEither(second: [Tab]) -> [Tab] { second }
+    /// Flattens a `for` loop's parts.
     public static func buildArray(_ parts: [[Tab]]) -> [Tab] { parts.flatMap { $0 } }
 }
 

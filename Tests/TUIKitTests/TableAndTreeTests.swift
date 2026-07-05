@@ -84,13 +84,13 @@ private func makeTable() -> TableView {
     var sorts: [Int] = []
     table.onSortRequested = { sorts.append($0) }
 
-    // Click the second visible row (viewport row 2 → data row 1).
-    _ = table.mouseEvent(MouseInput(position: Point(x: 3, y: 2), action: .press, button: .left))
+    // A settled click on the second visible row (viewport row 2 → data row 1).
+    _ = table.mouseEvent(MouseInput(position: Point(x: 3, y: 2), action: .click, button: .left))
     #expect(table.selectedIndex == 1)
 
-    // Header clicks: x3 is inside Name (0..10), x13 inside Size (12..15).
-    _ = table.mouseEvent(MouseInput(position: Point(x: 3, y: 0), action: .press, button: .left))
-    _ = table.mouseEvent(MouseInput(position: Point(x: 13, y: 0), action: .press, button: .left))
+    // Header clicks sort: x3 is inside Name (0..10), x13 inside Size (12..15).
+    _ = table.mouseEvent(MouseInput(position: Point(x: 3, y: 0), action: .click, button: .left))
+    _ = table.mouseEvent(MouseInput(position: Point(x: 13, y: 0), action: .click, button: .left))
     #expect(sorts == [0, 1])
     #expect(table.selectedIndex == 1, "header clicks do not move the selection")
 }
@@ -228,22 +228,23 @@ private func makeTree() -> (TreeView, TreeNode, TreeNode, TreeNode) {
     var selections: [String] = []
     tree.onSelectionChanged = { selections.append($0?.title ?? "nil") }
 
-    // Row 1 is "  ▸ Controls": x0 selects only, x2 is the disclosure.
-    _ = tree.mouseEvent(MouseInput(position: Point(x: 5, y: 1), action: .press, button: .left))
+    // Row 1 is "  ▸ Controls": x0 selects only, x2 is the disclosure. A settled
+    // click carries the action now, not the raw press.
+    _ = tree.mouseEvent(MouseInput(position: Point(x: 5, y: 1), action: .click, button: .left))
     #expect(tree.selectedNode === controls)
     #expect(!controls.isExpanded, "clicking the title does not toggle")
 
-    _ = tree.mouseEvent(MouseInput(position: Point(x: 2, y: 1), action: .press, button: .left))
+    _ = tree.mouseEvent(MouseInput(position: Point(x: 2, y: 1), action: .click, button: .left))
     #expect(controls.isExpanded, "clicking the triangle expands")
     #expect(tree.visibleRowCount == 6)
 
-    _ = tree.mouseEvent(MouseInput(position: Point(x: 2, y: 1), action: .press, button: .left))
+    _ = tree.mouseEvent(MouseInput(position: Point(x: 2, y: 1), action: .click, button: .left))
     #expect(!controls.isExpanded, "clicking it again collapses")
 
     #expect(selections == ["Controls"], "selection changed once; the toggles kept it")
 }
 
-@Test @MainActor func treeReclickOnSelectedLeafActivates() {
+@Test @MainActor func treeDoubleClickActivatesLeavesAndTogglesBranches() {
     let (tree, sources, _, _) = makeTree()
     tree.frame = Rect(x: 0, y: 0, width: 26, height: 8)
     tree.expand(sources)   // rows: Sources, Controls (collapsed), TUIKit.swift, Tests
@@ -253,22 +254,22 @@ private func makeTree() -> (TreeView, TreeNode, TreeNode, TreeNode) {
     tree.onSelectionChanged = { _ in selections += 1 }
     tree.onActivate = { activations.append($0.title) }
 
-    // Row 2 "  TUIKit.swift" is a leaf; the first click only selects it.
-    _ = tree.mouseEvent(MouseInput(position: Point(x: 6, y: 2), action: .press, button: .left))
+    // Row 2 "  TUIKit.swift" is a leaf; a settled single click selects it.
+    _ = tree.mouseEvent(MouseInput(position: Point(x: 6, y: 2), action: .click, button: .left))
     #expect(tree.selectedNode?.title == "TUIKit.swift")
     #expect(selections == 1)
-    #expect(activations.isEmpty, "first click selects, does not activate")
+    #expect(activations.isEmpty, "a single click selects, it does not activate")
 
-    // A second click on the same selected leaf activates it (no re-selection) —
-    // the timing-free double-click stand-in.
-    _ = tree.mouseEvent(MouseInput(position: Point(x: 6, y: 2), action: .press, button: .left))
+    // The debounced double-click (clickCount 2) activates the leaf, like Return.
+    _ = tree.mouseEvent(MouseInput(position: Point(x: 6, y: 2), action: .click, button: .left, clickCount: 2))
     #expect(selections == 1, "selection is unchanged")
-    #expect(activations == ["TUIKit.swift"], "re-click activates, like Return")
+    #expect(activations == ["TUIKit.swift"], "double-click activates")
 
-    // Re-clicking an expandable node's title does not activate — only leaves do.
-    _ = tree.mouseEvent(MouseInput(position: Point(x: 5, y: 0), action: .press, button: .left))
-    _ = tree.mouseEvent(MouseInput(position: Point(x: 5, y: 0), action: .press, button: .left))
-    #expect(activations == ["TUIKit.swift"], "folders don't activate on re-click")
+    // Double-clicking an expandable branch toggles it instead of activating.
+    #expect(sources.isExpanded)
+    _ = tree.mouseEvent(MouseInput(position: Point(x: 5, y: 0), action: .click, button: .left, clickCount: 2))
+    #expect(!sources.isExpanded, "double-click collapses the branch")
+    #expect(activations == ["TUIKit.swift"], "branches don't activate")
 }
 
 // MARK: - DirectoryTree
@@ -337,11 +338,13 @@ private func makeDirectoryTree() -> (DirectoryTree, FakeFileSystem, Window) {
     directory.onSelectionChanged = { selections.append($0) }
     directory.onActivate = { activated.append($0) }
 
-    // Click the "src" row, then its disclosure triangle.
+    // Press focuses the tree (auto-selecting the root); the settled click then
+    // selects "src", and a click on its disclosure triangle expands it.
     window.route(.mouse(MouseInput(position: Point(x: 6, y: 2), action: .press, button: .left)))
+    window.route(.mouse(MouseInput(position: Point(x: 6, y: 2), action: .click, button: .left)))
     #expect(directory.selectedPath == "/root/src")
 
-    window.route(.mouse(MouseInput(position: Point(x: 2, y: 2), action: .press, button: .left)))
+    window.route(.mouse(MouseInput(position: Point(x: 2, y: 2), action: .click, button: .left)))
     #expect(disk.requests == ["/root", "/root/src"], "each directory lists once, on first expansion")
 
     let lines = SceneRenderer(root: window).render(size: window.frame.size).textLines()

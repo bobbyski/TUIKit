@@ -13,6 +13,7 @@ public protocol Component {
 
 /// Every view is a leaf component: it *is* its own view.
 extension TUIView: Component {
+    /// A view is its own component — building returns `self`.
     public func makeView() -> TUIView { self }
 }
 
@@ -51,30 +52,37 @@ public extension Composable {
 @MainActor
 @resultBuilder
 public enum NodeBuilder {
+    /// Collects a single component.
     public static func buildExpression(_ component: any Component) -> [any Component] {
         [component]
     }
 
+    /// Collects an already-built component list.
     public static func buildExpression(_ components: [any Component]) -> [any Component] {
         components
     }
 
+    /// Flattens the block's parts.
     public static func buildBlock(_ parts: [any Component]...) -> [any Component] {
         parts.flatMap { $0 }
     }
 
+    /// Keeps the `if` branch's parts (or none).
     public static func buildOptional(_ part: [any Component]?) -> [any Component] {
         part ?? []
     }
 
+    /// Keeps the `if` branch's parts.
     public static func buildEither(first: [any Component]) -> [any Component] {
         first
     }
 
+    /// Keeps the `else` branch's parts.
     public static func buildEither(second: [any Component]) -> [any Component] {
         second
     }
 
+    /// Flattens a `for` loop's parts.
     public static func buildArray(_ parts: [[any Component]]) -> [any Component] {
         parts.flatMap { $0 }
     }

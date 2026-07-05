@@ -21,13 +21,13 @@ extension DemoApp {
             title: "All Contacts (\(store.people.count))",
             frame: Rect(x: 16, y: 5, width: 72, height: 18)
         )
-        // Pin this window to the standard theme so the Theme menu's app-wide
-        // theming leaves it alone (a deliberate local override — see App.applyTheme).
-        window.theme = .standard
+        // No theme override: inherit the app theme (the desktop), so a window
+        // opened after the user picks Turbo comes up Turbo, not standard.
         // The window never closes itself; it asks, and the app decides. Here the
         // app just dismisses it. `[weak window]` avoids the window retaining itself
         // through its own callback.
         window.onCloseRequest = { [weak window] in if let window { app.dismiss(window) } }
+        window.themeContext = .secondaryWindows   // a form/dialog surface (Turbo: gray)
 
         let table = TableView(columns: [
             TableColumn("Name"),
@@ -67,8 +67,10 @@ extension DemoApp {
             title: "Contact Book \(index)",
             frame: Rect(x: 10 + index * 4, y: 3 + index * 2, width: 68, height: 22)
         )
-        window.theme = .standard
+        // Inherit the app theme (the desktop) so a window opened after the user
+        // picks Turbo comes up Turbo, not standard.
         window.onCloseRequest = { [weak window] in if let window { app.dismiss(window) } }
+        window.themeContext = .secondaryWindows   // a form/dialog surface (Turbo: gray)
 
         let list = ListView()
 

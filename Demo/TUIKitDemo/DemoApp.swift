@@ -18,63 +18,111 @@ final class DemoApp {
         // styling it here sets the default look, and because themes cascade, its
         // theme is inherited by any window that doesn't set its own.
         let app = self.app
-        app.desktop.fillStyle = CellStyle(background: .rgb(red: 128, green: 128, blue: 128))
-        app.desktop.theme = .dark   // inherited default for un-themed windows
+
+        // The demo's neutral backdrop, used whenever a theme doesn't paint its
+        // own desktop (its desktop-context background resolves to `.standard`,
+        // e.g. Standard/Mono — which would otherwise fall through to the
+        // terminal default and read as a black hole). The startup theme itself
+        // is applied below via `applyDemoTheme`, the same path the Theme menu
+        // takes — so booting into a theme and re-selecting it look identical.
+        let neutralBackdrop = TerminalColor.rgb(red: 128, green: 128, blue: 128)
 
         // Root menu strip: File spawns example windows, Theme restyles the key one.
         let menuWindow = MenuBarWindow()
         menuWindow.onQuit = { app.stop() }
+        // The menu bar, status strip, and dropdowns are gray chrome — they use
+        // the `header`/`base` slots, which resolve gray from `base`. We do NOT
+        // put them in the `.desktop` context: that context's `background` is the
+        // blue *backdrop* (painted directly on the desktop below), which would
+        // wrongly tint the dropdown popups.
 
-        let fileMenu = Menu("File")
-        fileMenu.addItem("New Declarative Example", keyEquivalent: KeyInput(key: .character("n"), modifiers: .control)) {
+        // Bottom status-strip text, declared up here so the Theme menu (built
+        // next) can re-style it whenever the theme changes.
+        let statusTitle = Label(" TUIKit Demo")
+        let statusHint = Label("File ▸ New… opens examples · close a window to dismiss it")
+        let clock = Label("--:--:--")
+
+        // The menu bar and status strip are *chrome*, so their text wears the
+        // theme's `header` slot (Turbo's gray bar, etc.). The bars themselves
+        // already fill with `header`; this makes their content match instead of
+        // rendering as window-colored (blue/yellow) text on the gray strip.
+        // Called at startup and again on every theme switch below.
+        func styleStatusChrome() {
+            let header = menuWindow.effectiveTheme.header
+            statusTitle.style = header           // bold title
+            var plain = header
+            plain.flags.remove(.bold)
+            statusHint.style = plain
+            clock.style = plain
+        }
+
+        // The ONE path that themes the whole demo — used at startup and by
+        // every Theme menu item, so the boot look and a re-selected theme are
+        // always identical: app-wide theme, the theme's own desktop backdrop
+        // (or the neutral gray when it has none), and the chrome text.
+        func applyDemoTheme(_ theme: Theme) {
+            app.applyTheme(theme)
+
+            let backdrop = theme.resolved(for: .desktop).background
+            app.desktop.fillStyle = CellStyle(
+                background: backdrop == .standard ? neutralBackdrop : backdrop
+            )
+
+            styleStatusChrome()
+        }
+
+        let fileMenu = Menu("&File")
+        fileMenu.addItem("New &Declarative Example", keyEquivalent: KeyInput(key: .character("n"), modifiers: .control)) {
             self.exampleCount += 1
             app.present(self.makeDeclarativeExample(index: self.exampleCount))
         }
-        fileMenu.addItem("New Manual Example", keyEquivalent: KeyInput(key: .character("m"), modifiers: .control)) {
+        fileMenu.addItem("New &Manual Example", keyEquivalent: KeyInput(key: .character("m"), modifiers: .control)) {
             self.exampleCount += 1
             app.present(self.makeManualExample(index: self.exampleCount))
         }
-        fileMenu.addItem("New Contact Book", keyEquivalent: KeyInput(key: .character("b"), modifiers: .control)) {
+        fileMenu.addItem("New Contact &Book", keyEquivalent: KeyInput(key: .character("b"), modifiers: .control)) {
             self.exampleCount += 1
             app.present(self.makeContactBook(index: self.exampleCount))
         }
-        fileMenu.addItem("New Demo Source", keyEquivalent: KeyInput(key: .character("d"), modifiers: .control)) {
+        fileMenu.addItem("New Demo &Source", keyEquivalent: KeyInput(key: .character("d"), modifiers: .control)) {
             self.exampleCount += 1
             app.present(self.makeDemoSource(index: self.exampleCount))
         }
+        fileMenu.addItem("New &CSS Demo") {
+            self.exampleCount += 1
+            app.present(self.makeStyleTest(index: self.exampleCount))
+        }
         fileMenu.addSeparator()
-        fileMenu.addItem("Close Window", keyEquivalent: KeyInput(key: .character("w"), modifiers: .control)) {
+        fileMenu.addItem("&Close Window", keyEquivalent: KeyInput(key: .character("w"), modifiers: .control)) {
             // Opening the menu made the strip key, so target the top-most example.
             if let target = app.windows.last(where: { $0 !== menuWindow }) {
                 app.dismiss(target)
             }
         }
         fileMenu.addSeparator()
-        fileMenu.addItem("Quit", keyEquivalent: KeyInput(key: .character("q"), modifiers: .control)) {
+        fileMenu.addItem("&Quit", keyEquivalent: KeyInput(key: .character("q"), modifiers: .control)) {
             app.stop()
         }
 
-        let themeMenu = Menu("Theme")
+        let themeMenu = Menu("&Theme")
         for (name, theme) in TUIKit.Theme.builtIn {
             themeMenu.addItem(name) {
-                // One call themes the whole app — desktop and every window. Views
-                // can still opt out locally (e.g. the declarative window pins its
-                // controls to `.standard`).
-                app.applyTheme(theme)
+                applyDemoTheme(theme)
             }
         }
 
         let menuBar = MenuBar()
         menuBar.addMenu(fileMenu)
         menuBar.addMenu(themeMenu)
-        menuBar.anchors = AnchorSet(leading: 0, top: 0, height: 1)
+        // Span the full width so the whole menu row is gray chrome, not just the
+        // titles' width (trailing: 0 stretches it edge-to-edge).
+        menuBar.anchors = AnchorSet(leading: 0, trailing: 0, top: 0, height: 1)
         menuWindow.addSubview(menuBar)
         menuWindow.menuBar = menuBar
         menuWindow.makeFirstResponder(menuBar)
 
-        // Global status bar + live clock along the very bottom (also a second use
-        // of the non-blocking App timer).
-        let clock = Label("--:--:--")
+        // Global status bar along the very bottom, hosting the chrome labels
+        // declared above and a live clock (a second use of the App timer).
         let clockFormatter = DateFormatter()
         clockFormatter.dateFormat = "HH:mm:ss"
         func refreshClock() { clock.text = clockFormatter.string(from: Date()) }
@@ -82,11 +130,16 @@ final class DemoApp {
         app.addTimer(every: .seconds(1)) { refreshClock() }
 
         let globalStatus = StatusBar()
-        globalStatus.addSegment(Label(" TUIKit Demo", style: CellStyle(flags: .bold)), minimumWidth: 14)
-        globalStatus.addSegment(Label("File ▸ New… opens examples · close a window to dismiss it"), percentage: 100)
+        globalStatus.showsSeparators = false   // Borland-style: one flat strip, no │ dividers
+        globalStatus.addSegment(statusTitle, minimumWidth: 14)
+        globalStatus.addSegment(statusHint, percentage: 100)
         globalStatus.addSegment(clock, minimumWidth: 10)
         globalStatus.anchors = AnchorSet(leading: 0, trailing: 0, bottom: 0, height: 1)
         menuWindow.addSubview(globalStatus)
+
+        // Boot into Standard — same path as picking it from the Theme menu, so
+        // startup is indistinguishable from a later re-selection.
+        applyDemoTheme(.standard)
 
         // Load the global contact list once, at startup.
         ContactStore.shared.loadIfNeeded()
