@@ -145,6 +145,18 @@ public actor ANSIDriver: TerminalDriver {
         await write(sequence)
     }
 
+    /// Places text on the system clipboard via OSC 52.
+    ///
+    /// Modern terminals (Terminal.app, iTerm2, kitty, …) apply OSC 52 to the
+    /// real clipboard, including across ssh. Terminals without support
+    /// ignore the sequence harmlessly.
+    ///
+    /// - Parameter text: Text to place on the clipboard.
+    public func setClipboard(_ text: String) async {
+        let encoded = Data(text.utf8).base64EncodedString()
+        await write("\u{1B}]52;c;\(encoded)\u{07}")
+    }
+
     /// Creates a stream of decoded input events.
     ///
     /// Streams finish when the driver ends.

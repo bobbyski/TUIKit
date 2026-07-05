@@ -99,7 +99,22 @@ public actor HeadlessDriver: TerminalDriver {
         }
     }
 
+    /// Records clipboard text so tests can assert on system-copy behavior.
+    ///
+    /// - Parameter text: Text "copied to the system clipboard".
+    public func setClipboard(_ text: String) {
+        lastClipboard = text
+    }
+
+    // Most recent setClipboard payload.
+    private var lastClipboard: String?
+
     // MARK: - Test Controls
+
+    /// The most recent text handed to `setClipboard(_:)`, when any.
+    public var clipboard: String? {
+        lastClipboard
+    }
 
     /// Injects one input event into all active input streams.
     ///

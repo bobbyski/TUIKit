@@ -27,6 +27,10 @@ public enum Key: Hashable, Sendable {
     /// The forward-delete key.
     case delete
 
+    /// The Insert key (with modifiers, the classic clipboard chords:
+    /// Ctrl+Insert copy, Shift+Insert paste).
+    case insert
+
     /// A function key by number (F1 is `function(1)`).
     case function(Int)
 }

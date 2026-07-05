@@ -24,6 +24,12 @@
 /// class is the focus/routing scope.
 @MainActor
 open class Window: TUIView {
+    /// The application that presented this window, when any.
+    ///
+    /// Set by `App.present(_:)`. Views reach app services (the pasteboard,
+    /// timers) through `owningWindow?.app` instead of globals.
+    public internal(set) weak var app: App?
+
     /// The view holding keyboard focus, when any.
     public private(set) var firstResponder: TUIView?
 

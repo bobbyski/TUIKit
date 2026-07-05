@@ -402,22 +402,6 @@ public final class Toolbar: TUIView {
         return Layout(visibleCount: visible, hasOverflow: true, segments: segments, overflowX: overflowX)
     }
 
-    // MARK: - Window plumbing
-
-    private var owningWindow: Window? {
-        var current: TUIView? = self
-
-        while let view = current {
-            if let window = view as? Window {
-                return window
-            }
-
-            current = view.superview
-        }
-
-        return nil
-    }
-
     // This view's origin in the given window's coordinates.
     private func origin(in window: Window) -> Point {
         var origin = Point.zero
