@@ -191,17 +191,4 @@ public final class ComboBox: TUIView {
         setNeedsDisplay()
     }
 
-    private var owningWindow: Window? {
-        var current: TUIView? = self
-
-        while let view = current {
-            if let window = view as? Window {
-                return window
-            }
-
-            current = view.superview
-        }
-
-        return nil
-    }
 }

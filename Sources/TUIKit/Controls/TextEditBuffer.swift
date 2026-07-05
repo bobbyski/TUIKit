@@ -501,8 +501,9 @@ public final class TextEditBuffer {
         return parts.joined(separator: "\n")
     }
 
-    // Where `text` ends when placed at `start`.
-    private static func end(of text: String, from start: Point) -> Point {
+    // Where `text` ends when placed at `start`. Pure (nonisolated: the
+    // nested EditOperation struct computes its endpoints outside the actor).
+    private nonisolated static func end(of text: String, from start: Point) -> Point {
         let parts = split(text)
 
         if parts.count == 1 {
@@ -530,7 +531,7 @@ public final class TextEditBuffer {
         character.isLetter || character.isNumber || character == "_"
     }
 
-    private static func split(_ text: String) -> [String] {
+    private nonisolated static func split(_ text: String) -> [String] {
         let parts = text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
         return parts.isEmpty ? [""] : parts
     }

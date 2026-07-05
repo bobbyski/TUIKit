@@ -328,15 +328,19 @@ public final class SyntaxTextView: TUIView {
     ///   - column: Target column. Defaults to 0.
     public func scrollTo(line: Int, column: Int = 0) {
         buffer.moveCursor(to: Point(x: column, y: line))
+        centerViewport(onLine: buffer.cursor.y)
+        ensureCursorVisible()
+        setNeedsDisplay()
+    }
 
+    // Centers a line vertically in the viewport (offset only — never moves
+    // the cursor, so callers that just made a selection keep it).
+    private func centerViewport(onLine line: Int) {
         let contentHeight = max(1, scrollLayout().contentHeight)
         offset.y = min(
             max(0, lines.count - contentHeight),
-            max(0, buffer.cursor.y - contentHeight / 2)
+            max(0, line - contentHeight / 2)
         )
-
-        ensureCursorVisible()
-        setNeedsDisplay()
     }
 
     // Lands on the next/previous match relative to the cursor, wrapping.
@@ -359,8 +363,10 @@ public final class SyntaxTextView: TUIView {
         }
 
         currentMatchIndex = index
-        buffer.select(findMatches[index])
-        scrollTo(line: findMatches[index].line, column: findMatches[index].range.lowerBound)
+        buffer.select(findMatches[index])   // selects; cursor lands at the match end
+        centerViewport(onLine: findMatches[index].line)
+        ensureCursorVisible()
+        setNeedsDisplay()
         return true
     }
 
