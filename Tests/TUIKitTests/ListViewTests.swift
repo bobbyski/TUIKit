@@ -103,9 +103,39 @@ private func makeList(_ count: Int, height: Int) -> ListView {
 @Test @MainActor func listClickSelectsVisibleRow() {
     let list = makeList(10, height: 3)
     _ = list.keyDown(KeyInput(key: .end))          // scrollOffset 7
-    _ = list.mouseEvent(MouseInput(position: Point(x: 0, y: 1), action: .press, button: .left))
 
+    // The settled single click (count 1) selects — the raw press does not.
+    _ = list.mouseEvent(MouseInput(position: Point(x: 0, y: 1), action: .press, button: .left))
+    #expect(list.selectedIndex == 9, "the press alone doesn't move the selection")
+
+    _ = list.mouseEvent(MouseInput(position: Point(x: 0, y: 1), action: .click, button: .left))
     #expect(list.selectedIndex == 8, "clicked row = scroll offset + click row")
+}
+
+@Test @MainActor func listDoubleClickActivatesTheRow() {
+    let list = makeList(10, height: 3)
+    var selections: [Int?] = []
+    var activated: [Int] = []
+    list.onSelectionChanged = { selections.append($0) }
+    list.onActivate = { activated.append($0) }
+
+    // A raw press selects nothing and does not activate — the click is debounced.
+    _ = list.mouseEvent(MouseInput(position: Point(x: 0, y: 2), action: .press, button: .left))
+    #expect(list.selectedIndex == nil)
+    #expect(activated.isEmpty)
+
+    // A settled single click (count 1) selects, without activating.
+    _ = list.mouseEvent(MouseInput(position: Point(x: 0, y: 2), action: .click, button: .left, clickCount: 1))
+    #expect(list.selectedIndex == 2)
+    #expect(selections == [2])
+    #expect(activated.isEmpty, "count 1 selects but does not activate")
+
+    // A double-click on ANOTHER row is only the double action: the highlight
+    // moves, the row activates, and the single-click callback stays silent.
+    _ = list.mouseEvent(MouseInput(position: Point(x: 0, y: 1), action: .click, button: .left, clickCount: 2))
+    #expect(list.selectedIndex == 1, "the highlight follows the double-click")
+    #expect(activated == [1])
+    #expect(selections == [2], "a double never fires the single-click callback")
 }
 
 @Test @MainActor func listWheelScrollsWithoutMovingSelection() {

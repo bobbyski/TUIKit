@@ -59,28 +59,53 @@ diagrammed in [`ControlsUML.md`](ControlsUML.md).
 
 ## Current State
 
-Phases 1–3 are in place: geometry (`Point`/`Size`/`Rect`), the cell model
-(`TerminalCell`/`CellStyle`/`TerminalColor`/`CellFlags`), `CellBuffer`,
-`TerminalDriver` with both `ANSIDriver` (raw mode, SGR mouse, async input)
-and `HeadlessDriver`, the pure `ANSIInputDecoder` and `ANSIEncoder`, and the
-view system — `TUIView`, `Painter` (mechanical clipping + local coordinates),
-and `SceneRenderer` (dirty-gated frames). Phase 4 added the interaction
-layer: the `TUIView` responder surface (typed key/mouse handlers, focus hooks),
-`Window` as the focus scope (first responder, Tab order, hot → focused →
-Tab → cold key routing, hit-tested mouse delivery in local coordinates), and
-`App` — the window stack and the pure-suspension run loop with graceful
-`stop()`. Phase 5 added layout: size preferences
-(`intrinsicContentSize`/min/max) with a proper layout pass
-(`setNeedsLayout`/`layoutIfNeeded`, run by the renderer before drawing),
-`AnchorSet` edge/center pinning applied by the default `layoutSubviews`,
-`HStack`/`VStack` with flexible-space distribution, and `GridView` with
-fixed/fit/flexible tracks and spans. Phase 6 is underway: Label, Button,
-TextField, Checkbox, RadioGroup, and ListView are in, each owning its
-interaction state and emitting semantic events; `RowNavigationState` is the
-pure selection/scrolling core that TableView and TreeView will reuse.
-`swift run TUIKitDemo --interactive` is a live form exercising all of them;
-`--events` keeps the raw driver viewer. Next: the remaining Phase 6
-controls (ScrollView, Window chrome, MenuBar, Dialog, TableView, ...).
+The foundation phases (1–5) are complete: geometry (`Point`/`Size`/`Rect`),
+the cell model (`TerminalCell`/`CellStyle`/`TerminalColor`/`CellFlags`),
+`CellBuffer`, `TerminalDriver` with both `ANSIDriver` (raw mode, SGR mouse,
+async input) and `HeadlessDriver`, the pure `ANSIInputDecoder`/`ANSIEncoder`,
+the view system (`TUIView`, `Painter`, `SceneRenderer` with dirty-gated
+frames), the responder/focus layer (`Window` scopes, hot → focused → Tab →
+cold key routing, hit-tested mouse delivery), `App`'s pure-suspension run
+loop, and the layout pass (`intrinsicContentSize`/min/max, `AnchorSet`,
+`HStack`/`VStack`, `GridView`).
+
+The control set (Phases 6/6B) has shipped: Label, Button (roles, drop-shadow
+press animation), TextField, TextView, SyntaxTextView, Checkbox,
+ToggleButton, RadioGroup, SegmentedControl, Slider, Stepper, LevelIndicator,
+ProgressIndicator, ListView, TableView, TreeView, DirectoryTree, Browser
+(Miller columns), ScrollView, SplitView, TabView (closable tabs), Panel,
+FloatingWindow (move/resize/maximize), Dialog/FileDialog, MenuBar (+ context
+menus), StatusBar, Toolbar, ComboBox, PopUpButton, DatePicker/CalendarView,
+ColorPicker, PathControl, DisclosureGroup, RichText, MarkdownView.
+`RowNavigationState` is the shared selection/scrolling core.
+
+On top of the controls sit four newer systems, each with its own doc:
+
+- **Theming** — a *slot × context* matrix (`Theme` = complete `base`
+  `ThemePalette` + sparse per-context overlays), resolved per view through
+  `themeContext` into a flat `ResolvedTheme`; Codable so themes ship as
+  JSON. Includes the Turbo/Borland fidelity work: `&`-marker accelerators,
+  themeable field wells, button pills/shadows, and border-embedded
+  scrollbars (`BorderScrollable` + `Panel.embedScrollbars`). See
+  [`Themes.md`](Themes.md).
+- **Stylesheets** — CSS-like `StyleSheet`s layer *on top of* the resolved
+  theme by selector specificity; disabling is `styleSheet = nil`. See
+  [`StyleSheets.md`](StyleSheets.md).
+- **TUIBuilder** — the declarative layer: `Component` + result builders,
+  container components (`Form`, `Grid`, tabs), and chainable modifiers,
+  producing the same `TUIView` tree as manual code. See
+  [`TUIBuilder.md`](TUIBuilder.md).
+- **Data binding** — non-reactive data in/out: `ValueControl`, dotted-path
+  names, bulk `formValues()`/`applyValues()`, typed `Binding`/`@Bound` with
+  `load()`/`save()` and optional live push. See
+  [`DataBinding.md`](DataBinding.md).
+
+Input has multi-click detection: `App` debounces press/release pairs into a
+`.click` event carrying `clickCount` (single-select vs double-activate never
+fire together). `swift run TUIKitDemo --interactive` is the living gallery —
+a desktop shell with menus, themed windows, and one factory per subsystem;
+`--events` keeps the raw driver viewer. Remaining in Phase 8: minimize
+(8.10–8.12) and the headless demo exit test (8.2).
 
 ## Run Loop & Timers
 
@@ -105,7 +130,8 @@ TUIKit pairs with [RichSwift](https://github.com/bobbyski/RichSwift) the way
 Textual pairs with Rich: RichSwift owns rich content rendering (markup,
 tables, panels, markdown, syntax highlighting via `RichRenderable`/`Style`/
 `Segment`), TUIKit owns interactivity, layout, focus, and compositing. The
-planned `RichText` view renders RichSwift segments into `CellBuffer` cells,
+`RichText` view renders RichSwift segments into `CellBuffer` cells (with
+`MarkdownView` and `SyntaxTextView` as the markdown/code specializations),
 making every RichSwift renderable available inside TUIKit apps. Both
 libraries are ours, so improvements flow upstream instead of being worked
 around. See the RichSwift Integration section of `../PLAN.md`.

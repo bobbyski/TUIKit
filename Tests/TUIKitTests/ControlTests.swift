@@ -53,6 +53,96 @@ private func press(_ character: Character) -> KeyInput {
     #expect(renderedLines(button, size: Size(width: 6, height: 1)) == ["[ OK ]"])
 }
 
+@Test @MainActor func ordinaryButtonsRestOnTheThemeButtonSlot() {
+    func cell(_ theme: Theme, context: ThemeContext?) -> CellStyle {
+        let button = Button("Reset")   // no mnemonic, so no accelerator overlay
+        let window = Window(frame: Rect(x: 0, y: 0, width: 8, height: 1))
+        window.theme = theme
+        window.themeContext = context
+        button.frame = window.bounds
+        window.addSubview(button)
+        // Column 1 is the 'R' inside " Reset ".
+        return SceneRenderer(root: window).render(size: Size(width: 8, height: 1))[Point(x: 1, y: 0)].style
+    }
+
+    // Turbo gives ordinary buttons a distinct dark-gray pill with white text,
+    // so Reset reads as a button, not a low-contrast label.
+    let turbo = cell(.turbo, context: .secondaryWindows)
+    #expect(turbo.foreground == .rgb(red: 255, green: 255, blue: 255))
+    #expect(turbo.background == .rgb(red: 85, green: 85, blue: 85))
+
+    // Surface themes keep the minimal look: accent text on the window's own
+    // background (an invisible pill), unchanged from before.
+    let ocean = cell(.ocean, context: nil)
+    #expect(ocean.foreground == .rgb(red: 126, green: 190, blue: 255))
+    #expect(ocean.background == .rgb(red: 34, green: 79, blue: 188), "fill is the window surface")
+}
+
+@Test @MainActor func defaultAndDestructiveButtonsFillFromTheirThemeSlots() {
+    func fill(_ role: Button.Role) -> CellStyle {
+        let button = Button("OK")
+        button.role = role
+        let window = Window(frame: Rect(x: 0, y: 0, width: 4, height: 1))
+        window.theme = .turbo
+        button.frame = window.bounds
+        window.addSubview(button)
+        // Column 1 is inside the " OK " pill, past the leading pad.
+        return SceneRenderer(root: window).render(size: Size(width: 4, height: 1))[Point(x: 1, y: 0)].style
+    }
+
+    // Turbo: default is a solid green pill, destructive a solid red one.
+    let def = fill(.default)
+    #expect(def.background == .rgb(red: 0, green: 170, blue: 0))
+    #expect(def.foreground == .rgb(red: 255, green: 255, blue: 255))
+
+    let bad = fill(.destructive)
+    #expect(bad.background == .rgb(red: 170, green: 0, blue: 0))
+    #expect(bad.foreground == .rgb(red: 255, green: 255, blue: 255))
+}
+
+@Test @MainActor func turboButtonsCastADropShadowAndPressOntoIt() {
+    let black = TerminalColor.rgb(red: 0, green: 0, blue: 0)
+    let green = TerminalColor.rgb(red: 0, green: 170, blue: 0)
+
+    let button = Button("OK")
+    button.role = .default
+    let window = Window(frame: Rect(x: 0, y: 0, width: 8, height: 3))
+    window.theme = .turbo
+    window.addSubview(button)
+
+    // Under Turbo the intrinsic grows one column and one row for the shadow.
+    #expect(button.intrinsicContentSize == Size(width: 5, height: 2))
+    button.frame = Rect(x: 0, y: 0, width: 5, height: 2)
+
+    let renderer = SceneRenderer(root: window)
+    var buffer = renderer.render(size: Size(width: 8, height: 3))
+
+    // At rest: the face on row 0, the shadow below it shifted one right —
+    // below only, never on the face's own row (the Borland look).
+    #expect(buffer[Point(x: 1, y: 0)].style.background == green, "face")
+    #expect(buffer[Point(x: 4, y: 0)].style.background != black, "no shadow beside the face")
+    #expect(buffer[Point(x: 2, y: 1)].style.background == black, "shadow under the face")
+    #expect(buffer[Point(x: 4, y: 1)].style.background == black, "shadow overhangs one right")
+    #expect(buffer[Point(x: 0, y: 1)].style.background != black, "shadow is shifted, not a full row")
+
+    // Pressing animates the face ONTO the shadow position; the shadow hides
+    // and the face keeps its color (the motion is the cue, no inverse).
+    _ = button.mouseEvent(MouseInput(position: Point(x: 1, y: 0), action: .press, button: .left))
+    buffer = renderer.render(size: Size(width: 8, height: 3))
+    #expect(buffer[Point(x: 2, y: 1)].style.background == green, "face pressed down onto the shadow")
+    #expect(buffer[Point(x: 1, y: 0)].style.background != green, "old face position vacated")
+
+    // Release pops it back.
+    _ = button.mouseEvent(MouseInput(position: Point(x: 1, y: 0), action: .release, button: .left))
+    buffer = renderer.render(size: Size(width: 8, height: 3))
+    #expect(buffer[Point(x: 1, y: 0)].style.background == green)
+    #expect(buffer[Point(x: 2, y: 1)].style.background == black)
+
+    // Themes without a shadow color are untouched: flat one-row buttons.
+    window.theme = .ocean
+    #expect(button.intrinsicContentSize == Size(width: 4, height: 1), "no shadow slot → no extra cells")
+}
+
 @Test @MainActor func buttonActivatesOnEnterSpaceAndClickRelease() {
     var activations = 0
     let button = Button("Go") { activations += 1 }
@@ -121,6 +211,27 @@ private func press(_ character: Character) -> KeyInput {
 
     let focusedLines = renderedLines(field, size: Size(width: 6, height: 1), focused: true)
     #expect(focusedLines == ["      "], "focused empty field shows no placeholder")
+}
+
+@Test @MainActor func textFieldWellUsesTheThemeFieldSlot() {
+    // Standard: underline marks the well, no color.
+    let plain = TextField(text: "hi")
+    let w1 = Window(frame: Rect(x: 0, y: 0, width: 6, height: 1))
+    plain.frame = w1.bounds
+    w1.addSubview(plain)
+    let a = SceneRenderer(root: w1).render(size: Size(width: 6, height: 1))[Point(x: 0, y: 0)].style
+    #expect(a.flags.contains(.underline))
+
+    // Turbo: a solid blue well with yellow text, no underline.
+    let turbo = TextField(text: "hi")
+    let w2 = Window(frame: Rect(x: 0, y: 0, width: 6, height: 1))
+    w2.theme = .turbo
+    turbo.frame = w2.bounds
+    w2.addSubview(turbo)
+    let b = SceneRenderer(root: w2).render(size: Size(width: 6, height: 1))[Point(x: 0, y: 0)].style
+    #expect(b.background == .rgb(red: 0, green: 0, blue: 170), "blue field well")
+    #expect(b.foreground == .rgb(red: 255, green: 255, blue: 85), "yellow field text")
+    #expect(!b.flags.contains(.underline), "the color is the cue in Turbo, not an underline")
 }
 
 @Test @MainActor func textFieldScrollsLongText() {

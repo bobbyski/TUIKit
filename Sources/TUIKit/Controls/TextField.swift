@@ -73,17 +73,21 @@ public final class TextField: TUIView {
             return
         }
 
+        // The editable "well" comes from the theme's field slot: an underline in
+        // `standard`, a solid colored background in themes like Turbo.
+        let field = effectiveTheme.field
+
         if text.isEmpty, !placeholder.isEmpty, !isFirstResponder {
-            // Placeholder state: de-emphasize the whole line, not just the text.
-            var dim = effectiveTheme.placeholder
-            dim.flags.insert(.underline)
+            // Placeholder state: de-emphasized text on the field well.
+            var dim = field
+            dim.foreground = effectiveTheme.placeholder.foreground
+            dim.flags.insert(.dim)
             painter.write(String(repeating: " ", count: width), at: .zero, style: dim)
             painter.write(Label.truncated(placeholder, width: width), at: .zero, style: dim)
             return
         }
 
-        // Underline marks the editable area.
-        painter.write(String(repeating: " ", count: width), at: .zero, style: CellStyle(flags: .underline))
+        painter.write(String(repeating: " ", count: width), at: .zero, style: field)
 
         adjustScroll(width: width)
 
@@ -92,7 +96,7 @@ public final class TextField: TUIView {
 
         if scrollOffset < visibleEnd {
             let visible = String(characters[scrollOffset..<visibleEnd])
-            painter.write(visible, at: .zero, style: CellStyle(flags: .underline))
+            painter.write(visible, at: .zero, style: field)
         }
 
         if isFirstResponder {
@@ -105,8 +109,10 @@ public final class TextField: TUIView {
                 underCursor = " "
             }
 
+            var cursorStyle = field
+            cursorStyle.flags.insert(.inverse)
             painter.set(
-                TerminalCell(character: underCursor, style: CellStyle(flags: [.inverse, .underline])),
+                TerminalCell(character: underCursor, style: cursorStyle),
                 at: Point(x: cursorColumn, y: 0)
             )
         }

@@ -96,7 +96,7 @@ import Testing
 
     #expect(list.effectiveTheme.selection.background == .rgb(red: 0xaa, green: 0x55, blue: 0))
     #expect(
-        list.effectiveTheme.base == TUIKit.Theme.ocean.base,
+        list.effectiveTheme.base == TUIKit.Theme.ocean.resolved().base,
         "the inherited theme survives underneath the sheet"
     )
 
@@ -138,7 +138,7 @@ import Testing
 
 @Test @MainActor func borderStyleWorksDirectlyOnThemes() {
     var theme = TUIKit.Theme.standard
-    theme.borderStyle = .rounded
+    theme.base.borderStyle = .rounded
 
     let window = Window(frame: Rect(x: 0, y: 0, width: 12, height: 4))
     window.theme = theme
@@ -154,6 +154,27 @@ import Testing
     #expect(lines[3].hasSuffix("╯"))
 }
 
+@Test @MainActor func stylesheetTogglesOnAndOffOverAChosenTheme() {
+    // 8.15: CSS is an on-top layer, orthogonal to the theme. Toggling it off is
+    // just `styleSheet = nil`, and the theme underneath is never touched.
+    let window = Window(frame: Rect(x: 0, y: 0, width: 8, height: 2))
+    window.theme = .ocean
+
+    let label = Label("hi")
+    window.addSubview(label)
+
+    #expect(label.effectiveTheme.background == Theme.ocean.resolved().background, "CSS off → the pure theme")
+
+    // CSS on → overrides just the background; other slots keep the theme.
+    window.styleSheet = StyleSheet("Label { background: #112233; }")
+    #expect(label.effectiveTheme.background == .rgb(red: 0x11, green: 0x22, blue: 0x33))
+    #expect(label.effectiveTheme.accent == Theme.ocean.resolved().accent, "unset slots stay the theme's")
+
+    // Toggle off (= nil) → back to the theme exactly.
+    window.styleSheet = nil
+    #expect(label.effectiveTheme.background == Theme.ocean.resolved().background)
+}
+
 @Test @MainActor func withoutSheetsEverythingIsUnchanged() {
     let window = Window(frame: Rect(x: 0, y: 0, width: 8, height: 2))
     window.theme = .homebrew
@@ -162,7 +183,7 @@ import Testing
     label.frame = Rect(x: 0, y: 0, width: 4, height: 1)
     window.addSubview(label)
 
-    #expect(label.effectiveTheme == .homebrew, "no sheets → exactly the inherited theme")
+    #expect(label.effectiveTheme == Theme.homebrew.resolved(), "no sheets → exactly the inherited theme")
     #expect(label.identifier == nil)
     #expect(label.styleClasses.isEmpty)
     #expect(label.styleSheet == nil)

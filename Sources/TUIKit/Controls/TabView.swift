@@ -136,6 +136,14 @@ public final class TabView: TUIView {
         tabs.indices.contains(index) ? tabs[index].title : nil
     }
 
+    /// Content view of a tab.
+    ///
+    /// - Parameter index: Tab index.
+    /// - Returns: The content view, or `nil` when out of range.
+    public func content(at index: Int) -> TUIView? {
+        tabs.indices.contains(index) ? tabs[index].content : nil
+    }
+
     /// Selects a tab, showing its content and hiding the others.
     ///
     /// - Parameters:

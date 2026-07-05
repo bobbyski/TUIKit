@@ -85,6 +85,12 @@ public struct MouseInput: Hashable, Sendable {
         /// The pointer moved with a button held.
         case drag
 
+        /// A completed click gesture (press + release at the same spot),
+        /// delivered once the multi-click guard settles — see `clickCount`.
+        /// Low-level `press`/`release` still fire immediately and unchanged;
+        /// this is the debounced semantic event that tells single from double.
+        case click
+
         /// The pointer moved with no button held.
         case move
 
@@ -122,6 +128,11 @@ public struct MouseInput: Hashable, Sendable {
     /// Modifiers active for the event.
     public var modifiers: KeyModifiers
 
+    /// How many clicks this gesture is part of, capped at 3. Only meaningful on
+    /// `.click` events: `1` single, `2` double, `3` triple. Other actions leave
+    /// it at `1`.
+    public var clickCount: Int
+
     /// Creates a mouse event.
     ///
     /// - Parameters:
@@ -129,16 +140,19 @@ public struct MouseInput: Hashable, Sendable {
     ///   - action: What the mouse did.
     ///   - button: Button involved.
     ///   - modifiers: Modifiers active for the event.
+    ///   - clickCount: Clicks in this gesture (`.click` only); defaults to `1`.
     public init(
         position: Point,
         action: Action,
         button: Button = .none,
-        modifiers: KeyModifiers = []
+        modifiers: KeyModifiers = [],
+        clickCount: Int = 1
     ) {
         self.position = position
         self.action = action
         self.button = button
         self.modifiers = modifiers
+        self.clickCount = clickCount
     }
 }
 

@@ -139,7 +139,7 @@ public final class SplitView: TUIView {
     /// Draws the divider line, emphasized while focused or dragging.
     public override func draw(_ painter: Painter) {
         let theme = effectiveTheme
-        let characters = theme.borderStyle.characters ?? BorderStyle.single.characters!
+        let characters = theme.dividerStyle.characters ?? BorderStyle.single.characters!
         var style = theme.border
 
         // Focus/drag cue: recolor the line to the accent only — never bold or

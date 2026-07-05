@@ -83,6 +83,30 @@ private struct FakeFileSystem: FileSystemProvider {
     #expect(selections == ["Fruits", "Veg", "Carrot", "Veg", "Note"])
 }
 
+@Test @MainActor func browserClickSelectsAndDoubleClickActivates() {
+    let source = FakeBrowserSource(
+        root: [BrowserItem("Fruits", isExpandable: true), BrowserItem("Note")],
+        children: ["Fruits": [BrowserItem("Apple")]]
+    )
+    let browser = Browser(dataSource: source, columnWidth: 10)
+    let window = Window(frame: Rect(x: 0, y: 0, width: 32, height: 4))
+    browser.frame = window.bounds
+    window.addSubview(browser)
+
+    var activated: [String] = []
+    browser.onActivate = { activated.append($0.title) }
+
+    // A raw press selects nothing; the settled click does.
+    _ = browser.mouseEvent(MouseInput(position: Point(x: 1, y: 1), action: .press, button: .left))
+    _ = browser.mouseEvent(MouseInput(position: Point(x: 1, y: 1), action: .click, button: .left))
+    #expect(browser.selectedItem?.title == "Note")
+    #expect(activated.isEmpty, "a single click only selects")
+
+    // Double-click activates the row under the pointer.
+    _ = browser.mouseEvent(MouseInput(position: Point(x: 1, y: 1), action: .click, button: .left, clickCount: 2))
+    #expect(activated == ["Note"])
+}
+
 // MARK: - File-system integration
 
 @Test @MainActor func browserBrowsesAFileSystem() {

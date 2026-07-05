@@ -17,8 +17,8 @@ import Testing
     #expect(app.desktop.theme == .homebrew)
     #expect(a.theme == nil)
     #expect(b.theme == nil, "applyTheme clears prior per-window overrides")
-    #expect(a.effectiveTheme == .homebrew)
-    #expect(b.effectiveTheme == .homebrew)
+    #expect(a.effectiveTheme == Theme.homebrew.resolved())
+    #expect(b.effectiveTheme == Theme.homebrew.resolved())
 }
 
 @Test @MainActor func applyThemeLeavesDeepControlOverridesIntact() {
@@ -33,8 +33,8 @@ import Testing
     app.applyTheme(.homebrew)
 
     // The app theme cascades, but a control that pinned its own theme keeps it.
-    #expect(window.effectiveTheme == .homebrew)
-    #expect(pinned.effectiveTheme == .standard, "a per-control override survives an app theme")
+    #expect(window.effectiveTheme == Theme.homebrew.resolved())
+    #expect(pinned.effectiveTheme == Theme.standard.resolved(), "a per-control override survives an app theme")
 }
 
 @Test @MainActor func windowsPresentedAfterApplyThemeInheritIt() {
@@ -44,5 +44,5 @@ import Testing
     let late = Window(frame: Rect(x: 0, y: 0, width: 8, height: 4))
     app.present(late)
 
-    #expect(late.effectiveTheme == .homebrew, "a later window inherits the app theme")
+    #expect(late.effectiveTheme == Theme.homebrew.resolved(), "a later window inherits the app theme")
 }

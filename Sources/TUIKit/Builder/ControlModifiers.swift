@@ -19,6 +19,10 @@ public extension Button {
 
     /// Sets the visual style (tinted vs. bordered).
     @discardableResult func style(_ style: ControlStyle) -> Self { self.style = style; return self }
+
+    /// Sets the semantic role: a `.default`/`.destructive` button fills as a
+    /// pill from its theme slot.
+    @discardableResult func role(_ role: Role) -> Self { self.role = role; return self }
 }
 
 public extension TextField {
