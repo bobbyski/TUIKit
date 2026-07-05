@@ -44,6 +44,11 @@ public final class App {
     /// a double. ~280 ms by default, matching desktop conventions.
     public var multiClickInterval: Duration = .milliseconds(280)
 
+    /// The application clipboard. Cut/copy/paste in editing controls flow
+    /// through here; copies are forwarded to the terminal's system clipboard
+    /// when the driver supports it (OSC 52 on `ANSIDriver`).
+    public let pasteboard = Pasteboard()
+
     /// Presented windows, bottom to top. The last window is key.
     public private(set) var windows: [Window] = []
 
@@ -62,6 +67,13 @@ public final class App {
         self.driver = driver
         self.timerSource = timerSource
         self.renderer = SceneRenderer(root: desktop)
+
+        // Copies flow to the terminal's clipboard, best-effort, off-loop.
+        pasteboard.systemSink = { text in
+            Task {
+                await driver.setClipboard(text)
+            }
+        }
     }
 
     // MARK: - Timers
@@ -172,6 +184,7 @@ public final class App {
             window.frame = desktop.bounds
         }
 
+        window.app = self
         windows.append(window)
         desktop.addSubview(window)
     }

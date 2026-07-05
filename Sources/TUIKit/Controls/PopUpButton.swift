@@ -207,20 +207,6 @@ public final class PopUpButton: TUIView {
         setNeedsDisplay()
     }
 
-    // Nearest ancestor window.
-    private var owningWindow: Window? {
-        var current: TUIView? = self
-
-        while let view = current {
-            if let window = view as? Window {
-                return window
-            }
-
-            current = view.superview
-        }
-
-        return nil
-    }
 }
 
 /// Bordered choice list used by pop-up buttons and combo boxes

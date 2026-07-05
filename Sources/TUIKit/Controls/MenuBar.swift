@@ -390,20 +390,6 @@ public final class MenuBar: TUIView {
         return nil
     }
 
-    // Nearest ancestor window (focus scope).
-    private var owningWindow: Window? {
-        var current: TUIView? = self
-
-        while let view = current {
-            if let window = view as? Window {
-                return window
-            }
-
-            current = view.superview
-        }
-
-        return nil
-    }
 }
 
 /// The open menu's dropdown list (framework-internal).
