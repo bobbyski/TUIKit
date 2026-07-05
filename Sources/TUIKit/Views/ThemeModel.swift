@@ -11,6 +11,7 @@
 extension TerminalColor: Codable {
     // Encoded as a single string: "#RRGGBB", a named color's name, "standard",
     // or "palette:N".
+    /// Decodes from the theme-file spelling (see the type's Codable notes).
     public init(from decoder: Decoder) throws {
         let string = try decoder.singleValueContainer().decode(String.self)
 
@@ -33,6 +34,7 @@ extension TerminalColor: Codable {
         }
     }
 
+    /// Encodes as the theme-file spelling.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(themeString)
@@ -69,6 +71,7 @@ extension CellFlags: Codable {
         (.underline, "underline"), (.inverse, "inverse"), (.strikethrough, "strikethrough"),
     ]
 
+    /// Decodes from an array of flag names.
     public init(from decoder: Decoder) throws {
         let raw = try decoder.singleValueContainer().decode([String].self)
         var flags: CellFlags = []
@@ -82,6 +85,7 @@ extension CellFlags: Codable {
         self = flags
     }
 
+    /// Encodes as an array of flag names.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(Self.names.filter { contains($0.flag) }.map(\.name))
@@ -89,6 +93,7 @@ extension CellFlags: Codable {
 }
 
 extension BorderStyle: Codable {
+    /// Decodes from the style's raw-value name.
     public init(from decoder: Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)
 
@@ -102,6 +107,7 @@ extension BorderStyle: Codable {
         self = value
     }
 
+    /// Encodes as the style's raw-value name.
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         try container.encode(rawValue)
@@ -137,50 +143,84 @@ public enum DividerConnection: String, Codable, Hashable, Sendable, CaseIterable
 /// descriptive keys make it a clean JSON object; missing keys decode to `nil`
 /// and `nil` fields are omitted on encode.
 public struct ThemePalette: Codable, Hashable, Sendable {
+    /// Body text color.
     public var foreground: TerminalColor?
+    /// Window/panel background.
     public var background: TerminalColor?
+    /// Attributes for ordinary text.
     public var baseAttributes: CellFlags?
 
+    /// Accent color.
     public var accent: TerminalColor?
+    /// Warning accent color.
     public var warningAccent: TerminalColor?
+    /// Error accent color.
     public var errorAccent: TerminalColor?
 
+    /// Mnemonic (accelerator) letter color.
     public var acceleratorColor: TerminalColor?
+    /// Mnemonic (accelerator) letter attributes.
     public var acceleratorAttributes: CellFlags?
 
+    /// Selected-row text color.
     public var selectionForeground: TerminalColor?
+    /// Selected-row background.
     public var selectionBackground: TerminalColor?
+    /// Selected-row attributes.
     public var selectionAttributes: CellFlags?
 
+    /// Header text color.
     public var headerForeground: TerminalColor?
+    /// Header background.
     public var headerBackground: TerminalColor?
+    /// Header attributes.
     public var headerAttributes: CellFlags?
 
+    /// Border line color.
     public var borderForeground: TerminalColor?
+    /// Border background.
     public var borderBackground: TerminalColor?
+    /// Frame style for window/panel borders.
     public var borderStyle: BorderStyle?
+    /// Style for interior dividers and separators.
     public var dividerStyle: BorderStyle?
+    /// Whether dividers weld into borders.
     public var dividerConnection: DividerConnection?
 
+    /// Scrollbar thumb color.
     public var scrollbarThumb: TerminalColor?
+    /// Scrollbar track color.
     public var scrollbarTrack: TerminalColor?
 
+    /// Placeholder text color.
     public var placeholderForeground: TerminalColor?
+    /// Placeholder background.
     public var placeholderBackground: TerminalColor?
+    /// Placeholder attributes.
     public var placeholderAttributes: CellFlags?
 
+    /// Editable-field text color.
     public var fieldForeground: TerminalColor?
+    /// Editable-field background.
     public var fieldBackground: TerminalColor?
+    /// Editable-field attributes.
     public var fieldAttributes: CellFlags?
 
+    /// Ordinary button text color.
     public var buttonForeground: TerminalColor?
+    /// Ordinary button fill.
     public var buttonBackground: TerminalColor?
+    /// Button drop-shadow color.
     public var buttonShadowColor: TerminalColor?
 
+    /// Default button text color.
     public var defaultButtonForeground: TerminalColor?
+    /// Default button fill.
     public var defaultButtonBackground: TerminalColor?
 
+    /// Destructive button text color.
     public var destructiveButtonForeground: TerminalColor?
+    /// Destructive button fill.
     public var destructiveButtonBackground: TerminalColor?
 
     /// An empty palette (everything inherits).
@@ -193,12 +233,18 @@ public struct ThemePalette: Codable, Hashable, Sendable {
 /// read the CellStyle conveniences (`.selection`, `.header`, …); CSS layers on
 /// top by writing the flat stored properties.
 public struct ResolvedTheme: Hashable, Sendable {
+    /// Body text color.
     public var foreground: TerminalColor
+    /// Window/panel background.
     public var background: TerminalColor
+    /// Attributes for ordinary text.
     public var baseAttributes: CellFlags
 
+    /// Accent color.
     public var accent: TerminalColor
+    /// Warning accent color.
     public var warningAccent: TerminalColor
+    /// Error accent color.
     public var errorAccent: TerminalColor
 
     /// The mnemonic (accelerator) letter's color — red in Turbo. Overlaid on
@@ -207,15 +253,23 @@ public struct ResolvedTheme: Hashable, Sendable {
     /// Attributes for the mnemonic letter (e.g. `.underline` on colorless themes).
     public var acceleratorAttributes: CellFlags
 
+    /// Selected-row text color.
     public var selectionForeground: TerminalColor
+    /// Selected-row background.
     public var selectionBackground: TerminalColor
+    /// Selected-row attributes.
     public var selectionAttributes: CellFlags
 
+    /// Header text color.
     public var headerForeground: TerminalColor
+    /// Header background.
     public var headerBackground: TerminalColor
+    /// Header attributes.
     public var headerAttributes: CellFlags
 
+    /// Border line color.
     public var borderForeground: TerminalColor
+    /// Border background.
     public var borderBackground: TerminalColor
     /// Box-drawing style for window/panel *frames*.
     public var borderStyle: BorderStyle
@@ -225,21 +279,30 @@ public struct ResolvedTheme: Hashable, Sendable {
     /// Whether dividers weld into borders/each other with junctions.
     public var dividerConnection: DividerConnection
 
+    /// Scrollbar thumb color.
     public var scrollbarThumb: TerminalColor
+    /// Scrollbar track color.
     public var scrollbarTrack: TerminalColor
 
+    /// Placeholder text color.
     public var placeholderForeground: TerminalColor
+    /// Placeholder background.
     public var placeholderBackground: TerminalColor
+    /// Placeholder attributes.
     public var placeholderAttributes: CellFlags
 
+    /// Editable-field text color.
     public var fieldForeground: TerminalColor
+    /// Editable-field background.
     public var fieldBackground: TerminalColor
+    /// Editable-field attributes.
     public var fieldAttributes: CellFlags
 
     /// The resting fill for an ordinary (non-default) button. Themes that want
     /// the minimal "accent text" look set the background to the window's own,
     /// so the pill is invisible; a theme like Turbo gives it a distinct fill.
     public var buttonForeground: TerminalColor
+    /// Ordinary button fill.
     public var buttonBackground: TerminalColor
 
     /// Drop-shadow color for buttons — `.standard` (the default) means no
@@ -247,10 +310,14 @@ public struct ResolvedTheme: Hashable, Sendable {
     /// right and one row below, and pressing animates the face onto it.
     public var buttonShadowColor: TerminalColor
 
+    /// Default button text color.
     public var defaultButtonForeground: TerminalColor
+    /// Default button fill.
     public var defaultButtonBackground: TerminalColor
 
+    /// Destructive button text color.
     public var destructiveButtonForeground: TerminalColor
+    /// Destructive button fill.
     public var destructiveButtonBackground: TerminalColor
 
     // MARK: CellStyle conveniences (derived, read-only)
@@ -329,14 +396,22 @@ public struct ResolvedTheme: Hashable, Sendable {
 /// A named theme: a complete `base` palette plus optional per-context overlays.
 /// Codable, so themes ship and load as JSON.
 public struct Theme: Codable, Hashable, Sendable {
+    /// The theme's display name.
     public var name: String
+    /// The complete base palette every context falls back to.
     public var base: ThemePalette
+    /// Overlay for the desktop context.
     public var desktop: ThemePalette?
+    /// Overlay for the content-window context.
     public var contentWindow: ThemePalette?
+    /// Overlay for secondary windows.
     public var secondaryWindows: ThemePalette?
+    /// Overlay for modal windows.
     public var modalWindows: ThemePalette?
+    /// Overlay for accessory views.
     public var accessoryView: ThemePalette?
 
+    /// Creates a theme from a base palette and optional per-context overlays.
     public init(
         name: String,
         base: ThemePalette,

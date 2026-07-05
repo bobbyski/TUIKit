@@ -79,113 +79,153 @@ enum Coerce {
 // MARK: - String controls
 
 extension TextField: ValueControl {
+    /// The field's text.
     public func anyValue() -> Any { text }
+    /// Sets the text silently, coercing stringly values.
     public func setAnyValue(_ value: Any) throws { setText(try Coerce.string(value)) }
 }
 
 extension ComboBox: ValueControl {
+    /// The combo box's text.
     public func anyValue() -> Any { text }
+    /// Sets the text silently, coercing stringly values.
     public func setAnyValue(_ value: Any) throws { setText(try Coerce.string(value)) }
 }
 
 extension SyntaxTextView: ValueControl {
+    /// The editor's text.
     public func anyValue() -> Any { text }
+    /// Sets the text silently, coercing stringly values.
     public func setAnyValue(_ value: Any) throws { setText(try Coerce.string(value)) }
 }
 
 extension TextView: ValueControl {
+    /// The text view's text.
     public func anyValue() -> Any { text }
+    /// Sets the text silently, coercing stringly values.
     public func setAnyValue(_ value: Any) throws { setText(try Coerce.string(value)) }
 }
 
 extension PathControl: ValueControl {
+    /// The control's path.
     public func anyValue() -> Any { path }
+    /// Sets the path silently, coercing stringly values.
     public func setAnyValue(_ value: Any) throws { setPath(try Coerce.string(value)) }
 }
 
 extension Label: ValueControl {
+    /// The label's text.
     public func anyValue() -> Any { text }
+    /// Sets the text, coercing stringly values.
     public func setAnyValue(_ value: Any) throws { text = try Coerce.string(value) }
 }
 
 // MARK: - Bool controls
 
 extension Checkbox: ValueControl {
+    /// The checked state.
     public func anyValue() -> Any { isChecked }
+    /// Sets the checked state silently, coercing `Bool`-ish values.
     public func setAnyValue(_ value: Any) throws { setChecked(try Coerce.bool(value)) }
 }
 
 extension ToggleButton: ValueControl {
+    /// The on state.
     public func anyValue() -> Any { isOn }
+    /// Sets the on state silently, coercing `Bool`-ish values.
     public func setAnyValue(_ value: Any) throws { setOn(try Coerce.bool(value)) }
 }
 
 // MARK: - Int controls
 
 extension Slider: ValueControl {
+    /// The slider's value.
     public func anyValue() -> Any { value }
+    /// Sets the value silently, coercing numeric values.
     public func setAnyValue(_ value: Any) throws { setValue(try Coerce.int(value)) }
 }
 
 extension Stepper: ValueControl {
+    /// The stepper's value.
     public func anyValue() -> Any { value }
+    /// Sets the value silently, coercing numeric values.
     public func setAnyValue(_ value: Any) throws { setValue(try Coerce.int(value)) }
 }
 
 extension LevelIndicator: ValueControl {
+    /// The indicator's value.
     public func anyValue() -> Any { value }
+    /// Sets the value silently, coercing numeric values.
     public func setAnyValue(_ value: Any) throws { setValue(try Coerce.int(value)) }
 }
 
 extension TabView: ValueControl {
+    /// The selected tab index.
     public func anyValue() -> Any { selectedIndex }
+    /// Selects a tab silently, coercing numeric values.
     public func setAnyValue(_ value: Any) throws { select(try Coerce.int(value)) }
 }
 
 // MARK: - Optional-index selection controls
 
 extension SegmentedControl: ValueControl {
+    /// The selected segment index, or `nil`.
     public func anyValue() -> Any { selectedIndex as Any }
+    /// Selects a segment silently; `nil` leaves the selection unchanged.
     public func setAnyValue(_ value: Any) throws {
         if let index = try Coerce.optionalInt(value) { select(index) }
     }
 }
 
 extension RadioGroup: ValueControl {
+    /// The selected button index, or `nil`.
     public func anyValue() -> Any { selectedIndex as Any }
+    /// Selects a button silently; `nil` leaves the selection unchanged.
     public func setAnyValue(_ value: Any) throws {
         if let index = try Coerce.optionalInt(value) { select(index) }
     }
 }
 
 extension PopUpButton: ValueControl {
+    /// The selected item index, or `nil`.
     public func anyValue() -> Any { selectedIndex as Any }
+    /// Selects an item silently; `nil` clears the selection.
     public func setAnyValue(_ value: Any) throws { select(try Coerce.optionalInt(value)) }
 }
 
 extension ListView: ValueControl {
+    /// The selected row index, or `nil`.
     public func anyValue() -> Any { selectedIndex as Any }
+    /// Selects a row silently; `nil` clears the selection.
     public func setAnyValue(_ value: Any) throws { select(try Coerce.optionalInt(value)) }
 }
 
 extension TableView: ValueControl {
+    /// The selected row index, or `nil`.
     public func anyValue() -> Any { selectedIndex as Any }
+    /// Selects a row silently; `nil` clears the selection.
     public func setAnyValue(_ value: Any) throws { select(try Coerce.optionalInt(value)) }
 }
 
 // MARK: - Other typed controls
 
 extension DatePicker: ValueControl {
+    /// The picker's date.
     public func anyValue() -> Any { date }
+    /// Sets the date silently (an exact `Date` is required).
     public func setAnyValue(_ value: Any) throws { setDate(try Coerce.exact(value, as: Date.self)) }
 }
 
 extension ColorPicker: ValueControl {
+    /// The picker's color.
     public func anyValue() -> Any { color }
+    /// Sets the color silently (an exact `TerminalColor` is required).
     public func setAnyValue(_ value: Any) throws { setColor(try Coerce.exact(value, as: TerminalColor.self)) }
 }
 
 extension ProgressIndicator: ValueControl {
+    /// The progress value.
     public func anyValue() -> Any { doubleValue }
+    /// Sets the progress, coercing numeric values.
     public func setAnyValue(_ value: Any) throws { doubleValue = try Coerce.double(value) }
 }

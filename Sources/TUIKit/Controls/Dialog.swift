@@ -20,7 +20,7 @@
 /// focus is on a control that consumes Return (a text field, a list), the
 /// default button still answers Return through the cold-key pass.
 @MainActor
-public class Dialog: Window {
+open class Dialog: Window {
     /// Called after any button's action; wire this to dismissal.
     public var onDismiss: () -> Void = {}
 

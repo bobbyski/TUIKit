@@ -56,6 +56,27 @@ let package = Package(
             name: "TUIKitTests",
             dependencies: ["TUIKit"]
         ),
+        // The tutorial's runnable milestones (Docs/Tutorial/): a library so
+        // the anti-rot tests can render every chapter headlessly. Uses ONLY
+        // public TUIKit API (no @testable) — the tutorial can't quietly rely
+        // on internals.
+        .target(
+            name: "TUIKitTutorialMilestones",
+            dependencies: ["TUIKit"],
+            path: "Tutorial/Milestones"
+        ),
+        // `swift run TUIKitTutorial ch3` runs a chapter's milestone live.
+        .executableTarget(
+            name: "TUIKitTutorial",
+            dependencies: ["TUIKitTutorialMilestones"],
+            path: "Tutorial/Runner"
+        ),
+        // Renders every milestone through the headless driver so a chapter
+        // that drifts from the API fails CI instead of rotting.
+        .testTarget(
+            name: "TUIKitTutorialTests",
+            dependencies: ["TUIKitTutorialMilestones", "TUIKit"]
+        ),
     ],
     swiftLanguageModes: [.v6]
 )

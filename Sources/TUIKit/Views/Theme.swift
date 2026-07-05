@@ -371,16 +371,6 @@ extension Theme {
         return theme
     }()
 
-    /// Linear blend between two colors, when both have known RGB values
-    /// (true color or the 16 named colors); `nil` otherwise.
-    public static func blendColors(
-        _ from: TerminalColor,
-        toward: TerminalColor,
-        fraction: Double
-    ) -> TerminalColor? {
-        TerminalColor.blend(from, toward: toward, fraction: fraction)
-    }
-
     /// Every built-in theme with a display name (demo pickers, settings).
     public static let builtIn: [(name: String, theme: Theme)] = [
         ("Standard", .standard),

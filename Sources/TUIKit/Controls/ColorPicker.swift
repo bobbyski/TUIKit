@@ -296,6 +296,7 @@ final class ColorPreview: TUIView {
 
 /// Human-readable color names ("brightCyan", "palette 42", "rgb(1, 2, 3)").
 extension TerminalColor: CustomStringConvertible {
+    /// The color's display string ("standard", a name, "palette N", or "rgb(r, g, b)").
     public var description: String {
         switch self {
         case .standard:
