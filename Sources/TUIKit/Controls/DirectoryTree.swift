@@ -176,6 +176,69 @@ public final class DirectoryTree: TUIView {
         }
     }
 
+    /// The directories currently expanded, parents before children — the
+    /// session-persistence counterpart of ``expand(path:)``.
+    public var expandedPaths: [String] {
+        var result: [String] = []
+
+        func walk(_ node: TreeNode) {
+            guard node.isExpanded, let path = Self.path(of: node) else {
+                return
+            }
+
+            result.append(path)
+
+            for child in node.children {
+                walk(child)
+            }
+        }
+
+        for root in tree.roots {
+            walk(root)
+        }
+
+        return result
+    }
+
+    /// Expands the directory at a path, expanding ancestors on the way
+    /// (lazy children load as each level opens). Paths outside the tree
+    /// are ignored.
+    ///
+    /// - Parameter path: Absolute directory path.
+    public func expand(path: String) {
+        guard var node = tree.roots.first, let rootValue = Self.path(of: node) else {
+            return
+        }
+
+        let rootPrefix = rootValue.hasSuffix("/") ? rootValue : rootValue + "/"
+
+        guard path == rootValue || path.hasPrefix(rootPrefix) else {
+            return
+        }
+
+        tree.expand(node)
+
+        while let current = Self.path(of: node), current != path {
+            let next = node.children.first { child in
+                guard let childPath = Self.path(of: child) else {
+                    return false
+                }
+
+                return path == childPath || path.hasPrefix(childPath + "/")
+            }
+
+            guard let descendant = next else {
+                return
+            }
+
+            node = descendant
+
+            if let descendantPath = Self.path(of: descendant), directoryPaths.contains(descendantPath) {
+                tree.expand(descendant)
+            }
+        }
+    }
+
     // MARK: - Node building
 
     // Builds the node for one directory entry; directories get a lazy
