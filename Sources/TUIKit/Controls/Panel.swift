@@ -72,6 +72,19 @@ public final class Panel: TUIView {
         }
     }
 
+    /// Border variant to draw, overriding the theme's `borderStyle`.
+    ///
+    /// `nil` (the default) follows the theme — a Turbo double frame, a
+    /// Standard single one. Set it to pin a specific look regardless of
+    /// theme (dialogs use `.single`).
+    public var borderStyleOverride: BorderStyle? {
+        didSet {
+            if borderStyleOverride != oldValue {
+                setNeedsDisplay()
+            }
+        }
+    }
+
     /// Container for application content, inset by the border.
     public let content = TUIView()
 
@@ -138,7 +151,7 @@ public final class Panel: TUIView {
         let theme = effectiveTheme
 
         painter.fill(bounds, with: .blank)
-        painter.drawBox(bounds, style: theme.border, border: theme.borderStyle)
+        painter.drawBox(bounds, style: theme.border, border: borderStyleOverride ?? theme.borderStyle)
 
         let width = bounds.size.width
 
@@ -182,7 +195,7 @@ public final class Panel: TUIView {
 
         // The tee welds the interior line (`dividerStyle` — the nub) into the
         // frame (`borderStyle`), e.g. a single divider into a double frame → ╟.
-        let frame = theme.borderStyle
+        let frame = borderStyleOverride ?? theme.borderStyle
         let nub = theme.dividerStyle
         let contentSize = content.frame.size
 

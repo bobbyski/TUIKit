@@ -79,6 +79,16 @@ public final class Menu {
     public func addSeparator() {
         items.append(.separator())
     }
+
+    /// Removes every item.
+    ///
+    /// The dynamic-menu primitive: menus whose contents track live state
+    /// (open windows, recent files) clear and rebuild before the next open —
+    /// dropdowns read `items` at open time, so a rebuild any time earlier
+    /// just works.
+    public func removeAllItems() {
+        items.removeAll()
+    }
 }
 
 /// Horizontal menu bar with dropdown menus.

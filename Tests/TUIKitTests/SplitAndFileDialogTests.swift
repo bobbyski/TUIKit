@@ -98,34 +98,103 @@ private func makeSplit() -> (SplitView, Window) {
     #expect(split.currentDividerPosition == 6)
 }
 
-// MARK: - FileDialog
+// MARK: - DirectoryList / FileDialog fake disk
 
-// Local in-memory file system (test helpers are file-private).
+// Local in-memory file system (test helpers are file-private). New folders
+// land in `listings` so a subsequent `entries` call sees them.
 private final class DialogFakeFileSystem: FileSystemProvider {
     var listings: [String: [FileSystemEntry]] = [:]
+    var locations: [FileDialog.Location] = []
     private(set) var requests: [String] = []
+    private(set) var created: [String] = []
 
     func entries(at path: String) -> [FileSystemEntry] {
         requests.append(path)
         return listings[path] ?? []
     }
+
+    func createDirectory(at path: String) -> Bool {
+        created.append(path)
+        let parent = DirectoryTree.parent(of: path)
+        let name = DirectoryTree.lastComponent(of: path)
+        listings[parent, default: []].append(FileSystemEntry(name: name, isDirectory: true))
+        listings[path] = []
+        return true
+    }
+
+    func standardLocations() -> [FileDialog.Location] {
+        locations
+    }
 }
 
 @MainActor
-private func makeFileDialog(mode: FileDialog.Mode) -> (FileDialog, DialogFakeFileSystem, [String]) {
+private func makeDisk() -> DialogFakeFileSystem {
     let disk = DialogFakeFileSystem()
     disk.listings["/root"] = [
         FileSystemEntry(name: "a.txt", isDirectory: false),
+        FileSystemEntry(name: "notes.md", isDirectory: false),
+        FileSystemEntry(name: ".hidden", isDirectory: false),
         FileSystemEntry(name: "sub", isDirectory: true),
     ]
-    disk.listings["/root/sub"] = []
-
-    let dialog = FileDialog(mode: mode, root: "/root", fileSystem: disk)
-    return (dialog, disk, [])
+    disk.listings["/root/sub"] = [FileSystemEntry(name: "x.txt", isDirectory: false)]
+    return disk
 }
 
-@Test @MainActor func fileDialogOpenConfirmsTheSelectedFile() {
-    let (dialog, disk, _) = makeFileDialog(mode: .open)
+@MainActor
+private func makeFileDialog(mode: FileDialog.Mode) -> (FileDialog, DialogFakeFileSystem) {
+    let disk = makeDisk()
+    let dialog = FileDialog(mode: mode, root: "/root", fileSystem: disk)
+    return (dialog, disk)
+}
+
+// MARK: - DirectoryList
+
+@Test @MainActor func directoryListOrdersParentDirectoriesThenFiles() {
+    let list = DirectoryList(directory: "/root", fileSystem: makeDisk())
+
+    #expect(list.visibleRows.map(\.path) == ["/", "/root/sub", "/root/a.txt", "/root/notes.md"])
+    #expect(list.visibleRows.first?.isParent == true, "the .. row leads the list")
+    #expect(list.selectedEntry?.path == "/root/sub", "selection lands on the first real entry")
+}
+
+@Test @MainActor func directoryListFiltersFilesButNeverDirectories() {
+    let list = DirectoryList(directory: "/root", fileSystem: makeDisk())
+
+    list.filterPatterns = ["*.md"]
+    #expect(list.visibleRows.map(\.path) == ["/", "/root/sub", "/root/notes.md"], "a.txt is filtered out; sub stays")
+}
+
+@Test @MainActor func directoryListHidesDotFilesUntilAsked() {
+    let list = DirectoryList(directory: "/root", fileSystem: makeDisk())
+
+    #expect(!list.visibleRows.contains { $0.path == "/root/.hidden" })
+
+    list.showsHidden = true
+    #expect(list.visibleRows.contains { $0.path == "/root/.hidden" })
+}
+
+@Test @MainActor func directoryListHidesFilesWhenShowsFilesIsOff() {
+    let list = DirectoryList(directory: "/root", fileSystem: makeDisk(), showsFiles: false)
+
+    #expect(list.visibleRows.map(\.path) == ["/", "/root/sub"], "folder-only listing")
+}
+
+@Test @MainActor func directoryListNavigatesIntoAndOutOfDirectories() {
+    let list = DirectoryList(directory: "/root", fileSystem: makeDisk())
+
+    var navigated: [String] = []
+    list.onNavigate = { navigated.append($0) }
+
+    list.setDirectory("/root/sub")
+    #expect(list.directory == "/root/sub")
+    #expect(list.visibleRows.map(\.path) == ["/root", "/root/sub/x.txt"], ".. points back to /root")
+    #expect(navigated == ["/root/sub"])
+}
+
+// MARK: - FileDialog
+
+@Test @MainActor func fileDialogOpenConfirmsTheActivatedFile() {
+    let (dialog, disk) = makeFileDialog(mode: .open)
 
     var confirmed: [String] = []
     var dismissed = 0
@@ -133,11 +202,10 @@ private func makeFileDialog(mode: FileDialog.Mode) -> (FileDialog, DialogFakeFil
     dialog.onDismiss = { dismissed += 1 }
 
     #expect(disk.requests == ["/root"], "the root is listed once, up front")
-    #expect(dialog.chosenPath == "/root", "focus lands on the root row")
+    #expect(dialog.chosenPath == "/root/sub", "selection starts on the first real entry")
 
-    // Rows: root, sub, a.txt — walk to the file and confirm with Return.
-    dialog.route(.key(KeyInput(key: .down)))
-    dialog.route(.key(KeyInput(key: .down)))
+    // Rows: .., sub, a.txt, notes.md — step onto the file and Return opens it.
+    dialog.route(.key(KeyInput(key: .down)))   // a.txt
     #expect(dialog.chosenPath == "/root/a.txt")
 
     dialog.route(.key(KeyInput(key: .enter)))
@@ -145,8 +213,20 @@ private func makeFileDialog(mode: FileDialog.Mode) -> (FileDialog, DialogFakeFil
     #expect(dismissed == 1)
 }
 
+@Test @MainActor func fileDialogActivatingAFolderNavigatesRatherThanConfirms() {
+    let (dialog, _) = makeFileDialog(mode: .open)
+
+    var confirmed: [String] = []
+    dialog.onConfirm = { confirmed.append($0) }
+
+    // Selection starts on "sub"; Return descends into it, no confirm.
+    dialog.route(.key(KeyInput(key: .enter)))
+    #expect(dialog.currentDirectory == "/root/sub")
+    #expect(confirmed.isEmpty)
+}
+
 @Test @MainActor func fileDialogEscCancelsWithoutConfirming() {
-    let (dialog, _, _) = makeFileDialog(mode: .open)
+    let (dialog, _) = makeFileDialog(mode: .open)
 
     var confirmed: [String] = []
     var dismissed = 0
@@ -159,39 +239,92 @@ private func makeFileDialog(mode: FileDialog.Mode) -> (FileDialog, DialogFakeFil
 }
 
 @Test @MainActor func fileDialogSaveJoinsDirectoryAndName() {
-    let (dialog, _, _) = makeFileDialog(mode: .save)
+    let (dialog, _) = makeFileDialog(mode: .save)
 
     dialog.suggestedName = "new.txt"
     #expect(dialog.chosenPath == "/root/new.txt")
 
-    // Selecting a file prefills its name; its parent is the target.
-    dialog.route(.key(KeyInput(key: .down)))   // sub (directory)
-    dialog.route(.key(KeyInput(key: .down)))   // a.txt (file)
+    // Selecting a file prefills its name for overwrite.
+    dialog.route(.key(KeyInput(key: .down)))   // a.txt
     #expect(dialog.suggestedName == "a.txt")
     #expect(dialog.chosenPath == "/root/a.txt")
 
-    // Selecting a folder retargets the directory, keeping the name.
-    dialog.route(.key(KeyInput(key: .up)))
+    // Descending into a folder keeps the name and retargets the directory.
+    dialog.route(.key(KeyInput(key: .up)))     // back to sub
+    dialog.route(.key(KeyInput(key: .enter)))  // into /root/sub
+    #expect(dialog.currentDirectory == "/root/sub")
     #expect(dialog.chosenPath == "/root/sub/a.txt")
 
     var confirmed: [String] = []
     dialog.onConfirm = { confirmed.append($0) }
-    dialog.route(.key(KeyInput(key: .enter)))
+    dialog.buttons.last?.activate()
     #expect(confirmed == ["/root/sub/a.txt"])
 }
 
 @Test @MainActor func fileDialogSelectFolderHidesFilesAndChooses() {
-    let (dialog, _, _) = makeFileDialog(mode: .selectFolder)
+    let (dialog, _) = makeFileDialog(mode: .selectFolder)
 
     #expect(dialog.buttons.last?.title == "Choose")
-
-    // Rows are root and sub only; walking past the end stays on sub.
-    dialog.route(.key(KeyInput(key: .down)))
-    dialog.route(.key(KeyInput(key: .down)))
-    #expect(dialog.chosenPath == "/root/sub", "a.txt is hidden in folder mode")
+    #expect(dialog.chosenPath == "/root/sub", "selection starts on the only folder; files are hidden")
 
     var confirmed: [String] = []
     dialog.onConfirm = { confirmed.append($0) }
-    dialog.route(.key(KeyInput(key: .enter)))
+    dialog.buttons.last?.activate()
     #expect(confirmed == ["/root/sub"])
+}
+
+@Test @MainActor func fileDialogWildcardAndFileTypeFilterTheList() {
+    let disk = makeDisk()
+    let dialog = FileDialog(
+        mode: .open,
+        root: "/root",
+        fileSystem: disk,
+        fileTypes: [.init(title: "Markdown", patterns: ["*.md"])],
+        wildcard: "*.md"
+    )
+
+    // With the wildcard applied, walking the list never reaches a.txt.
+    var seen: Set<String> = []
+
+    for _ in 0..<6 {
+        seen.insert(dialog.chosenPath)
+        dialog.route(.key(KeyInput(key: .down)))
+    }
+
+    #expect(seen.contains("/root/notes.md"))
+    #expect(!seen.contains("/root/a.txt"), "the *.md filter hides a.txt")
+}
+
+@Test @MainActor func fileDialogNewFolderCreatesAndSelects() {
+    let (dialog, disk) = makeFileDialog(mode: .save)
+
+    #expect(dialog.addDirectory(named: "Reports"))
+    #expect(disk.created == ["/root/Reports"])
+    #expect(dialog.currentDirectory == "/root")
+    #expect(dialog.selectedPath == "/root/Reports", "the new folder is selected")
+}
+
+@Test @MainActor func fileDialogCustomConfirmTitleAndKind() {
+    let disk = makeDisk()
+    let dialog = FileDialog(
+        mode: .open,
+        root: "/root",
+        fileSystem: disk,
+        chooses: .directories,
+        confirmTitle: "Import"
+    )
+
+    #expect(dialog.buttons.last?.title == "Import")
+    #expect(dialog.chosenPath == "/root/sub", "directories-only selection")
+}
+
+@Test @MainActor func fileDialogSidebarLocationNavigates() {
+    let disk = makeDisk()
+    disk.locations = [FileDialog.Location(title: "Sub", path: "/root/sub", icon: "S")]
+    let dialog = FileDialog(mode: .open, root: "/root", fileSystem: disk)
+
+    // Focus starts on the file list; step back onto the sidebar and activate.
+    dialog.route(.key(KeyInput(key: .tab, modifiers: .shift)))
+    dialog.route(.key(KeyInput(key: .enter)))
+    #expect(dialog.currentDirectory == "/root/sub")
 }

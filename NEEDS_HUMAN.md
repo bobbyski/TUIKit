@@ -19,7 +19,7 @@ Bobby whenever an entry is added.
 - [ ] Reviewed by human
 - [ ] Human accepted (as-is or with the noted remedy)
 
-### `Sources/TUIKit/Controls/SyntaxTextView.swift` — ~780 lines after Editor v2
+### `Sources/TUIKit/Controls/SyntaxTextView.swift` — 653 CODE lines after Editor v2 (comments excluded)
 - Added: 2026-07-04 — Phase 6C moved the document engine OUT (to
   `TextEditBuffer`, ~470 lines, pure and unit-tested) but added selection
   overlays, clipboard chords, and the find surface, so the view is over the

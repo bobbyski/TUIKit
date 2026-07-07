@@ -39,9 +39,43 @@ open class Dialog: Window {
     /// The button Esc activates.
     public private(set) var cancelButton: Button?
 
+    /// Border variant for the dialog frame.
+    ///
+    /// Defaults to `.single`: dialogs keep a single-line frame regardless of
+    /// the theme's window border (e.g. Turbo's double frame).
+    public var borderStyle: BorderStyle = .single {
+        didSet {
+            panel.borderStyleOverride = borderStyle
+        }
+    }
+
+    /// Whether dragging the title row moves the dialog.
+    public var isMovable = true
+
+    /// Whether dragging the bottom-right corner resizes the dialog.
+    ///
+    /// Off by default (alerts are fixed-size); content-heavy dialogs like
+    /// `FileDialog` turn it on. Enabling it shows the corner resize handle.
+    public var isResizable = false {
+        didSet {
+            panel.showsResizeHandle = isResizable
+        }
+    }
+
+    /// Smallest size a resize drag can reach.
+    public var minimumWindowSize = Size(width: 24, height: 8)
+
     // Chrome and layout: message lines sit tight at the top, a flexible
     // gap absorbs extra height, buttons sit at the bottom right.
     private let panel: Panel
+
+    // In-flight chrome drag (title move or corner resize).
+    private enum ChromeDrag {
+        case move(grab: Point)
+        case resize
+    }
+
+    private var activeDrag: ChromeDrag?
     private let stack = VStack(spacing: 0, insets: EdgeInsets(left: 1, right: 1))
     private let buttonRow = HStack(spacing: 2)
     private let messageLineCount: Int
@@ -61,6 +95,7 @@ open class Dialog: Window {
 
         isModal = true   // dialogs own all input while key
 
+        panel.borderStyleOverride = borderStyle   // single frame by default
         panel.anchors = .fill()
         addSubview(panel)
 
@@ -184,5 +219,67 @@ open class Dialog: Window {
 
         defaultButton.activate()
         return true
+    }
+
+    /// Title-row presses move the dialog; the bottom-right corner resizes it.
+    ///
+    /// Only presses on chrome no control consumed bubble up to here, and the
+    /// window captures the gesture, so a drag tracks even when the pointer
+    /// briefly outruns the frame.
+    open override func mouseEvent(_ mouse: MouseInput) -> Bool {
+        switch mouse.action {
+        case .press where mouse.button == .left:
+            if isResizable,
+               mouse.position.x == bounds.size.width - 1,
+               mouse.position.y == bounds.size.height - 1 {
+                activeDrag = .resize
+                return true
+            }
+
+            if isMovable, mouse.position.y == 0 {
+                activeDrag = .move(grab: mouse.position)
+                return true
+            }
+
+            return false
+
+        case .drag:
+            switch activeDrag {
+            case .move(let grab):
+                let delta = mouse.position - grab
+                frame = Rect(
+                    origin: Point(
+                        x: frame.origin.x + delta.x,
+                        y: max(0, frame.origin.y + delta.y)
+                    ),
+                    size: frame.size
+                )
+                return true
+
+            case .resize:
+                frame = Rect(
+                    origin: frame.origin,
+                    size: Size(
+                        width: max(minimumWindowSize.width, mouse.position.x + 1),
+                        height: max(minimumWindowSize.height, mouse.position.y + 1)
+                    )
+                )
+                return true
+
+            case nil:
+                return false
+            }
+
+        case .release:
+            guard activeDrag != nil else {
+                return false
+            }
+
+            activeDrag = nil
+            return true
+
+        default:
+            return false
+        }
     }
 }

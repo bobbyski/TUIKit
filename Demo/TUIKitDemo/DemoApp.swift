@@ -88,6 +88,10 @@ final class DemoApp {
             self.exampleCount += 1
             app.present(self.makeDemoSource(index: self.exampleCount))
         }
+        fileMenu.addItem("New &File Dialog Demo", keyEquivalent: KeyInput(key: .character("f"), modifiers: .control)) {
+            self.exampleCount += 1
+            app.present(self.makeFileDialogDemo(index: self.exampleCount))
+        }
         fileMenu.addItem("New &CSS Demo") {
             self.exampleCount += 1
             app.present(self.makeStyleTest(index: self.exampleCount))
