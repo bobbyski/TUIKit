@@ -173,9 +173,22 @@ extension DemoApp {
             status.text = "modal dialog open — Esc cancels, Return confirms"
         }
 
+        // Shared filter set for the file dialogs: a Home/Computer/Volumes
+        // sidebar (from the real file system), a Type pop-up, and the wildcard
+        // field all narrow the middle list.
+        let fileTypes = [
+            FileDialog.FileType(title: "Source (*.swift)", patterns: ["*.swift"]),
+            FileDialog.FileType(title: "Text (*.txt, *.md)", patterns: ["*.txt", "*.md"]),
+            FileDialog.FileType(title: "All files (*)", patterns: ["*"]),
+        ]
+
         let open = Button("Open…") {
-            let dialog = FileDialog(mode: .open, root: FileManager.default.currentDirectoryPath)
-            dialog.onConfirm = { status.text = "chose: \($0)" }
+            let dialog = FileDialog(
+                mode: .open,
+                root: FileManager.default.currentDirectoryPath,
+                fileTypes: fileTypes
+            )
+            dialog.onConfirm = { status.text = "opened: \($0)" }
             dialog.onDismiss = { [weak dialog] in
                 if let dialog {
                     app.dismiss(dialog)
@@ -183,11 +196,31 @@ extension DemoApp {
             }
             dialog.sizeToFit(in: app.desktop.bounds.size)
             app.present(dialog)
+            dialog.sizeToFit(in: app.desktop.bounds.size)
+        }
+
+        let save = Button("Save…") {
+            let dialog = FileDialog(
+                mode: .save,
+                root: FileManager.default.currentDirectoryPath,
+                fileTypes: fileTypes
+            )
+            dialog.suggestedName = "Untitled.txt"
+            dialog.onConfirm = { status.text = "save to: \($0)" }
+            dialog.onDismiss = { [weak dialog] in
+                if let dialog {
+                    app.dismiss(dialog)
+                }
+            }
+            dialog.sizeToFit(in: app.desktop.bounds.size)
+            app.present(dialog)
+            dialog.sizeToFit(in: app.desktop.bounds.size)
         }
 
         let buttons = HStack(spacing: 2)
         buttons.addSubview(summary)
         buttons.addSubview(open)
+        buttons.addSubview(save)
         buttons.addSubview(quit)
         buttons.addSubview(TUIView())   // flexible spacer keeps buttons leading
 

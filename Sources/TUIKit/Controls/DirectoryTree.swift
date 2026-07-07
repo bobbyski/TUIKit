@@ -33,6 +33,37 @@ public protocol FileSystemProvider {
     /// - Parameter path: Absolute directory path.
     /// - Returns: The directory's entries, unsorted.
     func entries(at path: String) -> [FileSystemEntry]
+
+    /// Creates a directory, used by `FileDialog`'s New Folder action.
+    ///
+    /// Read-only providers keep the default, which does nothing and reports
+    /// failure, so New Folder simply has no effect against them.
+    ///
+    /// - Parameter path: Absolute path of the directory to create.
+    /// - Returns: Whether the directory now exists.
+    func createDirectory(at path: String) -> Bool
+
+    /// Shortcut locations for a dialog's sidebar (home, the file-system
+    /// root, mounted volumes, …).
+    ///
+    /// Defaults to none, so dialogs over a fake provider show an empty
+    /// sidebar unless the application passes `locations:` to `FileDialog`
+    /// itself — which keeps tests off the real disk (AICoding rule 30).
+    ///
+    /// - Returns: The standard locations, top to bottom.
+    func standardLocations() -> [FileDialog.Location]
+}
+
+public extension FileSystemProvider {
+    /// Read-only by default: New Folder does nothing.
+    func createDirectory(at path: String) -> Bool {
+        false
+    }
+
+    /// No sidebar shortcuts by default.
+    func standardLocations() -> [FileDialog.Location] {
+        []
+    }
 }
 
 /// `FileSystemProvider` backed by the real file system.
@@ -57,6 +88,41 @@ public struct LocalFileSystem: FileSystemProvider {
             manager.fileExists(atPath: entryPath, isDirectory: &isDirectory)
             return FileSystemEntry(name: name, isDirectory: isDirectory.boolValue)
         }
+    }
+
+    /// Creates the directory (and any missing parents) via `FileManager`.
+    ///
+    /// - Parameter path: Absolute path of the directory to create.
+    /// - Returns: Whether the directory now exists.
+    public func createDirectory(at path: String) -> Bool {
+        let manager = FileManager.default
+
+        do {
+            try manager.createDirectory(atPath: path, withIntermediateDirectories: true)
+            return true
+        } catch {
+            var isDirectory: ObjCBool = false
+            return manager.fileExists(atPath: path, isDirectory: &isDirectory) && isDirectory.boolValue
+        }
+    }
+
+    /// Home, the file-system root, and each mounted volume under `/Volumes`.
+    ///
+    /// - Returns: The standard sidebar locations, top to bottom.
+    public func standardLocations() -> [FileDialog.Location] {
+        let icons = FileDialog.Icons.default
+        var locations: [FileDialog.Location] = [
+            FileDialog.Location(title: "Home", path: NSHomeDirectory(), icon: icons.home),
+            FileDialog.Location(title: "Computer", path: "/", icon: icons.root),
+        ]
+
+        for entry in entries(at: "/Volumes") where entry.isDirectory {
+            locations.append(
+                FileDialog.Location(title: entry.name, path: "/Volumes/" + entry.name, icon: icons.volume)
+            )
+        }
+
+        return locations
     }
 }
 

@@ -72,9 +72,20 @@ public final class Checkbox: TUIView {
         onChange(isChecked)
     }
 
-    /// Draws the box and label, inverting the box when focused.
+    /// Draws the box and label. The focus cue recolors the box to the accent
+    /// (bold as a fallback for colorless themes) rather than inverting it, so
+    /// the window background always shows through the box — no dark block.
     public override func draw(_ painter: Painter) {
-        let boxStyle = CellStyle(flags: isFirstResponder ? .inverse : [])
+        var boxStyle = CellStyle()
+
+        if isFirstResponder {
+            boxStyle.flags.insert(.bold)
+
+            if effectiveTheme.accent != .standard {
+                boxStyle.foreground = effectiveTheme.accent
+            }
+        }
+
         let mark = isChecked ? "[x]" : "[ ]"
 
         painter.write(mark, at: .zero, style: boxStyle)
