@@ -19,6 +19,23 @@ public final class SceneRenderer {
     /// Root of the rendered view tree.
     public let root: TUIView
 
+    /// Whether views may emit vector chrome (Phase 10).
+    ///
+    /// `App` turns this on when the driver detected a VTG terminal. Off (the
+    /// default), painters carry no `ChromeSurface` and rendering is exactly
+    /// the pre-chrome cell pipeline.
+    public var chromeEnabled = false {
+        didSet {
+            if chromeEnabled != oldValue {
+                root.setNeedsDisplay()
+            }
+        }
+    }
+
+    /// Vector chrome commands composed by the most recent frame, in draw
+    /// order. Empty while `chromeEnabled` is off.
+    public private(set) var chromeCommands: [ChromeCommand] = []
+
     // Size of the previous frame; a size change forces a render.
     private var lastRenderedSize: Size?
 
@@ -60,7 +77,7 @@ public final class SceneRenderer {
     public func render(size: Size) -> CellBuffer {
         root.layoutIfNeeded()
 
-        let target = RenderTarget(size: size)
+        let target = RenderTarget(size: size, chromeEnabled: chromeEnabled)
         let screen = Rect(origin: .zero, size: size)
         let painter = Painter(
             target: target,
@@ -70,6 +87,7 @@ public final class SceneRenderer {
 
         root.renderTree(with: painter)
         lastRenderedSize = size
+        chromeCommands = target.chrome
 
         return target.buffer
     }

@@ -78,9 +78,33 @@ public protocol TerminalDriver: Sendable {
     ///
     /// - Parameter text: Text to place on the clipboard.
     func setClipboard(_ text: String) async
+
+    /// Whether the terminal can draw vector chrome (Phase 10).
+    ///
+    /// Meaningful only after `begin()` — `ANSIDriver` probes VectorTerminal
+    /// Graphics capabilities during setup. `false` (the default) means the
+    /// app renders cells exactly as it always has; chrome is purely additive
+    /// and no driver is required to support it.
+    var supportsGraphicsChrome: Bool { get async }
+
+    /// Presents one frame of vector chrome alongside the cell buffer.
+    ///
+    /// Called after `present(_:)` with the frame's full command list; the
+    /// driver owns retained-scene reconciliation (updating shapes in place,
+    /// deleting shapes that vanished). The default implementation does
+    /// nothing, matching `supportsGraphicsChrome == false`.
+    ///
+    /// - Parameter commands: The frame's chrome, in draw order.
+    func presentChrome(_ commands: [ChromeCommand]) async
 }
 
 extension TerminalDriver {
     /// Default: no system clipboard; the in-process pasteboard still works.
     public func setClipboard(_ text: String) async {}
+
+    /// Default: no vector chrome; cells are the whole presentation.
+    public var supportsGraphicsChrome: Bool { false }
+
+    /// Default: chrome commands are ignored.
+    public func presentChrome(_ commands: [ChromeCommand]) async {}
 }

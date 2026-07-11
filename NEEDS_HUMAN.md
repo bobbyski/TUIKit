@@ -6,6 +6,33 @@ Bobby whenever an entry is added.
 
 ## Open Entries
 
+### `Package.swift` — platform floor raised macOS 15 → 16 (Phase 10)
+- Added: 2026-07-11 — **Bobby: this changes who can build TUIKit.**
+  `VectorTerminalSDK` (the Phase 10 VTG chrome dependency) declares
+  `.macOS("16.0")`, and SwiftPM refuses a lower-floor dependent, so TUIKit's
+  minimum moved from 15 to 16 to take the dependency at all.
+- Suggested remedy: confirm macOS 16 is acceptable for TUIKit 1.x, or lower
+  VectorTerminalSDK's platform requirement upstream (it's in-house, so
+  cheap to check whether it truly needs 16).
+- [ ] Reviewed by human
+- [ ] Human accepted (as-is or with the noted remedy)
+
+### Phase 10 exit criterion — needs a run inside a real VectorTerminal
+- Added: 2026-07-11 — All VTG chrome behavior is headless-proven
+  (`VTGChromeTests`, 12 green), but nothing has drawn on an actual
+  VectorTerminal yet. Please run `swift run TUIKitDemo --interactive`
+  inside VectorTerminal, pick **Ambiance** from the Theme menu, and
+  eyeball: gradient titlebar with rounded top corners, orange close circle
+  at the LEFT (click it), rounded gradient buttons with an orange focus
+  glow, aubergine gradient desktop, window shadows. Then the same in
+  Terminal.app to confirm the plain-cell fallback (that equivalence is
+  10.8, the phase exit criterion). `TUIKIT_VTG=0` is the escape hatch if
+  the probe misbehaves; plain terminals that never answer APC queries pay
+  the probe timeout (~400 ms) once at startup — worth feeling in
+  Terminal.app to decide whether the budget should shrink.
+- [ ] Reviewed by human
+- [ ] Human accepted (as-is or with the noted remedy)
+
 ### `Demo/TUIKitDemo/Traditional/ManualExample.swift` — 626 lines (~527-line factory)
 - Added: 2026-07-04 — `makeManualExample(index:)` is the demo's kitchen-sink
   *manual* window: it wires every Phase 6 control by hand across several tabs,

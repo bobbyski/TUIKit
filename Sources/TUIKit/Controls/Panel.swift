@@ -88,6 +88,17 @@ public final class Panel: TUIView {
     /// Container for application content, inset by the border.
     public let content = TUIView()
 
+    // Whether this panel is a window's chrome (set by FloatingWindow and
+    // Dialog). Only window chrome wears the Phase 10 vector titlebar —
+    // inner panels (group boxes) keep their cell borders even on a VTG
+    // terminal.
+    var isWindowChrome = false
+
+    // Whether the last draw rendered the vector titlebar, and with which
+    // button side — cached so hit-testing agrees with what is on screen.
+    private var chromeTitleBarActive = false
+    private var chromeButtonsLeading = false
+
     // MARK: - Border-embedded scrollbars (Borland-style)
 
     /// The view whose scrolling the border mirrors, when any.
@@ -147,6 +158,12 @@ public final class Panel: TUIView {
     }
 
     /// Draws the background, border, title, and close button.
+    ///
+    /// On a VTG terminal, window chrome swaps the cell-drawn top border for
+    /// the theme's vector titlebar: a gradient bar with rounded top corners,
+    /// a centered title, and circular close/maximize buttons (Phase 10).
+    /// Everything else — side and bottom borders, junctions, embedded
+    /// scrollbars — is unchanged, as is the whole panel on plain terminals.
     public override func draw(_ painter: Painter) {
         let theme = effectiveTheme
 
@@ -155,21 +172,30 @@ public final class Panel: TUIView {
 
         let width = bounds.size.width
 
-        // Reserve the right-hand border for the buttons: [x] alone, or the
-        // maximize box plus [x].
-        let reserved = showsMaximizeButton ? 10 : 6
+        if let chrome = painter.chrome, isWindowChrome, width >= 4,
+           let titleBar = theme.vector?.titleBar {
+            chromeTitleBarActive = true
+            chromeButtonsLeading = (titleBar.buttonPlacement ?? .trailing) == .leading
+            drawVectorTitleBar(painter, chrome: chrome, theme: theme, style: titleBar)
+        } else {
+            chromeTitleBarActive = false
 
-        if !title.isEmpty, width > reserved {
-            let text = " " + Label.truncated(title, width: width - reserved) + " "
-            painter.write(text, at: Point(x: 2, y: 0), style: theme.header)
-        }
+            // Reserve the right-hand border for the buttons: [x] alone, or
+            // the maximize box plus [x].
+            let reserved = showsMaximizeButton ? 10 : 6
 
-        if showsMaximizeButton, width >= 11 {
-            painter.write(isMaximized ? "[=]" : "[+]", at: Point(x: maximizeButtonX, y: 0), style: theme.border)
-        }
+            if !title.isEmpty, width > reserved {
+                let text = " " + Label.truncated(title, width: width - reserved) + " "
+                painter.write(text, at: Point(x: 2, y: 0), style: theme.header)
+            }
 
-        if showsCloseButton, width >= 7 {
-            painter.write("[x]", at: Point(x: closeButtonX, y: 0), style: theme.border)
+            if showsMaximizeButton, width >= 11 {
+                painter.write(isMaximized ? "[=]" : "[+]", at: Point(x: maximizeButtonX, y: 0), style: theme.border)
+            }
+
+            if showsCloseButton, width >= 7 {
+                painter.write("[x]", at: Point(x: closeButtonX, y: 0), style: theme.border)
+            }
         }
 
         if showsResizeHandle, width >= 2, bounds.size.height >= 2 {
@@ -182,6 +208,92 @@ public final class Panel: TUIView {
 
         drawDividerJunctions(painter, theme: theme)
         drawEmbeddedScrollbars(painter, theme: theme)
+    }
+
+    // The vector titlebar (Phase 10): the whole top row's cells go
+    // terminal-default so the under-text bar shows through; the title and
+    // button glyphs stay native text on top of it.
+    private func drawVectorTitleBar(
+        _ painter: Painter,
+        chrome: ChromeSurface,
+        theme: ResolvedTheme,
+        style: VectorChrome.TitleBar
+    ) {
+        let width = bounds.size.width
+
+        // A neutral base defeats the painter's theme substitution, so these
+        // cells keep the terminal's default (transparent) background.
+        let transparent = painter.withBase(CellStyle())
+        transparent.fill(Rect(x: 0, y: 0, width: width, height: 1), with: .blank)
+
+        chrome.verticalGradient(
+            "titlebar",
+            ChromeRect(x: 0, y: 0, width: Double(width), height: 1),
+            top: style.topColor,
+            bottom: style.bottomColor,
+            steps: 6,
+            radius: style.cornerRadius ?? 0.35,
+            corners: .top,
+            stroke: style.strokeColor
+        )
+
+        // Centered title, clear of the button zone on both sides so it stays
+        // centered whichever side the buttons sit on.
+        let buttonZone = 6
+
+        if !title.isEmpty, width > buttonZone * 2 {
+            let text = Label.truncated(title, width: width - buttonZone * 2)
+            let textStyle = CellStyle(
+                foreground: style.textColor ?? theme.headerForeground,
+                flags: theme.headerAttributes
+            )
+            transparent.write(text, at: Point(x: (width - text.count) / 2, y: 0), style: textStyle)
+        }
+
+        if showsCloseButton {
+            drawTitleButton(
+                chrome, transparent,
+                key: "close-button",
+                x: closeButtonX,
+                fill: style.closeButtonColor,
+                symbol: "×",
+                symbolColor: style.closeSymbolColor ?? style.textColor ?? theme.headerForeground
+            )
+        }
+
+        if showsMaximizeButton, width >= 8 {
+            drawTitleButton(
+                chrome, transparent,
+                key: "maximize-button",
+                x: maximizeButtonX,
+                fill: style.auxiliaryButtonColor ?? ChromeColor.lerp(style.topColor, style.bottomColor, 0.5),
+                symbol: isMaximized ? "◦" : "+",
+                symbolColor: style.auxiliarySymbolColor ?? style.textColor ?? theme.headerForeground
+            )
+        }
+    }
+
+    // One circular titlebar button: a filled dot behind a one-cell glyph.
+    private func drawTitleButton(
+        _ chrome: ChromeSurface,
+        _ transparent: Painter,
+        key: String,
+        x: Int,
+        fill: ChromeColor,
+        symbol: Character,
+        symbolColor: TerminalColor
+    ) {
+        chrome.circle(
+            key,
+            center: ChromePoint(x: Double(x) + 0.5, y: 0.5),
+            radius: 0.36,
+            fill: fill
+        )
+
+        transparent.set(
+            TerminalCell(character: symbol, style: CellStyle(foreground: symbolColor, flags: [.bold])),
+            at: Point(x: x, y: 0)
+        )
     }
 
     // Joins connected dividers anywhere in the content subtree that reach
@@ -453,12 +565,12 @@ public final class Panel: TUIView {
         switch mouse.action {
         case .press where mouse.button == .left:
             if mouse.position.y == 0 {
-                if showsCloseButton, mouse.position.x >= closeButtonX, mouse.position.x < closeButtonX + 3 {
+                if showsCloseButton, mouse.position.x >= closeButtonX, mouse.position.x < closeButtonX + titleButtonSpan {
                     onClose()
                     return true
                 }
 
-                if showsMaximizeButton, mouse.position.x >= maximizeButtonX, mouse.position.x < maximizeButtonX + 3 {
+                if showsMaximizeButton, mouse.position.x >= maximizeButtonX, mouse.position.x < maximizeButtonX + titleButtonSpan {
                     onMaximize()
                     return true
                 }
@@ -491,13 +603,30 @@ public final class Panel: TUIView {
         }
     }
 
-    // Leading cell of the [x] affordance in the top border.
-    private var closeButtonX: Int {
-        bounds.size.width - 4
+    // Title-button geometry follows the presentation: the cell-drawn `[x]`
+    // boxes are 3 cells wide at the right edge; the vector titlebar's round
+    // buttons are single cells, on the side the theme chose.
+
+    // Cells a title button's hit area spans.
+    private var titleButtonSpan: Int {
+        chromeTitleBarActive ? 1 : 3
     }
 
-    // Leading cell of the maximize box, one gap left of [x].
+    // Leading cell of the close affordance in the top border.
+    private var closeButtonX: Int {
+        guard chromeTitleBarActive else {
+            return bounds.size.width - 4
+        }
+
+        return chromeButtonsLeading ? 1 : bounds.size.width - 2
+    }
+
+    // Leading cell of the maximize affordance, one gap from close.
     private var maximizeButtonX: Int {
-        bounds.size.width - 8
+        guard chromeTitleBarActive else {
+            return bounds.size.width - 8
+        }
+
+        return chromeButtonsLeading ? 3 : bounds.size.width - 4
     }
 }

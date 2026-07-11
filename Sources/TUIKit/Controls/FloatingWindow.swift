@@ -121,6 +121,7 @@ open class FloatingWindow: Window {
         self.panel = Panel(title)
         super.init(frame: frame)
 
+        panel.isWindowChrome = true   // wears the vector titlebar on VTG terminals
         panel.showsCloseButton = true
         panel.showsResizeHandle = true
         panel.showsMaximizeButton = true

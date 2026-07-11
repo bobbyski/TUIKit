@@ -1,5 +1,6 @@
 import Dispatch
 import Foundation
+import VectorTerminalSDK
 
 #if canImport(Darwin)
 import Darwin
@@ -44,6 +45,59 @@ public actor ANSIDriver: TerminalDriver {
     private var currentSize = Size(width: 80, height: 24)
     private var isActive = false
     private var escapeGeneration = 0
+
+    // Whether the VTG probe found a VectorTerminal (Phase 10). The canvas
+    // itself lives in `vtgState`, confined to the output queue.
+    private var graphicsDetected = false
+
+    // VTG canvas, glyph mapper, and last chrome frame. The class is only
+    // ever touched on `outputQueue`, which is what makes the @unchecked
+    // Sendable sound — the actor never reads it directly.
+    private let vtgState = VTGState()
+
+    private final class VTGState: @unchecked Sendable {
+        var canvas: VectorTerminalCanvas?
+        var mapper: CellPixelMapper?
+        var previous: [ChromeCommand] = []
+    }
+
+    // VTGOutput writing straight to the terminal descriptor, waiting out
+    // EAGAIN like the driver's own writes (stdin's O_NONBLOCK is shared).
+    private final class FDSink: VTGOutput {
+        private let descriptor: Int32
+
+        init(descriptor: Int32) {
+            self.descriptor = descriptor
+        }
+
+        func write(_ data: Data) {
+            let bytes = [UInt8](data)
+            var offset = 0
+
+            while offset < bytes.count {
+                let written = bytes[offset...].withUnsafeBytes { pointer -> Int in
+                    #if canImport(Darwin)
+                    Darwin.write(descriptor, pointer.baseAddress, pointer.count)
+                    #else
+                    Glibc.write(descriptor, pointer.baseAddress, pointer.count)
+                    #endif
+                }
+
+                if written > 0 {
+                    offset += written
+                    continue
+                }
+
+                if written == -1, errno == EAGAIN || errno == EWOULDBLOCK {
+                    var descriptorSet = pollfd(fd: descriptor, events: Int16(POLLOUT), revents: 0)
+                    _ = poll(&descriptorSet, 1, 100)
+                    continue
+                }
+
+                break
+            }
+        }
+    }
 
     /// Creates an ANSI driver bound to standard input and output.
     public init() {}
@@ -90,6 +144,11 @@ public actor ANSIDriver: TerminalDriver {
         // report a reduced content area.
         currentSize = Self.probeSize(descriptor: outputDescriptor) ?? currentSize
 
+        // Probe for VectorTerminal Graphics BEFORE the read source starts —
+        // the probe reads its own APC responses from stdin, and a running
+        // read source would consume them (Phase 10.1).
+        graphicsDetected = await probeGraphics()
+
         startReadSource()
         startResizeSource()
     }
@@ -102,6 +161,23 @@ public actor ANSIDriver: TerminalDriver {
         readSource = nil
         resizeSource?.cancel()
         resizeSource = nil
+
+        // Remove any retained vector chrome before leaving the screen.
+        if graphicsDetected {
+            let state = vtgState
+
+            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                outputQueue.async {
+                    state.canvas?.clear()
+                    state.canvas = nil
+                    state.mapper = nil
+                    state.previous = []
+                    continuation.resume()
+                }
+            }
+
+            graphicsDetected = false
+        }
 
         if isActive {
             // Disable mouse, show cursor, leave the alternate screen.
@@ -155,6 +231,184 @@ public actor ANSIDriver: TerminalDriver {
     public func setClipboard(_ text: String) async {
         let encoded = Data(text.utf8).base64EncodedString()
         await write("\u{1B}]52;c;\(encoded)\u{07}")
+    }
+
+    // MARK: - VTG Chrome (Phase 10)
+
+    /// Whether the begin-time probe found a VectorTerminal.
+    public var supportsGraphicsChrome: Bool {
+        graphicsDetected
+    }
+
+    // Detects VTG support and glyph metrics on the output queue, where the
+    // probe's blocking poll-with-deadline reads cannot park a cooperative
+    // thread. Runs before the read source exists, so the APC responses on
+    // stdin are the probe's to consume. `TUIKIT_VTG=0` opts out entirely.
+    private func probeGraphics() async -> Bool {
+        guard ProcessInfo.processInfo.environment["TUIKIT_VTG"] != "0" else {
+            return false
+        }
+
+        let state = vtgState
+        let descriptor = outputDescriptor
+
+        return await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+            outputQueue.async {
+                let sink = FDSink(descriptor: descriptor)
+
+                // Not a VectorTerminal → no VTG bytes beyond this one probe.
+                guard let canvas = try? VectorTerminalCanvas(
+                    input: .standardInput,
+                    output: sink,
+                    timeoutMilliseconds: 400
+                ) else {
+                    continuation.resume(returning: false)
+                    return
+                }
+
+                // Chrome must sit exactly behind text; without real glyph
+                // metrics, alignment would be a guess — treat as unsupported.
+                guard let glyph = canvas.queryTerminalWSize(timeoutMilliseconds: 400),
+                      glyph.width > 0, glyph.height > 0 else {
+                    continuation.resume(returning: false)
+                    return
+                }
+
+                canvas.clear()
+                state.canvas = canvas
+                state.mapper = CellPixelMapper(glyphWidth: glyph.width, glyphHeight: glyph.height)
+                state.previous = []
+                continuation.resume(returning: true)
+            }
+        }
+    }
+
+    /// Presents one frame of vector chrome, following the reconciler's
+    /// plan: identical frames write nothing; same-structure frames update
+    /// only the changed shapes in place; reordered frames rebuild (delete
+    /// all, redraw) so retained stacking matches cell compositing. Each
+    /// write batch rides a VTG frame for tear-free updates.
+    ///
+    /// - Parameter commands: The frame's chrome, in draw order.
+    public func presentChrome(_ commands: [ChromeCommand]) async {
+        guard graphicsDetected else {
+            return
+        }
+
+        let state = vtgState
+
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            outputQueue.async {
+                defer {
+                    continuation.resume()
+                }
+
+                guard let canvas = state.canvas, let mapper = state.mapper else {
+                    return
+                }
+
+                let deletions: [String]
+                let draws: [ChromeCommand]
+
+                switch ChromeSceneReconciler.plan(previous: state.previous, current: commands) {
+                case .unchanged:
+                    return
+
+                case .update(let changed):
+                    deletions = []
+                    draws = changed
+
+                case .rebuild(let stale):
+                    deletions = stale
+                    draws = commands
+                }
+
+                canvas.startFrame(id: "tuikit-chrome")
+
+                for id in deletions {
+                    canvas.delete(id: id)
+                }
+
+                for command in draws {
+                    Self.draw(command, on: canvas, mapper: mapper)
+                }
+
+                canvas.endFrame(id: "tuikit-chrome")
+                state.previous = commands
+            }
+        }
+    }
+
+    // One chrome command as SDK calls, in canvas pixels.
+    private static func draw(_ command: ChromeCommand, on canvas: VectorTerminalCanvas, mapper: CellPixelMapper) {
+        let layer = command.layer == .underText ? VTGLayer.underText : VTGLayer.defaultOverlay
+
+        switch command.shape {
+        case .rect(let rect, let fill, let stroke, let lineWidth, let radius, let corners):
+            let pixels = mapper.rect(rect)
+
+            canvas.rect(
+                id: command.id,
+                x: pixels.x,
+                y: pixels.y,
+                width: pixels.width,
+                height: pixels.height,
+                stroke: stroke.map(vtgColor),
+                fill: fill.map(vtgColor),
+                lineWidth: max(1, mapper.scalar(lineWidth)),
+                radius: corners.isEmpty ? 0 : mapper.scalar(radius),
+                corners: cornersString(corners),
+                layer: layer
+            )
+
+        case .circle(let center, let radius, let fill, let stroke, let lineWidth):
+            let pixels = mapper.point(center)
+
+            canvas.circle(
+                id: command.id,
+                cx: pixels.x,
+                cy: pixels.y,
+                radius: mapper.scalar(radius),
+                stroke: stroke.map(vtgColor),
+                fill: fill.map(vtgColor),
+                lineWidth: max(1, mapper.scalar(lineWidth)),
+                layer: layer
+            )
+
+        case .line(let from, let to, let color, let width):
+            let a = mapper.point(from)
+            let b = mapper.point(to)
+
+            canvas.line(
+                id: command.id,
+                x1: a.x,
+                y1: a.y,
+                x2: b.x,
+                y2: b.y,
+                stroke: vtgColor(color),
+                width: max(1, mapper.scalar(width)),
+                layer: layer
+            )
+        }
+    }
+
+    private static func vtgColor(_ color: ChromeColor) -> VTGColor {
+        VTGColor(color.hexString)
+    }
+
+    // VTG's corner digits: 1 top-left, 2 top-right, 3 bottom-right,
+    // 4 bottom-left; nil rounds all four.
+    private static func cornersString(_ corners: ChromeCorners) -> String? {
+        guard corners != .all else {
+            return nil
+        }
+
+        var digits = ""
+        if corners.contains(.topLeft) { digits += "1" }
+        if corners.contains(.topRight) { digits += "2" }
+        if corners.contains(.bottomRight) { digits += "3" }
+        if corners.contains(.bottomLeft) { digits += "4" }
+        return digits
     }
 
     /// Creates a stream of decoded input events.

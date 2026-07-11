@@ -7,7 +7,9 @@ import CompilerPluginSupport
 let package = Package(
     name: "TUIKit",
     platforms: [
-        .macOS(.v15),
+        // macOS 16 is VectorTerminalSDK's floor (Phase 10 VTG chrome). Was
+        // macOS 15 through TUIKit 1.0 — flagged in NEEDS_HUMAN.md.
+        .macOS("16.0"),
     ],
     products: [
         .library(
@@ -23,6 +25,10 @@ let package = Package(
         // Phase 14.6): the one non-in-house dependency, confined to the macro
         // plugin so the library's runtime stays dependency-free.
         .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "603.0.0"),
+        // In-house VectorTerminal Graphics wrapper (Phase 10): APC escape
+        // sequences, retained vector scene, under-text layer. Raw VTG bytes
+        // live only in the driver layer; plain terminals never see one.
+        .package(url: "https://github.com/bobbyski/VectorTerminalSDK.git", from: "1.5.6"),
     ],
     targets: [
         // Compiler-plugin target implementing the @Bound macro.
@@ -37,6 +43,7 @@ let package = Package(
             name: "TUIKit",
             dependencies: [
                 .product(name: "RichSwift", package: "RichSwift"),
+                .product(name: "VectorTerminalSDK", package: "VectorTerminalSDK"),
                 "TUIKitMacros",
             ]
         ),

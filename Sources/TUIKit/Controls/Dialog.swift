@@ -95,6 +95,7 @@ open class Dialog: Window {
 
         isModal = true   // dialogs own all input while key
 
+        panel.isWindowChrome = true   // wears the vector titlebar on VTG terminals
         panel.borderStyleOverride = borderStyle   // single frame by default
         panel.anchors = .fill()
         addSubview(panel)

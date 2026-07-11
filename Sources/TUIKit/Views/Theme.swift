@@ -371,6 +371,86 @@ extension Theme {
         return theme
     }()
 
+    /// Ambiance — an Ubuntu-desktop homage, and the first theme to dress the
+    /// Phase 10 vector chrome: an aubergine gradient desktop, windows with a
+    /// dark rounded-top titlebar (gradient, centered title, circular orange
+    /// close button at the *left*), and rounded gradient push buttons with
+    /// an orange focus glow.
+    ///
+    /// On a plain terminal the same palette renders as cells — a light-gray
+    /// window with a dark header bar and orange accents — so the theme is
+    /// usable everywhere; VTG is purely the pretty version.
+    public static let ambiance: Theme = {
+        var base = ThemePalette()
+        base.foreground = .rgb(red: 60, green: 59, blue: 55)          // dark warm gray
+        base.background = .rgb(red: 242, green: 241, blue: 240)      // Ambiance window gray
+        base.accent = .rgb(red: 233, green: 84, blue: 32)            // Ubuntu orange
+        base.warningAccent = .rgb(red: 223, green: 130, blue: 32)
+        base.errorAccent = .rgb(red: 199, green: 22, blue: 43)
+        base.acceleratorColor = .rgb(red: 233, green: 84, blue: 32)
+        base.acceleratorAttributes = [.underline]
+        base.selectionForeground = .rgb(red: 255, green: 255, blue: 255)
+        base.selectionBackground = .rgb(red: 240, green: 119, blue: 70)  // lighter orange rows
+        base.headerForeground = .rgb(red: 223, green: 219, blue: 210)    // titlebar text
+        base.headerBackground = .rgb(red: 60, green: 57, blue: 55)      // Ambiance dark bar
+        base.headerAttributes = [.bold]
+        base.borderForeground = .rgb(red: 167, green: 165, blue: 155)   // thin gray frame
+        base.borderBackground = .rgb(red: 242, green: 241, blue: 240)
+        base.borderStyle = .rounded   // the cell fallback rounds its corners too
+        base.scrollbarThumb = .rgb(red: 181, green: 179, blue: 172)
+        base.scrollbarTrack = .rgb(red: 229, green: 227, blue: 223)
+        base.placeholderForeground = .rgb(red: 150, green: 147, blue: 142)
+        base.placeholderBackground = .rgb(red: 242, green: 241, blue: 240)
+        base.placeholderAttributes = [.dim]
+        base.fieldForeground = .rgb(red: 60, green: 59, blue: 55)
+        base.fieldBackground = .rgb(red: 255, green: 255, blue: 255)    // white wells
+        base.buttonForeground = .rgb(red: 60, green: 59, blue: 55)      // dark label…
+        base.buttonBackground = .rgb(red: 221, green: 219, blue: 215)   // …on a gray pill
+        base.defaultButtonForeground = .rgb(red: 255, green: 255, blue: 255)
+        base.defaultButtonBackground = .rgb(red: 233, green: 84, blue: 32)   // orange pill
+        base.destructiveButtonForeground = .rgb(red: 255, green: 255, blue: 255)
+        base.destructiveButtonBackground = .rgb(red: 199, green: 22, blue: 43)
+
+        // The vector layer: what a VTG terminal draws instead of the cell
+        // approximations above (see Docs/VTGChrome.md).
+        base.vector = VectorChrome(
+            titleBar: VectorChrome.TitleBar(
+                topColor: ChromeColor(red: 77, green: 74, blue: 68),     // #4D4A44
+                bottomColor: ChromeColor(red: 59, green: 57, blue: 53),  // #3B3935
+                cornerRadius: 0.35,
+                strokeColor: ChromeColor(red: 38, green: 36, blue: 33),
+                textColor: .rgb(red: 223, green: 219, blue: 210),
+                buttonPlacement: .leading,                               // the Ubuntu side
+                closeButtonColor: ChromeColor(red: 237, green: 106, blue: 61),  // orange dot
+                closeSymbolColor: .rgb(red: 66, green: 30, blue: 16),
+                auxiliaryButtonColor: ChromeColor(red: 105, green: 101, blue: 94),
+                auxiliarySymbolColor: .rgb(red: 223, green: 219, blue: 210)
+            ),
+            button: VectorChrome.Button(
+                topColor: ChromeColor(red: 248, green: 248, blue: 247),   // soft gradient…
+                bottomColor: ChromeColor(red: 216, green: 212, blue: 207), // …like Ambiance
+                strokeColor: ChromeColor(red: 167, green: 165, blue: 155),
+                cornerRadius: 0.4,
+                textColor: .rgb(red: 60, green: 59, blue: 55),
+                focusStrokeColor: ChromeColor(red: 240, green: 119, blue: 70),  // orange glow
+                pressedTopColor: ChromeColor(red: 205, green: 201, blue: 196),
+                pressedBottomColor: ChromeColor(red: 222, green: 219, blue: 214)
+            ),
+            desktop: VectorChrome.DesktopBackdrop(
+                topColor: ChromeColor(red: 94, green: 39, blue: 80),      // aubergine…
+                bottomColor: ChromeColor(red: 44, green: 0, blue: 30)     // …to near-black
+            ),
+            windowShadow: ChromeColor(red: 0, green: 0, blue: 0, alpha: 84)
+        )
+
+        // Cell fallback for the desktop: flat aubergine.
+        var desktop = ThemePalette()
+        desktop.background = .rgb(red: 94, green: 39, blue: 80)
+        desktop.foreground = .rgb(red: 230, green: 220, blue: 228)
+
+        return Theme(name: "Ambiance", base: base, desktop: desktop)
+    }()
+
     /// Every built-in theme with a display name (demo pickers, settings).
     public static let builtIn: [(name: String, theme: Theme)] = [
         ("Standard", .standard),
@@ -386,6 +466,7 @@ extension Theme {
         ("Silver Aerogel", .silverAerogel),
         ("Turbo", .turbo),
         ("Modern Turbo", .modernTurbo),
+        ("Ambiance", .ambiance),
     ]
 }
 

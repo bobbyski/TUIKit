@@ -136,6 +136,176 @@ public enum DividerConnection: String, Codable, Hashable, Sendable, CaseIterable
     case notWelded
 }
 
+// MARK: - Vector chrome styling (Phase 10)
+
+/// How a theme dresses the vector chrome layer, when a VTG terminal is
+/// present (see Docs/VTGChrome.md).
+///
+/// Entirely optional at every level: a theme without a `vector` block (or a
+/// block without a section) simply keeps cell rendering for that piece, and
+/// plain terminals never consult this at all. Scalar sizes are fractions of
+/// the cell height, like everything in `ChromeCommand`.
+public struct VectorChrome: Codable, Hashable, Sendable {
+    /// Where a chrome titlebar puts the window buttons.
+    public enum TitleButtonPlacement: String, Codable, Hashable, Sendable {
+        /// Close (then maximize) at the left edge — the Ubuntu arrangement.
+        case leading
+
+        /// Close at the right edge, maximize beside it.
+        case trailing
+    }
+
+    /// The window titlebar: a gradient bar with rounded top corners and
+    /// circular window buttons, replacing the cell-drawn top border.
+    public struct TitleBar: Codable, Hashable, Sendable {
+        /// Gradient color at the bar's top edge.
+        public var topColor: ChromeColor
+
+        /// Gradient color at the bar's bottom edge.
+        public var bottomColor: ChromeColor
+
+        /// Top-corner radius in cell heights (default 0.35).
+        public var cornerRadius: Double?
+
+        /// Optional thin outline over the bar.
+        public var strokeColor: ChromeColor?
+
+        /// Title text color (cells; default: the header slot's foreground).
+        public var textColor: TerminalColor?
+
+        /// Window-button side (default trailing, matching cell chrome).
+        public var buttonPlacement: TitleButtonPlacement?
+
+        /// Fill of the circular close button.
+        public var closeButtonColor: ChromeColor
+
+        /// Color of the `×` glyph over the close circle.
+        public var closeSymbolColor: TerminalColor?
+
+        /// Fill of the circular maximize/restore button (default: a dimmer
+        /// take on the close fill).
+        public var auxiliaryButtonColor: ChromeColor?
+
+        /// Color of the glyph over the maximize circle.
+        public var auxiliarySymbolColor: TerminalColor?
+
+        /// Creates a titlebar style.
+        public init(
+            topColor: ChromeColor,
+            bottomColor: ChromeColor,
+            cornerRadius: Double? = nil,
+            strokeColor: ChromeColor? = nil,
+            textColor: TerminalColor? = nil,
+            buttonPlacement: TitleButtonPlacement? = nil,
+            closeButtonColor: ChromeColor,
+            closeSymbolColor: TerminalColor? = nil,
+            auxiliaryButtonColor: ChromeColor? = nil,
+            auxiliarySymbolColor: TerminalColor? = nil
+        ) {
+            self.topColor = topColor
+            self.bottomColor = bottomColor
+            self.cornerRadius = cornerRadius
+            self.strokeColor = strokeColor
+            self.textColor = textColor
+            self.buttonPlacement = buttonPlacement
+            self.closeButtonColor = closeButtonColor
+            self.closeSymbolColor = closeSymbolColor
+            self.auxiliaryButtonColor = auxiliaryButtonColor
+            self.auxiliarySymbolColor = auxiliarySymbolColor
+        }
+    }
+
+    /// Push buttons: a rounded gradient pill behind the label text.
+    public struct Button: Codable, Hashable, Sendable {
+        /// Gradient color at the pill's top edge.
+        public var topColor: ChromeColor
+
+        /// Gradient color at the pill's bottom edge.
+        public var bottomColor: ChromeColor
+
+        /// Thin outline around the pill.
+        public var strokeColor: ChromeColor?
+
+        /// Corner radius in cell heights (default 0.4).
+        public var cornerRadius: Double?
+
+        /// Label color (cells; default: the theme's `buttonForeground`).
+        public var textColor: TerminalColor?
+
+        /// Outline while the button has keyboard focus (the focus glow).
+        public var focusStrokeColor: ChromeColor?
+
+        /// Gradient top while pressed (default: the resting bottom color).
+        public var pressedTopColor: ChromeColor?
+
+        /// Gradient bottom while pressed (default: the resting top color).
+        public var pressedBottomColor: ChromeColor?
+
+        /// Creates a button style.
+        public init(
+            topColor: ChromeColor,
+            bottomColor: ChromeColor,
+            strokeColor: ChromeColor? = nil,
+            cornerRadius: Double? = nil,
+            textColor: TerminalColor? = nil,
+            focusStrokeColor: ChromeColor? = nil,
+            pressedTopColor: ChromeColor? = nil,
+            pressedBottomColor: ChromeColor? = nil
+        ) {
+            self.topColor = topColor
+            self.bottomColor = bottomColor
+            self.strokeColor = strokeColor
+            self.cornerRadius = cornerRadius
+            self.textColor = textColor
+            self.focusStrokeColor = focusStrokeColor
+            self.pressedTopColor = pressedTopColor
+            self.pressedBottomColor = pressedBottomColor
+        }
+    }
+
+    /// The desktop backdrop: a full-screen vertical gradient the windows
+    /// float over (the desktop's cells go transparent so it shows through).
+    public struct DesktopBackdrop: Codable, Hashable, Sendable {
+        /// Gradient color at the screen top.
+        public var topColor: ChromeColor
+
+        /// Gradient color at the screen bottom.
+        public var bottomColor: ChromeColor
+
+        /// Creates a backdrop style.
+        public init(topColor: ChromeColor, bottomColor: ChromeColor) {
+            self.topColor = topColor
+            self.bottomColor = bottomColor
+        }
+    }
+
+    /// Titlebar styling, or `nil` to keep the cell-drawn top border.
+    public var titleBar: TitleBar?
+
+    /// Button styling, or `nil` to keep cell-drawn buttons.
+    public var button: Button?
+
+    /// Desktop backdrop, or `nil` to keep the cell-filled desktop.
+    public var desktop: DesktopBackdrop?
+
+    /// Soft shadow behind floating windows (needs a `desktop` backdrop to
+    /// show through), usually translucent black. `nil` for none.
+    public var windowShadow: ChromeColor?
+
+    /// Creates a vector chrome block.
+    public init(
+        titleBar: TitleBar? = nil,
+        button: Button? = nil,
+        desktop: DesktopBackdrop? = nil,
+        windowShadow: ChromeColor? = nil
+    ) {
+        self.titleBar = titleBar
+        self.button = button
+        self.desktop = desktop
+        self.windowShadow = windowShadow
+    }
+}
+
 // MARK: - Palette (one context's slots — all optional)
 
 /// One context's slot values. Every field is optional: `nil` inherits through
@@ -222,6 +392,10 @@ public struct ThemePalette: Codable, Hashable, Sendable {
     public var destructiveButtonForeground: TerminalColor?
     /// Destructive button fill.
     public var destructiveButtonBackground: TerminalColor?
+
+    /// Vector chrome styling for VTG terminals (Phase 10). `nil` inherits;
+    /// unresolved anywhere means "no chrome — cells only".
+    public var vector: VectorChrome?
 
     /// An empty palette (everything inherits).
     public init() {}
@@ -319,6 +493,11 @@ public struct ResolvedTheme: Hashable, Sendable {
     public var destructiveButtonForeground: TerminalColor
     /// Destructive button fill.
     public var destructiveButtonBackground: TerminalColor
+
+    /// Vector chrome styling, when the theme defines any (Phase 10). Views
+    /// only consult it while the frame carries a `ChromeSurface`, so it is
+    /// inert on plain terminals.
+    public var vector: VectorChrome?
 
     // MARK: CellStyle conveniences (derived, read-only)
 
@@ -465,6 +644,12 @@ public struct Theme: Codable, Hashable, Sendable {
             break
         }
 
+        var vector: VectorChrome?
+        for palette in chain where palette.vector != nil {
+            vector = palette.vector
+            break
+        }
+
         return ResolvedTheme(
             foreground: color(\.foreground),
             background: color(\.background),
@@ -499,7 +684,8 @@ public struct Theme: Codable, Hashable, Sendable {
             defaultButtonForeground: color(\.defaultButtonForeground),
             defaultButtonBackground: color(\.defaultButtonBackground),
             destructiveButtonForeground: color(\.destructiveButtonForeground),
-            destructiveButtonBackground: color(\.destructiveButtonBackground)
+            destructiveButtonBackground: color(\.destructiveButtonBackground),
+            vector: vector
         )
     }
 

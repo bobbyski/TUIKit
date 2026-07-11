@@ -37,8 +37,55 @@ public final class Desktop: TUIView {
         super.init(frame: .zero)
     }
 
-    /// Tiles the background.
+    /// Tiles the background — or, on a VTG terminal under a theme with a
+    /// desktop backdrop, draws a full-screen vertical gradient and clears
+    /// the cells over it so it shows through (Phase 10). The gradient
+    /// replaces `fillCharacter` patterns while chrome is active.
     public override func draw(_ painter: Painter) {
+        let theme = effectiveTheme
+
+        if let chrome = painter.chrome, let backdrop = theme.vector?.desktop {
+            chrome.verticalGradient(
+                "backdrop",
+                ChromeRect(bounds),
+                top: backdrop.topColor,
+                bottom: backdrop.bottomColor,
+                steps: min(24, max(8, bounds.size.height))
+            )
+
+            // Truly default-background cells (a neutral base defeats the
+            // painter's theme substitution), so the terminal shows the
+            // gradient behind them.
+            let transparent = painter.withBase(CellStyle())
+            transparent.fill(bounds, with: .blank)
+
+            drawWindowShadows(chrome)
+            return
+        }
+
         painter.fill(bounds, with: TerminalCell(character: fillCharacter, style: fillStyle))
+    }
+
+    // Soft shadows behind floating windows, drawn by the desktop because a
+    // window cannot paint outside its own frame (the clipping contract).
+    // Slightly offset and rounded like the titlebar above each shadow.
+    private func drawWindowShadows(_ chrome: ChromeSurface) {
+        for (index, subview) in subviews.enumerated() {
+            guard let window = subview as? Window, !window.isHidden, !window.fillsScreen,
+                  let vector = window.effectiveTheme.vector,
+                  let shadow = vector.windowShadow else {
+                continue
+            }
+
+            let frame = ChromeRect(window.frame)
+
+            chrome.rect(
+                "shadow-\(index)",
+                ChromeRect(x: frame.x + 0.3, y: frame.y + 0.18, width: frame.width, height: frame.height),
+                fill: shadow,
+                radius: vector.titleBar?.cornerRadius ?? 0.35,
+                corners: .all
+            )
+        }
     }
 }

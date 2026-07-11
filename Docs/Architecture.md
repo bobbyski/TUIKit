@@ -25,9 +25,10 @@ diagrammed in [`ControlsUML.md`](ControlsUML.md).
 +-------------------------------+-------------------------------+
                                 |  CellBuffer out / TerminalInput in
 +-------------------------------v-------------------------------+
-|  Driver layer (Phase 2)                                       |
+|  Driver layer (Phase 2, VTG chrome Phase 10)                  |
 |  TerminalDriver protocol                                      |
 |    ANSIDriver      raw mode + escape output + input decoding  |
+|                    + optional VTG vector chrome (probed)      |
 |    HeadlessDriver  in-memory buffer + scripted input (tests)  |
 |  ANSIEncoder       pure style -> SGR encoding (shared)        |
 +---------------------------------------------------------------+
@@ -99,6 +100,14 @@ On top of the controls sit four newer systems, each with its own doc:
   names, bulk `formValues()`/`applyValues()`, typed `Binding`/`@Bound` with
   `load()`/`save()` and optional live push. See
   [`DataBinding.md`](DataBinding.md).
+- **VTG vector chrome (Phase 10)** — on VectorTerminal terminals, views
+  additionally emit typed `ChromeCommand`s through `painter.chrome` (a
+  `ChromeSurface` riding the Painter's origin/clip): gradient titlebars
+  with rounded corners and circular window buttons, rounded button pills,
+  desktop backdrops, window shadows — drawn on the plane *under* the text.
+  Styled by the theme's `vector` block (`Theme.ambiance` is the reference);
+  cells remain the universal fallback and behavior is identical in both
+  modes. See [`VTGChrome.md`](VTGChrome.md).
 
 Input has multi-click detection: `App` debounces press/release pairs into a
 `.click` event carrying `clickCount` (single-select vs double-activate never

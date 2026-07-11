@@ -1,5 +1,5 @@
 {
-  "originHash" : "b3f1efcfcfbf444f3008e6fda05d98f47ecb505b369cf728d583daf7400b1863",
+  "originHash" : "b812943ec15d884404a11a752b1b5416267805ae64c35e7b60b00bec79e2ddec",
   "pins" : [
     {
       "identity" : "richswift",
@@ -17,6 +17,15 @@
       "state" : {
         "revision" : "79e4b74a295b6eb74a8b585e3a39d29e70c1dbd1",
         "version" : "603.0.2"
+      }
+    },
+    {
+      "identity" : "vectorterminalsdk",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/bobbyski/VectorTerminalSDK.git",
+      "state" : {
+        "revision" : "1a6fa1cd89b7f71fed11f95529dade8ca290f224",
+        "version" : "1.5.7"
       }
     }
   ],

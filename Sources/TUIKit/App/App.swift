@@ -32,6 +32,14 @@ public final class App {
     /// Whether the run loop is active.
     public private(set) var isRunning = false
 
+    /// Whether the terminal draws vector chrome this run (Phase 10).
+    ///
+    /// Set once per `run(_:)` from the driver's begin-time probe. On, views
+    /// decorate themselves through `painter.chrome` and themes' `vector`
+    /// styling applies; off, rendering is the classic cell pipeline. Apps
+    /// cannot opt in — the terminal either supports it or it doesn't.
+    public private(set) var isVectorChromeActive = false
+
     /// Whether Control+C stops the application.
     ///
     /// Enabled by default so every TUIKit app is quittable before it wires
@@ -258,6 +266,11 @@ public final class App {
         try await driver.begin()
         isRunning = true
 
+        // The driver probed for VectorTerminal Graphics during begin();
+        // chrome-enabled rendering follows its answer for the whole run.
+        isVectorChromeActive = await driver.supportsGraphicsChrome
+        renderer.chromeEnabled = isVectorChromeActive
+
         desktop.frame = Rect(origin: .zero, size: await driver.size)
         present(window)
         await presentFrameIfNeeded()
@@ -476,5 +489,10 @@ public final class App {
         }
 
         await driver.present(frame)
+
+        // Chrome rides every cell frame; the driver skips identical frames.
+        if isVectorChromeActive {
+            await driver.presentChrome(renderer.chromeCommands)
+        }
     }
 }

@@ -26,7 +26,7 @@ builder over the controls — core implemented, see Phase 12), `Docs/DataBinding
 ## Dashboard
 
 ```
-Overall Progress  ████████████████████████░░░░░░░░  75%   (66 / 88 items)
+Overall Progress  ███████████████████████████░░░░░  83%   (73 / 88 items)
 
 Phase 1 · Package Scaffold & Docs     ██████████████████████████  100%  ✅ Complete
 Phase 2 · Terminal Drivers            ██████████████████████████  100%  ✅ Complete (44 tests green 2026-07-01; interactive demo check pending)
@@ -39,7 +39,7 @@ Phase 6C · Editor v2 (selection…)     █████████████
 Phase 7 · Styling & Theming           ██████████████████████████  100%  🔄 Code complete (verification pending)
 Phase 8 · Demo & Polish               ██████████████████████░░░░   85%  🔄 Turbo theme suite (8.5–8.8, 8.13–8.15), border scrollbars (8.7), multi-click (8.16), API review (8.3), docs (8.4) done; remaining: headless demo test (8.2), minimize trio (8.10–8.12)
 Phase 9 · Tutorial                    ██████████████████████████  100%  ✅ Docs/Tutorial (README + Ch1–6), TUIKitTutorial runner + TUIKitTutorialMilestones library, anti-rot tests render every chapter headlessly
-Phase 10 · VTG Vector Graphics        ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending (rev 2)
+Phase 10 · VTG Vector Graphics        ████████████████████░░░░░░   75%  🔄 Core shipped (10.1–10.5 first pass, 10.7; Ambiance theme); pending: real-VectorTerminal check (10.8), wider control pass
 Phase 11 · Controls v3                ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending (rev 2: search, sheets, images, tokens, tooltips)
 Phase 12 · TUIBuilder (declarative)   ██████████████████████████  100%  🔄 Code complete — core, containers, Form, Grid/Tab/Split DSL, hosting
 Phase 13 · TUIView base rename        ██████████████████████████  100%  ✅ Done — base class View → TUIView (SwiftUI coexistence)
@@ -387,16 +387,27 @@ feature has a headless/fake-transport testing story; cell rendering must
 remain the universal fallback — a TUIKit app never *requires* VTG, and
 apps cannot tell (except visually) which mode they are running in.
 
+**Status (2026-07-11):** the core shipped on `feature/vtg-chrome` (docs:
+`Docs/VTGChrome.md`; tests: `VTGChromeTests`, 12 green). The first chrome
+pass covers the pieces Bobby asked for — a *pretty titlebar* (gradient,
+rounded top corners, centered title, circular close/maximize buttons) and
+*rounded-corner buttons* — via the new **Ambiance** built-in theme
+(Ubuntu-inspired: aubergine gradient desktop, dark titlebar with the orange
+close circle at the LEADING side, light gradient pills with an orange focus
+glow). **Note:** VectorTerminalSDK requires macOS 16, so the package's
+platform floor moved 15 → 16 (flagged in NEEDS_HUMAN.md). Verification on a
+real VectorTerminal is still pending — everything below is headless-proven.
+
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 10.1 | Capability detection & fallback contract | ⏳ Pending | Probe `capabilities?` (typed `VTGCapabilities`) during driver `begin`; expose `driver.graphics` as optional. The fallback rule is uniform: no VTG → today's cell rendering, exactly as it is in rev 1; never a crash, never a behavior difference. |
-| 10.2 | VTG driver integration | ⏳ Pending | Extend `TerminalDriver` with an optional graphics surface backed by `VectorTerminalCanvas`; one output path so VTG APC writes interleave safely with cell present (frames via `startFrame`/`endFrame` for tear-free updates). Raw sequences stay in the driver, per the Phase 2 contract. |
-| 10.3 | Cell↔pixel geometry | ⏳ Pending | `glyphSize?`-based metrics: view-local cell coordinates ↔ canvas pixel coordinates conversion owned by the framework (one mapper, tested), so views position vector art in their own coordinate space. |
-| 10.4 | Internal chrome surface | ⏳ Pending | A framework-internal (not public) typed decoration surface controls draw chrome through, in local coordinates, alongside their cell `draw(_:)`: rounded rects, fills, shadows, pill shapes, focus glows. Framework composes translation and VTG layer `clip` so the Painter clipping contract holds for chrome too; object ids are view-scoped and reclaimed when views move/disappear. |
-| 10.5 | Control & window chrome pass | ⏳ Pending | Apply the surface across the set: window/panel borders and shadows, button and segmented pills behind text, rounded text-field wells, smooth scrollbar thumb, tab folder shapes, focus glow. Chrome hooks into the Phase 7 theme cascade (themes may define both cell and VTG styling); zero public API change to any control. |
-| 10.6 | VTG input routing | ⏳ Pending | VTG-native pixel mouse events decoded in the driver and routed through the existing responder chain as the same typed `MouseInput` in cell coords — chrome never changes hit-testing semantics, it only looks better. |
-| 10.7 | Headless VTG testing | ⏳ Pending | Closure-backed `VTGOutput` transport recording sequences + scripted event injection: assert emitted VTG chrome commands and unchanged input routing deterministically, no terminal required (same discipline as the headless cell driver). |
-| 10.8 | Demo & fallback proof | ⏳ Pending | The *same* demo app, untouched, runs twice: in a VTG terminal with full chrome, and in a plain terminal with cell rendering — identical behavior, focus order, and events in both. That equivalence is the phase exit criterion. |
+| 10.1 | Capability detection & fallback contract | 🔄 Code complete | `ANSIDriver.begin()` probes `capabilities?` + `glyphSize?` (400 ms budget, on the output queue, BEFORE the input read source starts so the probe owns its APC responses); no glyph metrics → chrome off. `TerminalDriver` gains defaulted `supportsGraphicsChrome`/`presentChrome` so every other driver is untouched. `TUIKIT_VTG=0` opts out. Fallback proven by tests: chrome off → zero commands, pre-Phase-10 cells. |
+| 10.2 | VTG driver integration | 🔄 Code complete | `VectorTerminalSDK` (1.5.6+) is the new in-house dependency, confined to the driver layer. The canvas writes through an `FDSink` on the driver's existing output queue (serialized with cell presents; EAGAIN-safe), wrapped in `startFrame`/`endFrame` per chrome frame; identical consecutive frames write nothing; `end()` clears the retained scene. Canvas state is queue-confined (`VTGState`), honoring the never-block rule (probe waits on GCD, not a cooperative thread). |
+| 10.3 | Cell↔pixel geometry | 🔄 Code complete | Framework side stays pixel-free: chrome geometry is **fractional cells** (`ChromeRect`/`ChromePoint`; scalar sizes in cell heights). The driver-owned `CellPixelMapper` (pure, tested) converts with the probed glyph metrics, rounding edges independently so gradient strips stay seamless. |
+| 10.4 | Internal chrome surface | 🔄 Code complete | `ChromeSurface` (`painter.chrome`, present only when chrome is enabled) mirrors `Painter`: same origin/clip derivation, so the clipping contract holds for chrome (test-proven). Typed `ChromeCommand`s (rounded rects, circles, lines, `verticalGradient` = base + corner-inset strips) with view-scoped retained ids (`renderTree` stamps view identity); `ChromeSceneReconciler` (pure, tested) plans each frame — unchanged → nothing, same id order → in-place updates of changed shapes only, reordered (window raise/open/close) → full rebuild, because retained objects keep creation-time stacking and an in-place update would stack chrome differently than the cells above it. Public-but-passive: apps never need it, controls use it internally. |
+| 10.5 | Control & window chrome pass | 🔄 First pass | Shipped: `Desktop` (backdrop gradient + window shadows), `Panel` window chrome (vector titlebar w/ theme-set `buttonPlacement` — hit-testing follows the visual side), `Button` (rounded gradient pill, focus glow, press flips gradient; role pills derive from the cell slots). Themes style it all via the new Codable `ThemePalette.vector: VectorChrome?` (titleBar/button/desktop/windowShadow). Remaining candidates: field wells, scrollbar thumbs, tab folders, menu bar. |
+| 10.6 | VTG input routing | ✅ Done (no-op by design) | VectorTerminal emits standard SGR mouse reporting, which the Phase 2 decoder already routes as cell-coordinate `MouseInput` — no VTG-native event path needed. Revisit only if pixel-precision gestures ever matter. |
+| 10.7 | Headless VTG testing | 🔄 Code complete | `HeadlessDriver(supportsGraphicsChrome: true)` records `presentedChrome`/`chromePresentCount`. `VTGChromeTests` (12): mapper rounding/scalars, reconciler, gradient-inside-arcs geometry, chrome clipping, Ambiance titlebar (incl. leading-close hit test) + pills + backdrop/shadow ordering, chrome-off fallback (cells + trailing `[x]` hit test), App activation both modes, theme JSON round-trip. |
+| 10.8 | Demo & fallback proof | ⏳ Pending | Ambiance is in `Theme.builtIn`, so the demo's Theme menu already offers it. Still to do: run the untouched demo inside a real VectorTerminal and confirm full chrome + identical behavior vs. a plain terminal (the phase exit criterion) — needs a human with the VectorTerminal app (see NEEDS_HUMAN.md). |
 
 ## Phase 11 — Controls v3 ⏳ 0% (rev 2)
 

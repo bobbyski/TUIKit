@@ -27,12 +27,21 @@ public actor HeadlessDriver: TerminalDriver {
     private var presentationCount = 0
     private var inputContinuations: [Int: AsyncStream<TerminalInput>.Continuation] = [:]
     private var nextContinuationID = 0
+    private let graphicsChrome: Bool
+    private var lastChrome: [ChromeCommand] = []
+    private var chromePresentationCount = 0
 
     /// Creates a headless driver.
     ///
-    /// - Parameter size: Simulated terminal size.
-    public init(size: Size = Size(width: 80, height: 24)) {
+    /// - Parameters:
+    ///   - size: Simulated terminal size.
+    ///   - supportsGraphicsChrome: Whether to simulate a VTG terminal
+    ///     (Phase 10). On, presented chrome commands are recorded for
+    ///     assertion; off (the default), the app renders cells only —
+    ///     exactly the plain-terminal fallback.
+    public init(size: Size = Size(width: 80, height: 24), supportsGraphicsChrome: Bool = false) {
         self.currentSize = size
+        self.graphicsChrome = supportsGraphicsChrome
     }
 
     // MARK: - TerminalDriver
@@ -106,6 +115,23 @@ public actor HeadlessDriver: TerminalDriver {
         lastClipboard = text
     }
 
+    /// Whether this driver simulates a VTG terminal (set at creation).
+    public var supportsGraphicsChrome: Bool {
+        graphicsChrome
+    }
+
+    /// Records a presented chrome frame, when simulating a VTG terminal.
+    ///
+    /// - Parameter commands: The frame's chrome, in draw order.
+    public func presentChrome(_ commands: [ChromeCommand]) {
+        guard graphicsChrome else {
+            return
+        }
+
+        lastChrome = commands
+        chromePresentationCount += 1
+    }
+
     // Most recent setClipboard payload.
     private var lastClipboard: String?
 
@@ -136,6 +162,17 @@ public actor HeadlessDriver: TerminalDriver {
     /// The most recently presented buffer, when any.
     public var presentedBuffer: CellBuffer? {
         lastPresented
+    }
+
+    /// The most recently presented chrome frame (empty before the first, or
+    /// when the driver is not simulating a VTG terminal).
+    public var presentedChrome: [ChromeCommand] {
+        lastChrome
+    }
+
+    /// Number of times `presentChrome(_:)` recorded a frame.
+    public var chromePresentCount: Int {
+        chromePresentationCount
     }
 
     /// Number of times `present(_:)` has been called.

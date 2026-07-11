@@ -360,18 +360,21 @@ public final class DirectoryTree: TUIView {
     }
 
     // MARK: - Path helpers (shared with FileDialog)
+    //
+    // Pure string manipulation — nonisolated so nonisolated callers (e.g.
+    // test fakes conforming to FileSystemProvider) can use them directly.
 
-    static func join(_ path: String, _ name: String) -> String {
+    nonisolated static func join(_ path: String, _ name: String) -> String {
         path.hasSuffix("/") ? path + name : path + "/" + name
     }
 
-    static func lastComponent(of path: String) -> String {
+    nonisolated static func lastComponent(of path: String) -> String {
         let trimmed = path.hasSuffix("/") && path.count > 1 ? String(path.dropLast()) : path
         let component = trimmed.split(separator: "/").last.map(String.init)
         return component ?? trimmed
     }
 
-    static func parent(of path: String) -> String {
+    nonisolated static func parent(of path: String) -> String {
         let trimmed = path.hasSuffix("/") && path.count > 1 ? String(path.dropLast()) : path
 
         guard let slash = trimmed.lastIndex(of: "/") else {

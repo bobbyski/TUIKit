@@ -118,6 +118,13 @@ public final class Button: TUIView {
     public override func draw(_ painter: Painter) {
         let theme = effectiveTheme
 
+        // On a VTG terminal, a theme with button chrome draws the rounded
+        // gradient pill instead of any cell decoration (Phase 10).
+        if let chrome = painter.chrome, let pill = theme.vector?.button {
+            drawVectorPill(painter, chrome: chrome, theme: theme, pill: pill)
+            return
+        }
+
         // Shadow only when the theme asks for one AND the frame has the extra
         // column/row (a hand-framed 1-row button just renders flat).
         let shadowColor = theme.buttonShadow
@@ -175,6 +182,89 @@ public final class Button: TUIView {
             for x in 1...faceWidth {
                 painter.set(TerminalCell(character: " ", style: shadow), at: Point(x: x, y: 1))
             }
+        }
+    }
+
+    // The vector face (Phase 10): a rounded gradient pill under the label,
+    // with the label cells gone transparent so the pill shows through. Focus
+    // wears the theme's glow stroke (plus bold); a press flips the gradient.
+    // Role pills (`.default`/`.destructive`) derive their gradient from the
+    // theme's cell slot, so the semantics stay theme-driven.
+    private func drawVectorPill(
+        _ painter: Painter,
+        chrome: ChromeSurface,
+        theme: ResolvedTheme,
+        pill: VectorChrome.Button
+    ) {
+        let width = bounds.size.width
+
+        guard width > 0, bounds.size.height > 0 else {
+            return
+        }
+
+        var top: ChromeColor
+        var bottom: ChromeColor
+        var labelColor: TerminalColor
+
+        switch role {
+        case .normal:
+            top = pill.topColor
+            bottom = pill.bottomColor
+            labelColor = pill.textColor ?? theme.buttonForeground
+
+        case .default, .destructive:
+            let slot = role == .default ? theme.defaultButton : theme.destructiveButton
+            let fill = ChromeColor(slot.background) ?? pill.topColor
+            top = ChromeColor.lerp(fill, ChromeColor(red: 255, green: 255, blue: 255), 0.18)
+            bottom = ChromeColor.lerp(fill, ChromeColor(red: 0, green: 0, blue: 0), 0.12)
+            labelColor = slot.foreground
+        }
+
+        if isPressed {
+            if role == .normal, let pressedTop = pill.pressedTopColor {
+                top = pressedTop
+                bottom = pill.pressedBottomColor ?? pill.topColor
+            } else {
+                swap(&top, &bottom)
+            }
+        }
+
+        let focused = isFirstResponder
+        let stroke = focused ? (pill.focusStrokeColor ?? pill.strokeColor) : pill.strokeColor
+
+        chrome.verticalGradient(
+            "pill",
+            ChromeRect(x: 0, y: 0, width: Double(width), height: 1),
+            top: top,
+            bottom: bottom,
+            steps: 6,
+            radius: pill.cornerRadius ?? 0.4,
+            corners: .all,
+            stroke: stroke,
+            lineWidth: focused && pill.focusStrokeColor != nil ? 0.09 : 0.05
+        )
+
+        // Label cells keep the terminal-default background (neutral base
+        // defeats theme substitution) so the pill shows behind the text.
+        let transparent = painter.withBase(CellStyle())
+        transparent.fill(bounds, with: .blank)
+
+        var labelStyle = CellStyle(foreground: labelColor)
+        if focused {
+            labelStyle.flags.insert(.bold)
+        }
+
+        let accelerator = self.accelerator
+        let innerWidth = max(0, width - style.horizontalPadding)
+        let inner = Label.truncated(accelerator.display, width: innerWidth)
+        transparent.write(style.decorate(inner), at: .zero, style: labelStyle)
+
+        if let index = accelerator.index, index < inner.count {
+            let column = style.horizontalPadding / 2 + index
+            transparent.set(
+                TerminalCell(character: Array(inner)[index], style: theme.accelerator(over: labelStyle)),
+                at: Point(x: column, y: 0)
+            )
         }
     }
 

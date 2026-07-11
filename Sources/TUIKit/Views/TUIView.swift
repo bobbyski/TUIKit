@@ -552,8 +552,11 @@ open class TUIView {
 
         // Re-base the painter on this view's resolved theme (explicit
         // theme override and/or stylesheet rules); a no-op when nothing
-        // applies.
-        let painter = painter.withBase(effectiveTheme.base)
+        // applies. Chrome object ids are scoped to this view's identity —
+        // stable across frames for the terminal's retained vector scene.
+        let painter = painter
+            .withBase(effectiveTheme.base)
+            .withChromeOwner("v\(UInt(bitPattern: ObjectIdentifier(self)))")
 
         draw(painter)
 

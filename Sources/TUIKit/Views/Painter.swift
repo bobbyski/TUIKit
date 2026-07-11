@@ -7,11 +7,27 @@ final class RenderTarget {
     /// Cells composed so far this frame.
     var buffer: CellBuffer
 
+    /// Whether views may emit vector chrome this frame (Phase 10). Off, the
+    /// painter carries no `ChromeSurface` and rendering is exactly rev 1.
+    let chromeEnabled: Bool
+
+    /// Vector chrome commands composed so far this frame, in draw order
+    /// (back to front, like cells).
+    private(set) var chrome: [ChromeCommand] = []
+
     /// Creates a target of the given size filled with blank cells.
     ///
-    /// - Parameter size: Frame size in cells.
-    init(size: Size) {
+    /// - Parameters:
+    ///   - size: Frame size in cells.
+    ///   - chromeEnabled: Whether views may emit vector chrome.
+    init(size: Size, chromeEnabled: Bool = false) {
         self.buffer = CellBuffer(size: size)
+        self.chromeEnabled = chromeEnabled
+    }
+
+    /// Collects one chrome command (called by `ChromeSurface`).
+    func appendChrome(_ command: ChromeCommand) {
+        chrome.append(command)
     }
 }
 
@@ -50,6 +66,23 @@ public struct Painter {
     /// the active theme's palette. Explicit colors pass through untouched.
     public let base: CellStyle
 
+    // Retained-scene id prefix for the view currently drawing (stamped by
+    // `renderTree`), so chrome object ids are view-scoped.
+    private let chromeOwnerID: String
+
+    /// The vector chrome surface, when the frame is chrome-enabled.
+    ///
+    /// `nil` on plain terminals — views guard chrome drawing with
+    /// `if let chrome = painter.chrome`, and the cell path stays the
+    /// universal fallback (Phase 10 contract).
+    public var chrome: ChromeSurface? {
+        guard target.chromeEnabled else {
+            return nil
+        }
+
+        return ChromeSurface(target: target, origin: origin, clip: clip, ownerID: chromeOwnerID)
+    }
+
     /// Creates a painter.
     ///
     /// - Parameters:
@@ -57,11 +90,19 @@ public struct Painter {
     ///   - origin: Translation from view-local to buffer coordinates.
     ///   - clip: Writable region in buffer coordinates.
     ///   - base: Theme base colors for `.standard` substitution.
-    init(target: RenderTarget, origin: Point, clip: Rect, base: CellStyle = CellStyle()) {
+    ///   - chromeOwnerID: Retained-scene id prefix for chrome commands.
+    init(
+        target: RenderTarget,
+        origin: Point,
+        clip: Rect,
+        base: CellStyle = CellStyle(),
+        chromeOwnerID: String = "root"
+    ) {
         self.target = target
         self.origin = origin
         self.clip = clip
         self.base = base
+        self.chromeOwnerID = chromeOwnerID
     }
 
     /// Writes one cell at a view-local point, subject to clipping.
@@ -168,7 +209,8 @@ public struct Painter {
             target: target,
             origin: subviewOrigin,
             clip: clip.intersection(frameInBuffer),
-            base: base
+            base: base,
+            chromeOwnerID: chromeOwnerID
         )
     }
 
@@ -177,6 +219,18 @@ public struct Painter {
     /// - Parameter newBase: Theme base colors for the subtree.
     /// - Returns: Painter with the same translation and clip.
     func withBase(_ newBase: CellStyle) -> Painter {
-        Painter(target: target, origin: origin, clip: clip, base: newBase)
+        Painter(target: target, origin: origin, clip: clip, base: newBase, chromeOwnerID: chromeOwnerID)
+    }
+
+    /// Derives a painter whose chrome object ids are scoped to a view.
+    ///
+    /// `renderTree` stamps each view's identity before its `draw(_:)`, so
+    /// two views using the same chrome key never collide in the terminal's
+    /// retained scene.
+    ///
+    /// - Parameter ownerID: The drawing view's stable id prefix.
+    /// - Returns: Painter with the same translation, clip, and base.
+    func withChromeOwner(_ ownerID: String) -> Painter {
+        Painter(target: target, origin: origin, clip: clip, base: base, chromeOwnerID: ownerID)
     }
 }
