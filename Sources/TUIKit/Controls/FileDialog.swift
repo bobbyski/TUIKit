@@ -229,11 +229,16 @@ public final class FileDialog: Dialog {
 
         let canCreate = canCreateDirectories ?? (mode == .save)
 
+        // A directories-only picker answers with the folder it is showing, so
+        // it arrives with nothing highlighted (see `chosenPath`). Landing on
+        // the first child would both answer for the user and make the browsed
+        // folder unchoosable whenever it has subfolders.
         self.directoryList = DirectoryList(
             directory: root,
             fileSystem: fileSystem,
             showsFiles: self.chooses != .directories,
-            icons: icons
+            icons: icons,
+            selectsFirstEntryOnReload: self.chooses != .directories
         )
         self.pathControl = PathControl(path: root)
 
@@ -262,8 +267,13 @@ public final class FileDialog: Dialog {
             fields.addSubview(typeRow(fileTypes: fileTypes))
         }
 
+        // New Folder rides beside the Name field when there is one; without
+        // it (open / folder-picker modes) it gets its own row, so
+        // `canCreateDirectories` means the same thing in every mode.
         if usesNameField {
             fields.addSubview(nameRow(canCreate: canCreate))
+        } else if canCreate {
+            fields.addSubview(newFolderButtonRow())
         }
 
         fields.addSubview(newFolderSection())
@@ -400,12 +410,24 @@ public final class FileDialog: Dialog {
         row.addSubview(nameField)
 
         if canCreate {
-            row.addSubview(Button("New Folder") { [weak self] in
-                self?.beginNewFolder()
-            })
+            row.addSubview(newFolderButton())
         }
 
         return row
+    }
+
+    // The standalone New Folder row for modes without a Name field.
+    private func newFolderButtonRow() -> TUIView {
+        let row = HStack(spacing: 1)
+        row.addSubview(newFolderButton())
+        row.addSubview(TUIView())   // spacer keeps the button leading
+        return row
+    }
+
+    private func newFolderButton() -> Button {
+        Button("New Folder") { [weak self] in
+            self?.beginNewFolder()
+        }
     }
 
     private func newFolderSection() -> TUIView {

@@ -73,6 +73,14 @@ public final class DirectoryList: TUIView {
         }
     }
 
+    /// Whether ``reload()`` moves the highlight onto the first real entry.
+    ///
+    /// On by default: a browser that lands on content is friendlier than one
+    /// that lands on the way back out. Folder pickers turn it OFF — there the
+    /// answer is the directory being shown, and a pre-highlighted child would
+    /// silently answer with a folder the user never chose.
+    public var selectsFirstEntryOnReload: Bool = true
+
     /// Called when the highlighted row changes (`nil` when cleared).
     public var onSelectionChanged: (Entry?) -> Void = { _ in }
 
@@ -95,17 +103,23 @@ public final class DirectoryList: TUIView {
     ///   - fileSystem: Listing source. Defaults to the local file system.
     ///   - showsFiles: Whether files appear. Defaults to `true`.
     ///   - icons: Row glyphs. Defaults to the single-width text set.
+    ///   - selectsFirstEntryOnReload: Whether a reload highlights the first
+    ///     real entry. Defaults to `true`; folder pickers pass `false`. Taken
+    ///     here rather than set afterwards because the first `reload()`
+    ///     happens during init.
     public init(
         directory: String,
         fileSystem: FileSystemProvider = LocalFileSystem(),
         showsFiles: Bool = true,
-        icons: FileDialog.Icons = .default
+        icons: FileDialog.Icons = .default,
+        selectsFirstEntryOnReload: Bool = true
     ) {
         self.directory = directory
         self.fileSystem = fileSystem
         self.showsFiles = showsFiles
         self.showsHidden = false
         self.icons = icons
+        self.selectsFirstEntryOnReload = selectsFirstEntryOnReload
         super.init(frame: .zero)
 
         list.anchors = .fill()
@@ -149,10 +163,17 @@ public final class DirectoryList: TUIView {
     ///
     /// Selection lands on the first real entry (past `..`) when there is one,
     /// so a freshly shown directory always highlights content, not the way
-    /// back out.
+    /// back out — unless ``selectsFirstEntryOnReload`` is off, in which case
+    /// the listing arrives with nothing highlighted.
     public func reload() {
         rows = buildRows()
         rebuildRows()
+
+        guard selectsFirstEntryOnReload else {
+            list.select(nil, notify: true)
+            return
+        }
+
         list.select(rows.count > 1 ? 1 : (rows.isEmpty ? nil : 0), notify: true)
     }
 

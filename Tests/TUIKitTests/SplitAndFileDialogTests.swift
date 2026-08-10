@@ -147,6 +147,23 @@ private func makeFileDialog(mode: FileDialog.Mode) -> (FileDialog, DialogFakeFil
     return (dialog, disk)
 }
 
+// Finds a button anywhere in a view tree — the dialog's body buttons are
+// nested in rows, not in `buttons` (which is the footer bar only).
+@MainActor
+private func embeddedButton(titled title: String, in view: TUIView) -> Button? {
+    for subview in view.subviews {
+        if let button = subview as? Button, button.title == title {
+            return button
+        }
+
+        if let found = embeddedButton(titled: title, in: subview) {
+            return found
+        }
+    }
+
+    return nil
+}
+
 // MARK: - DirectoryList
 
 @Test @MainActor func directoryListOrdersParentDirectoriesThenFiles() {
@@ -261,16 +278,45 @@ private func makeFileDialog(mode: FileDialog.Mode) -> (FileDialog, DialogFakeFil
     #expect(confirmed == ["/root/sub/a.txt"])
 }
 
-@Test @MainActor func fileDialogSelectFolderHidesFilesAndChooses() {
+@Test @MainActor func fileDialogSelectFolderChoosesTheDirectoryItIsShowing() {
     let (dialog, _) = makeFileDialog(mode: .selectFolder)
 
     #expect(dialog.buttons.last?.title == "Choose")
-    #expect(dialog.chosenPath == "/root/sub", "selection starts on the only folder; files are hidden")
+
+    // A folder picker's answer is the folder you are LOOKING at. Auto-
+    // highlighting the first child would answer with a folder the user
+    // never picked — and make the browsed directory unchoosable whenever
+    // it has subfolders.
+    #expect(dialog.chosenPath == "/root", "the browsed directory is the default answer")
+    #expect(dialog.selectedPath == nil, "no child is highlighted on arrival")
 
     var confirmed: [String] = []
     dialog.onConfirm = { confirmed.append($0) }
     dialog.buttons.last?.activate()
-    #expect(confirmed == ["/root/sub"])
+    #expect(confirmed == ["/root"])
+}
+
+@Test @MainActor func fileDialogSelectFolderStillChoosesAHighlightedChild() {
+    let (dialog, _) = makeFileDialog(mode: .selectFolder)
+
+    // Down off the `..` row onto `sub`: an explicit pick still wins.
+    dialog.route(.key(KeyInput(key: .down)))
+    dialog.route(.key(KeyInput(key: .down)))
+    #expect(dialog.chosenPath == "/root/sub", "highlighting a child chooses it")
+}
+
+@Test @MainActor func fileDialogCanCreateDirectoriesOutsideSaveMode() {
+    let disk = makeDisk()
+    let dialog = FileDialog(
+        mode: .selectFolder,
+        root: "/root",
+        fileSystem: disk,
+        canCreateDirectories: true
+    )
+
+    // The parameter is public on every mode, so it must actually surface
+    // the button — not silently do nothing because there is no name row.
+    #expect(embeddedButton(titled: "New Folder", in: dialog.body) != nil, "New Folder appears in folder-picker mode")
 }
 
 @Test @MainActor func fileDialogWildcardAndFileTypeFilterTheList() {
@@ -315,7 +361,14 @@ private func makeFileDialog(mode: FileDialog.Mode) -> (FileDialog, DialogFakeFil
     )
 
     #expect(dialog.buttons.last?.title == "Import")
-    #expect(dialog.chosenPath == "/root/sub", "directories-only selection")
+
+    // `chooses: .directories` makes this a folder picker whatever the mode,
+    // so it inherits the folder-picker default: the browsed directory.
+    #expect(dialog.chosenPath == "/root", "directories-only defaults to the browsed folder")
+
+    dialog.route(.key(KeyInput(key: .down)))
+    dialog.route(.key(KeyInput(key: .down)))
+    #expect(dialog.chosenPath == "/root/sub", "and a highlighted directory wins")
 }
 
 @Test @MainActor func fileDialogSidebarLocationNavigates() {
