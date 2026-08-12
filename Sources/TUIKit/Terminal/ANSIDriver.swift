@@ -153,6 +153,66 @@ public actor ANSIDriver: TerminalDriver {
         startResizeSource()
     }
 
+    /// Hands the terminal back to the shell without ending the session.
+    ///
+    /// Unlike ``end()``, the input-stream continuations are left OPEN, so the
+    /// app's run loop survives and ``resume()`` can pick it up again.
+    public func suspend() async {
+        guard isActive else {
+            return
+        }
+
+        readSource?.cancel()
+        readSource = nil
+        resizeSource?.cancel()
+        resizeSource = nil
+
+        // Disable mouse, show cursor, leave the alternate screen — the
+        // child program gets a normal terminal in its normal state.
+        await write("\u{1B}[?1006l\u{1B}[?1002l\u{1B}[?25h\u{1B}[?1049l")
+
+        // Blocking stdin again: the child does its own reads, and a
+        // non-blocking descriptor it did not ask for would break it.
+        let flags = fcntl(inputDescriptor, F_GETFL)
+        _ = fcntl(inputDescriptor, F_SETFL, flags & ~O_NONBLOCK)
+
+        if var original = originalTermios {
+            tcsetattr(inputDescriptor, TCSANOW, &original)
+        }
+
+        isActive = false
+    }
+
+    /// Retakes the terminal after ``suspend()``.
+    ///
+    /// The window may have been resized while the child owned the screen, so
+    /// the size is re-probed; callers redraw from scratch.
+    public func resume() async {
+        guard !isActive, originalTermios != nil else {
+            return   // never began, or never suspended
+        }
+
+        var raw = termios()
+        tcgetattr(inputDescriptor, &raw)
+        cfmakeraw(&raw)
+        tcsetattr(inputDescriptor, TCSANOW, &raw)
+
+        let flags = fcntl(inputDescriptor, F_GETFL)
+        _ = fcntl(inputDescriptor, F_SETFL, flags | O_NONBLOCK)
+
+        isActive = true
+
+        await write("\u{1B}[?1049h\u{1B}[?25l\u{1B}[?1002h\u{1B}[?1006h\u{1B}[2J\u{1B}[H")
+        currentSize = Self.probeSize(descriptor: outputDescriptor) ?? currentSize
+
+        // A half-typed escape sequence from before the handover would now be
+        // decoded against unrelated bytes.
+        decoder = ANSIInputDecoder()
+
+        startReadSource()
+        startResizeSource()
+    }
+
     /// Restores the terminal and stops the input pipeline.
     ///
     /// Safe to call unconditionally, including after a failed `begin()`.

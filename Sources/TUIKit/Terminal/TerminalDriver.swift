@@ -96,6 +96,38 @@ public protocol TerminalDriver: Sendable {
     ///
     /// - Parameter commands: The frame's chrome, in draw order.
     func presentChrome(_ commands: [ChromeCommand]) async
+
+    /// Temporarily gives the terminal back, so another program can own it.
+    ///
+    /// This is `end()` without the finality: raw mode, the alternate screen,
+    /// and mouse reporting are undone and input handling stops, but the input
+    /// stream stays OPEN and the run loop stays alive — so a later
+    /// ``resume()`` picks up where this left off. Ending the input stream
+    /// here (as `end()` does) would tear down the loop that is waiting to
+    /// come back.
+    ///
+    /// Lets an app hand its real TTY to a child process — a shell, an editor,
+    /// another full-screen program — and take it back when the child exits.
+    /// See `App.suspended(_:)`, which sequences this correctly.
+    ///
+    /// The default implementation does nothing, which is right for drivers
+    /// that never owned a terminal (`HeadlessDriver`).
+    func suspend() async
+
+    /// Retakes the terminal after ``suspend()``.
+    ///
+    /// Re-enters raw mode and the alternate screen, re-measures the window
+    /// (the user may have resized it while away), and restarts input.
+    /// Callers must redraw: the child scribbled over the screen.
+    func resume() async
+}
+
+extension TerminalDriver {
+    /// Default: nothing to give back.
+    public func suspend() async {}
+
+    /// Default: nothing to retake.
+    public func resume() async {}
 }
 
 extension TerminalDriver {

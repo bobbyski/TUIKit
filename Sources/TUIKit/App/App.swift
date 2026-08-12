@@ -32,6 +32,12 @@ public final class App {
     /// Whether the run loop is active.
     public private(set) var isRunning = false
 
+    /// Whether the app has handed the terminal to another program.
+    ///
+    /// True only for the duration of ``suspended(_:)``. The run loop is still
+    /// alive; it just has the screen taken away from it.
+    public private(set) var isSuspended = false
+
     /// Whether the terminal draws vector chrome this run (Phase 10).
     ///
     /// Set once per `run(_:)` from the driver's begin-time probe. On, views
@@ -256,6 +262,56 @@ public final class App {
     /// then restores the terminal and returns to its caller.
     public func stop() {
         isRunning = false
+
+        // Wake the loop. It checks `isRunning` only after handling an event,
+        // so a stop from OUTSIDE event processing — a timer body, a task
+        // finishing, a child process exiting — would otherwise leave it
+        // parked on `for await` forever with nothing left to deliver.
+        eventContinuation?.finish()
+    }
+
+    /// Hands the terminal to another program, then takes it back.
+    ///
+    /// The app's UI disappears, `body` runs owning the real TTY — so a child
+    /// process spawned with inherited stdio behaves exactly as it would from
+    /// a shell, full-screen programs included — and afterwards the app
+    /// redraws over whatever the child left on screen.
+    ///
+    /// ```swift
+    /// await app.suspended {
+    ///     try? await shellOut("vim", "notes.txt")
+    /// }
+    /// ```
+    ///
+    /// The run loop stays alive throughout; input events simply stop arriving
+    /// while suspended. Re-entrant calls are ignored (the terminal can only
+    /// be handed over once). With a driver that owns no terminal
+    /// (`HeadlessDriver`), this is just `body` — which is what makes the
+    /// behavior testable.
+    ///
+    /// - Parameter body: Runs while the app is off the screen, on the
+    ///   `MainActor` — like the timer callbacks, and so callers can touch
+    ///   their UI state around the handover without hopping actors.
+    public func suspended(_ body: @MainActor () async -> Void) async {
+        guard !isSuspended else {
+            await body()
+            return
+        }
+
+        isSuspended = true
+        await driver.suspend()
+        await body()
+        await driver.resume()
+
+        // The child owned the screen, and the window may have been resized
+        // while it did: re-measure, then repaint everything rather than
+        // trusting what the renderer last believed was on screen.
+        desktop.frame = Rect(origin: .zero, size: await driver.size)
+        desktop.setNeedsLayout()
+        desktop.refresh()   // every descendant, not just what changed
+        isSuspended = false
+
+        await presentFrameIfNeeded()
     }
 
     /// Runs the application until stopped.

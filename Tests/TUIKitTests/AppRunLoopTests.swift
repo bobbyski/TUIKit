@@ -24,6 +24,65 @@ private final class EchoView: TUIView {
     }
 }
 
+@Test @MainActor func stopWakesALoopThatIsWaitingForEvents() async throws {
+    // The loop checks `isRunning` only after handling an event, so a stop
+    // from outside event processing — a timer body, a task finishing, a child
+    // process exiting — used to leave `run()` parked forever with nothing
+    // left to deliver. Reaching the end of this test is the assertion.
+    let driver = HeadlessDriver(size: Size(width: 4, height: 1))
+    let app = App(driver: driver)
+    let session = Task { try await app.run(Window()) }
+
+    while await driver.presentCount == 0 {
+        await Task.yield()
+    }
+
+    app.stop()   // no input pending, and not inside an event handler
+
+    try await session.value
+    #expect(!app.isRunning)
+}
+
+@Test @MainActor func suspendedHandsOverTheTerminalAndComesBack() async throws {
+    let driver = HeadlessDriver(size: Size(width: 6, height: 2))
+    let app = App(driver: driver)
+    let window = Window()
+    let echo = EchoView(frame: Rect(x: 0, y: 0, width: 6, height: 2))
+
+    window.addSubview(echo)
+    window.makeFirstResponder(echo)
+
+    let session = Task { try await app.run(window) }
+
+    while await driver.presentCount == 0 {
+        await Task.yield()
+    }
+
+    var ranWhileSuspended = false
+
+    await app.suspended {
+        // The whole point: the app is off the screen but still alive, so the
+        // caller can hand the real TTY to a child process here.
+        #expect(app.isSuspended)
+        #expect(app.isRunning, "the run loop survives the handover")
+        ranWhileSuspended = true
+    }
+
+    #expect(ranWhileSuspended)
+    #expect(!app.isSuspended)
+
+    // Back on screen, and still routing input — proof the input stream was
+    // not torn down (which is what end() would have done).
+    await driver.send(.key(KeyInput(key: .character("z"))))
+
+    while await driver.snapshotText() != ["zzzzzz", "zzzzzz"] {
+        await Task.yield()
+    }
+
+    await driver.send(.key(KeyInput(key: .character("c"), modifiers: .control)))
+    try await session.value
+}
+
 @Test @MainActor func appRunsRoutesRendersAndStopsGracefully() async throws {
     let driver = HeadlessDriver(size: Size(width: 6, height: 2))
     let app = App(driver: driver)
