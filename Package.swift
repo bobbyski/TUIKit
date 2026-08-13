@@ -16,6 +16,13 @@ let package = Package(
             name: "TUIKit",
             targets: ["TUIKit"]
         ),
+        // The source-code editor (Phase 15). A separate product so an app
+        // that only needs forms and menus never links grammars or diff
+        // engines; see Docs/CodeEditorPlan.md.
+        .library(
+            name: "TUICodeEditor",
+            targets: ["TUICodeEditor"]
+        ),
     ],
     dependencies: [
         // In-house only — RichSwift renders rich *content* (markup, tables,
@@ -29,6 +36,10 @@ let package = Package(
         // sequences, retained vector scene, under-text layer. Raw VTG bytes
         // live only in the driver layer; plain terminals never see one.
         .package(url: "https://github.com/bobbyski/VectorTerminalSDK.git", from: "1.5.6"),
+        // The UI-free half of the editor: document, commands, tokenizer,
+        // gutter models. Foundation-only by construction, so it stays
+        // adoptable by a GUI editor. LOCAL PATH while the two co-evolve.
+        .package(path: "../CodeEditorCore"),
     ],
     targets: [
         // Compiler-plugin target implementing the @Bound macro.
@@ -58,6 +69,17 @@ let package = Package(
                 // Bundle.module at startup.
                 .process("Resources"),
             ]
+        ),
+        .target(
+            name: "TUICodeEditor",
+            dependencies: [
+                "TUIKit",
+                .product(name: "CodeEditorCore", package: "CodeEditorCore"),
+            ]
+        ),
+        .testTarget(
+            name: "TUICodeEditorTests",
+            dependencies: ["TUICodeEditor"]
         ),
         .testTarget(
             name: "TUIKitTests",

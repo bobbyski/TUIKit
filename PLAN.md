@@ -44,6 +44,7 @@ Phase 11 · Controls v3                ░░░░░░░░░░░░░�
 Phase 12 · TUIBuilder (declarative)   ██████████████████████████  100%  🔄 Code complete — core, containers, Form, Grid/Tab/Split DSL, hosting
 Phase 13 · TUIView base rename        ██████████████████████████  100%  ✅ Done — base class View → TUIView (SwiftUI coexistence)
 Phase 14 · Data In / Out (binding)    ██████████████████████████  100%  🔄 Code complete — value/named/dict + typed binding + load/save/live + @Bound macro
+Phase 15 · TUICodeEditor              ████████████████░░░░░░░░░░   62%  🔄 E1–E5/E8 code complete — stateful colouring, banded gutter, OmegaCLIDE swapped over; E6 folding, E7 diff/merge, E9 perf remain
 ```
 
 **Status key:** ✅ Done &nbsp;|&nbsp; 🔄 In Progress &nbsp;|&nbsp; ⏳ Pending &nbsp;|&nbsp; 🚫 Blocked
@@ -472,6 +473,23 @@ never re-fires events — the "safe to repeat" property.
 | 14.5 | `load()`/`save()` + `live` | ✅ Done | Recursive, idempotent tree sync (`pull`/`push`); `bind(live:)` composes with the control's existing change event (user handler still runs). |
 | 14.6 | `@Bound` macro | ✅ Done | `@Bound var name = ""` on a class → a `$name` `Binding` projection (`field.bind(model.$name)`); the type is **inferred** from the literal initializer (`""`/`0`/`0.0`/`false`), non-literals annotate. Implemented in a new `TUIKitMacros` compiler-plugin target on **`swift-syntax`** (`603.0.0+`) — the one non-in-house dependency, confined to the plugin so the library runtime stays dependency-free. Slower builds are an accepted trade for the ergonomics. |
 | 14.7 | Tests + docs | ✅ Done | 7 headless tests (round-trip/coerce, silent, dotted paths, dict I/O, key-path load/save idempotence, closure binding, live); `Docs/DataBinding.md`. |
+
+## Phase 15 — TUICodeEditor ⏳ 0% (plan ready)
+
+A second product target: a source-code editor on par with SwiftyCodeEditor's
+core (Bobby, 2026-08-10 — headline gaps: syntax coloring and the gutter),
+with deliberate CLI concessions. E0 decided (Bobby, 2026-08-10): **Option B —
+port SwiftyCodeEditor's core rather than depend on it** ("a CLI tool dependent
+on a GUI tool just seems wrong"), every ported file carrying a provenance
+header (source path, upstream commit `5bbc08c`, divergences) so periodic
+refresh sweeps are a diff, not archaeology.
+
+The ported logic lands in **`CodeEditorCore`** — a new Foundation-only package
+at `UILess/Code/CodeEditorCore`, sibling to this one — so the non-UI half is a
+clean library the GUI editor *could* adopt later to collapse the duplication.
+SwiftyCodeEditor is not restructured by this plan; no split is forced on it.
+Full plan and parity matrix: **`Docs/CodeEditorPlan.md`**.
+`SyntaxTextView` stays for plain-text duty; the IDE swaps editors at E8.
 
 ## Testing Rules
 
