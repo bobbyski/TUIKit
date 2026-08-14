@@ -70,7 +70,7 @@ public final class Desktop: TUIView {
     // window cannot paint outside its own frame (the clipping contract).
     // Slightly offset and rounded like the titlebar above each shadow.
     private func drawWindowShadows(_ chrome: ChromeSurface) {
-        for (index, subview) in subviews.enumerated() {
+        for subview in subviews {
             guard let window = subview as? Window, !window.isHidden, !window.fillsScreen,
                   let vector = window.effectiveTheme.vector,
                   let shadow = vector.windowShadow else {
@@ -79,8 +79,13 @@ public final class Desktop: TUIView {
 
             let frame = ChromeRect(window.frame)
 
+            // Keyed by the window's IDENTITY, not its index. Indices shift
+            // whenever a window is activated (`activate` re-adds it to the
+            // front), closed, or maximized — and a retained shape whose key
+            // moves to a different window is a shape the reconciler cannot
+            // match to what it drew last frame.
             chrome.rect(
-                "shadow-\(index)",
+                "shadow-\(UInt(bitPattern: ObjectIdentifier(window).hashValue))",
                 ChromeRect(x: frame.x + 0.3, y: frame.y + 0.18, width: frame.width, height: frame.height),
                 fill: shadow,
                 radius: vector.titleBar?.cornerRadius ?? 0.35,

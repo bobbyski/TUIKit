@@ -190,6 +190,17 @@ public actor HeadlessDriver: TerminalDriver {
         isActive
     }
 
+    /// The most recently presented buffer, cells and all.
+    ///
+    /// `snapshotText()` throws styling away, which hides anything drawn as a
+    /// coloured space — scrollbars, selection on blank lines, gutter bands.
+    /// Tests that care about those need the cells.
+    ///
+    /// - Returns: The buffer, or nil before the first presentation.
+    public func snapshotBuffer() -> CellBuffer? {
+        lastPresented
+    }
+
     /// Plain-text projection of the most recently presented buffer.
     ///
     /// - Returns: One string per row, or an empty array before the first

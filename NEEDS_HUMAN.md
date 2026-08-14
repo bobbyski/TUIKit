@@ -6,6 +6,22 @@ Bobby whenever an entry is added.
 
 ## Open Entries
 
+### Right-edge band that widens when a window moves one column — UNRESOLVED
+- VTG-only visual defect seen in OmegaCLIDE. Five reproduction attempts failed
+  because `HeadlessDriver` reports `supportsGraphicsChrome == false`, so
+  `Desktop.draw`'s chrome branch — the only code that paints beside a window —
+  is never exercised by any test. That blind spot is the real problem.
+- Full investigation, ruled-out list, and ranked next steps: **`RESIZE_ERROR.md`**.
+- Prime suspect: `ChromeSceneReconciler.plan` returns `.update` with NO
+  deletions, so a retained shape that MOVES is redrawn without its old
+  geometry being deleted. Hinges on VectorTerminalSDK's `canvas.rect(id:)`
+  semantics (replace vs append) — one question decides it.
+- Fixed in passing (a real defect, NOT confirmed as the cure): window shadows
+  were keyed by subview index, which is not stable identity across
+  activate / close / maximize. Now keyed by window identity.
+- [ ] Reviewed by human
+- [ ] Human accepted
+
 ### `Package.swift` — platform floor raised macOS 15 → 16 (Phase 10)
 - Added: 2026-07-11 — **Bobby: this changes who can build TUIKit.**
   `VectorTerminalSDK` (the Phase 10 VTG chrome dependency) declares

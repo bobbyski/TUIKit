@@ -287,7 +287,10 @@ private func renderedAmbianceWindow(
     // …with a soft shadow behind the floating window, drawn before the
     // window's own chrome (back-to-front).
     let ids = renderer.chromeCommands.map(\.id)
-    guard let shadow = ids.firstIndex(where: { $0.hasSuffix("_shadow-0") }),
+    // The key itself is deliberately not asserted: shadows are keyed by
+    // window IDENTITY, not position, so that activating or closing a window
+    // cannot hand one window's retained shape to another.
+    guard let shadow = ids.firstIndex(where: { $0.contains("_shadow-") }),
           let titlebar = ids.firstIndex(where: { $0.hasSuffix("_titlebar-base") }) else {
         Issue.record("missing shadow or titlebar")
         return
