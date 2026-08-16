@@ -171,11 +171,11 @@ public final class ScrollView: TUIView {
     /// Draws the indicator bars in the reserved column and row.
     public override func draw(_ painter: Painter) {
         if let bar = verticalBar {
-            drawBar(painter, bar) { cell in Point(x: bounds.size.width - 1, y: cell) }
+            drawBar(painter, bar, vertical: true, at: bounds.size.width - 1)
         }
 
         if let bar = horizontalBar {
-            drawBar(painter, bar) { cell in Point(x: cell, y: bounds.size.height - 1) }
+            drawBar(painter, bar, vertical: false, at: bounds.size.height - 1)
         }
     }
 
@@ -291,60 +291,12 @@ public final class ScrollView: TUIView {
 
     // MARK: - Indicator bars
 
-    // Geometry of one indicator bar, shared by drawing and mouse handling
-    // so the thumb the user grabs is exactly the thumb that was drawn.
-    private struct BarMetrics {
-        /// Bar length in cells (the viewport's extent on this axis).
-        let length: Int
-
-        /// Content extent on this axis.
-        let content: Int
-
-        /// Current offset on this axis.
-        let offset: Int
-
-        /// Thumb length: bar length × (visible ÷ total), rounded — never
-        /// thinner than two cells (one when the bar itself is that small),
-        /// and never the whole bar, so it always has travel room.
-        var thumbLength: Int {
-            let proportional = (length * length + content / 2) / content
-            let minimum = length > 2 ? 2 : 1
-            return min(max(minimum, proportional), max(1, length - 1))
-        }
-
-        /// Largest reachable offset.
-        var maxOffset: Int {
-            content - length
-        }
-
-        /// Largest cell the thumb can start at.
-        var maxThumbStart: Int {
-            length - thumbLength
-        }
-
-        /// Cell the thumb starts at for the current offset.
-        var thumbStart: Int {
-            maxOffset > 0 ? min(maxThumbStart, offset * maxThumbStart / maxOffset) : 0
-        }
-
-        /// Whether a bar cell is inside the thumb.
-        func containsThumb(_ cell: Int) -> Bool {
-            cell >= thumbStart && cell < thumbStart + thumbLength
-        }
-
-        /// Offset that puts the thumb at a given start cell (rounded).
-        func offset(forThumbStart start: Int) -> Int {
-            guard maxThumbStart > 0 else {
-                return 0
-            }
-
-            let clamped = min(max(0, start), maxThumbStart)
-            return (clamped * maxOffset + maxThumbStart / 2) / maxThumbStart
-        }
-    }
+    // `ScrollbarRun` carries the geometry now — including the rounded,
+    // two-cell-minimum thumb rule that started here and was the best of the
+    // six implementations, so it became the shared one.
 
     // The vertical bar's geometry, when it is visible.
-    private var verticalBar: BarMetrics? {
+    private var verticalBar: ScrollbarRun? {
         let visible = viewport.frame.size
 
         guard showsIndicators,
@@ -354,11 +306,15 @@ public final class ScrollView: TUIView {
             return nil
         }
 
-        return BarMetrics(length: visible.height, content: contentSize.height, offset: offset.y)
+        return ScrollbarRun(
+            start: 0,
+            length: visible.height,
+            span: ScrollSpan(offset: offset.y, viewport: visible.height, content: contentSize.height)
+        )
     }
 
     // The horizontal bar's geometry, when it is visible.
-    private var horizontalBar: BarMetrics? {
+    private var horizontalBar: ScrollbarRun? {
         let visible = viewport.frame.size
 
         guard showsIndicators,
@@ -368,22 +324,21 @@ public final class ScrollView: TUIView {
             return nil
         }
 
-        return BarMetrics(length: visible.width, content: resolvedContentSize.width, offset: offset.x)
+        return ScrollbarRun(
+            start: 0,
+            length: visible.width,
+            span: ScrollSpan(offset: offset.x, viewport: visible.width, content: resolvedContentSize.width)
+        )
     }
 
-    // Draws one indicator bar: a track of ░ with a proportional █ thumb.
-    private func drawBar(_ painter: Painter, _ bar: BarMetrics, at position: (Int) -> Point) {
+    // Draws one indicator bar through the shared painter.
+    private func drawBar(_ painter: Painter, _ bar: ScrollbarRun, vertical: Bool, at position: Int) {
         let (trackStyle, thumbStyle) = ScrollView.indicatorStyles(
             for: effectiveTheme,
             focused: isFirstResponder
         )
 
-        for cell in 0..<bar.length {
-            painter.set(
-                TerminalCell(character: " ", style: bar.containsThumb(cell) ? thumbStyle : trackStyle),
-                at: position(cell)
-            )
-        }
+        bar.draw(in: painter, vertical: vertical, at: position, track: trackStyle, thumb: thumbStyle)
     }
 
     // Solid indicator cells from the theme's scrollbar slot: track from its
@@ -416,24 +371,18 @@ public final class ScrollView: TUIView {
     // toward the click. Presses anywhere else are not the scroll view's.
     private func beginBarGesture(at position: Point) -> Bool {
         if let bar = verticalBar, position.x == bounds.size.width - 1, position.y < bar.length {
-            if bar.containsThumb(position.y) {
-                activeDrag = .vertical(grabOffset: position.y - bar.thumbStart)
-            } else {
-                let page = max(1, bar.length - 1)
-                scroll(by: Point(x: 0, y: position.y < bar.thumbStart ? -page : page))
-            }
-
+            var grab: Int?
+            let target = bar.offset(forPress: position.y, grab: &grab)
+            activeDrag = grab.map { .vertical(grabOffset: $0) }
+            scroll(by: Point(x: 0, y: target - offset.y))
             return true
         }
 
         if let bar = horizontalBar, position.y == bounds.size.height - 1, position.x < bar.length {
-            if bar.containsThumb(position.x) {
-                activeDrag = .horizontal(grabOffset: position.x - bar.thumbStart)
-            } else {
-                let page = max(1, bar.length - 1)
-                scroll(by: Point(x: position.x < bar.thumbStart ? -page : page, y: 0))
-            }
-
+            var grab: Int?
+            let target = bar.offset(forPress: position.x, grab: &grab)
+            activeDrag = grab.map { .horizontal(grabOffset: $0) }
+            scroll(by: Point(x: target - offset.x, y: 0))
             return true
         }
 

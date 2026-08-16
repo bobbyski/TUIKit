@@ -207,8 +207,13 @@ private func makeList(_ count: Int, height: Int) -> ListView {
     window.addSubview(list)
 
     // 20 items in 5 rows → the last column becomes a proportional scrollbar,
-    // thumb at the top while unscrolled.
+    // with `▴`/`▾` end arrows like every other bar in the framework. They all
+    // share one `ScrollbarRun` now; this control used to have its own thumb
+    // maths and no arrows, which is what made a Find results list look like a
+    // different app beside the editor.
     let buffer = SceneRenderer(root: window).render(size: Size(width: 12, height: 5))
+    // No arrows on a five-cell bar: `ScrollbarRun.wantsArrows` wants six, or
+    // the arrows eat the track and the thumb has nowhere to travel.
     #expect(buffer[Point(x: 11, y: 0)].style.background == .named(.white), "thumb at top")
     #expect(buffer[Point(x: 11, y: 4)].style.background == .named(.brightBlack), "dim track below")
 
@@ -229,13 +234,19 @@ private func makeList(_ count: Int, height: Int) -> ListView {
     _ = SceneRenderer(root: window).render(size: window.frame.size)   // lay out
     #expect(list.scrollOffset == 0)
 
-    // Grab the thumb (top) and drag to the bottom row → scrolled to the end.
-    _ = list.mouseEvent(MouseInput(position: Point(x: 11, y: 0), action: .press, button: .left))
-    _ = list.mouseEvent(MouseInput(position: Point(x: 11, y: 7), action: .drag, button: .left))
+    // Grab the thumb and drag to the bottom → scrolled to the end. Row 0 is
+    // the ▴ arrow now, so the thumb starts at row 1.
+    _ = list.mouseEvent(MouseInput(position: Point(x: 11, y: 1), action: .press, button: .left))
+    _ = list.mouseEvent(MouseInput(position: Point(x: 11, y: 6), action: .drag, button: .left))
     #expect(list.scrollOffset == 40 - 8, "dragging the thumb to the bottom scrolls to the end")
-    _ = list.mouseEvent(MouseInput(position: Point(x: 11, y: 7), action: .release, button: .left))
+    _ = list.mouseEvent(MouseInput(position: Point(x: 11, y: 6), action: .release, button: .left))
 
     // Click the track above the thumb → pages up.
-    _ = list.mouseEvent(MouseInput(position: Point(x: 11, y: 0), action: .press, button: .left))
+    _ = list.mouseEvent(MouseInput(position: Point(x: 11, y: 2), action: .press, button: .left))
     #expect(list.scrollOffset < 32, "track click above the thumb pages up")
+
+    // And the ▴ arrow steps by one.
+    let stepped = list.scrollOffset
+    _ = list.mouseEvent(MouseInput(position: Point(x: 11, y: 0), action: .press, button: .left))
+    #expect(list.scrollOffset == max(0, stepped - 1), "the arrow steps a single row")
 }

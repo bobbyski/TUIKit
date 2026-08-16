@@ -207,28 +207,25 @@ public final class ListView: TUIView {
         }
     }
 
-    // A solid proportional indicator (dim track, bright thumb — no glyph
-    // patterns), reusing ScrollView's indicator styling.
+    // One shared painter and one shared geometry, so this bar is the same
+    // control as the editor's and the window border's — the Find results list
+    // used to be visibly a different one, with no arrows and its own thumb
+    // maths.
     private func drawScrollbar(_ painter: Painter, at column: Int, height: Int) {
         let (track, thumb) = ScrollView.indicatorStyles(for: effectiveTheme, focused: isFirstResponder)
-        let (start, length) = scrollbarThumb(height: height)
-
-        for y in 0..<height {
-            let inThumb = y >= start && y < start + length
-            painter.set(TerminalCell(character: " ", style: inThumb ? thumb : track), at: Point(x: column, y: y))
-        }
+        scrollbarRun(height: height).draw(in: painter, vertical: true, at: column, track: track, thumb: thumb)
     }
 
-    // Thumb start row and length for the current scroll — shared by drawing
-    // and dragging so the thumb the user grabs is the one drawn.
-    private func scrollbarThumb(height: Int) -> (start: Int, length: Int) {
-        let count = items.count
-        let length = max(1, height * height / count)
-        let maxStart = max(0, height - length)
-        let maxOffset = max(1, count - height)
-        let start = min(maxStart, navigation.scrollOffset * maxStart / maxOffset)
-        return (start, length)
+    // The run for the current scroll — shared by drawing, pressing and
+    // dragging, so the thumb the user grabs is exactly the one drawn.
+    private func scrollbarRun(height: Int) -> ScrollbarRun {
+        ScrollbarRun(
+            start: 0,
+            length: height,
+            span: ScrollSpan(offset: navigation.scrollOffset, viewport: height, content: max(1, items.count))
+        )
     }
+
 
     /// Navigation and activation keys.
     public override func keyDown(_ key: KeyInput) -> Bool {
@@ -340,30 +337,26 @@ public final class ListView: TUIView {
         }
     }
 
-    // Press on the scrollbar: grab the thumb, or page the track.
+    // Press on the scrollbar: an arrow steps, the track pages, the thumb
+    // starts a drag. All three come from the shared run.
     private func pressScrollbar(atRow row: Int, height: Int) -> Bool {
-        let (start, length) = scrollbarThumb(height: height)
-
-        if row >= start, row < start + length {
-            scrollbarGrab = row - start
-        } else {
-            let page = max(1, height - 1)
-            navigation.scroll(by: row < start ? -page : page, height: height)
-            setNeedsDisplay()
-        }
-
+        let run = scrollbarRun(height: height)
+        navigation.scrollOffset = clampedOffset(run.offset(forPress: row, grab: &scrollbarGrab), height: height)
+        setNeedsDisplay()
         return true
     }
 
     // Drag maps the thumb's top row to a proportional scroll offset.
     private func dragScrollbar(toRow row: Int, height: Int) {
-        let (_, length) = scrollbarThumb(height: height)
-        let maxStart = max(0, height - length)
-        let targetStart = min(maxStart, max(0, row - (scrollbarGrab ?? 0)))
-        let maxOffset = max(0, items.count - height)
+        let run = scrollbarRun(height: height)
+        let target = run.offset(forThumbStart: row - (scrollbarGrab ?? 0))
 
-        navigation.scrollOffset = maxStart > 0 ? targetStart * maxOffset / maxStart : 0
+        navigation.scrollOffset = clampedOffset(target, height: height)
         setNeedsDisplay()
+    }
+
+    private func clampedOffset(_ offset: Int, height: Int) -> Int {
+        min(max(0, offset), max(0, items.count - height))
     }
 
     private func moveSelection(by offset: Int) {

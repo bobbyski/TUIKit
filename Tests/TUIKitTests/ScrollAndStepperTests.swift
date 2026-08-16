@@ -127,7 +127,11 @@ private func lines(_ window: Window) -> [String] {
     // horizontal bar takes the bottom row), so the full width is content.
     let buffer = SceneRenderer(root: window).render(size: window.frame.size)
     #expect(buffer.textLines()[0].hasPrefix("0000000000"))
-    #expect(buffer[Point(x: 0, y: 3)].style.background == .named(.white), "thumb at the left")
+    // A ten-cell bar earns arrows (`ScrollbarRun.wantsArrows`), so the thumb
+    // starts one cell in from the `◂`.
+    #expect(buffer[Point(x: 0, y: 3)].character == "◂")
+    #expect(buffer[Point(x: 9, y: 3)].character == "▸")
+    #expect(buffer[Point(x: 1, y: 3)].style.background == .named(.white), "thumb at the left")
     #expect(buffer[Point(x: 5, y: 3)].style.background == .named(.brightBlack), "track past the thumb")
 
     _ = scroll.keyDown(KeyInput(key: .right))

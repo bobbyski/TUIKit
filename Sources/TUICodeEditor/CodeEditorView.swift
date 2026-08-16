@@ -742,7 +742,7 @@ extension CodeEditorView {
         // them, and a `▾` sitting in the other bar's track reads as a glitch.
         let height = max(0, bounds.size.height - (drawsHorizontalBar ? 1 : 0))
 
-        return ScrollbarRun(start: 0, length: height, span: span, hasArrows: height >= 3)
+        return ScrollbarRun(start: 0, length: height, span: span)
     }
 
     /// The horizontal run for this view's own bar.
@@ -759,7 +759,7 @@ extension CodeEditorView {
 
         let width = max(0, bounds.size.width - (drawsVerticalBar ? 1 : 0))
 
-        return ScrollbarRun(start: 0, length: width, span: span, hasArrows: width >= 3)
+        return ScrollbarRun(start: 0, length: width, span: span)
     }
 
     /// Handles a press or drag on this view's own bars.

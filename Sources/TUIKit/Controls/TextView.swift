@@ -133,26 +133,19 @@ public final class TextView: TUIView {
         }
     }
 
-    // A solid proportional indicator (dim track, bright thumb — no glyph
-    // patterns), reusing ScrollView's indicator styling.
+    // One shared painter and one shared geometry — see `ScrollbarRun`.
     private func drawScrollbar(_ painter: Painter, at column: Int, rowCount: Int, height: Int) {
         let (track, thumb) = ScrollView.indicatorStyles(for: effectiveTheme, focused: isFirstResponder)
-        let (start, length) = scrollbarThumb(rowCount: rowCount, height: height)
-
-        for y in 0..<height {
-            let inThumb = y >= start && y < start + length
-            painter.set(TerminalCell(character: " ", style: inThumb ? thumb : track), at: Point(x: column, y: y))
-        }
+        scrollbarRun(rowCount: rowCount, height: height)
+            .draw(in: painter, vertical: true, at: column, track: track, thumb: thumb)
     }
 
-    // Thumb start row and length for the current scroll — shared by drawing
-    // and dragging so the thumb the user grabs is the one drawn.
-    private func scrollbarThumb(rowCount: Int, height: Int) -> (start: Int, length: Int) {
-        let length = max(1, height * height / rowCount)
-        let maxStart = max(0, height - length)
-        let maxOffset = max(1, rowCount - height)
-        let start = min(maxStart, offset.y * maxStart / maxOffset)
-        return (start, length)
+    private func scrollbarRun(rowCount: Int, height: Int) -> ScrollbarRun {
+        ScrollbarRun(
+            start: 0,
+            length: height,
+            span: ScrollSpan(offset: offset.y, viewport: height, content: max(1, rowCount))
+        )
     }
 
     // MARK: - Keyboard
@@ -269,29 +262,26 @@ public final class TextView: TUIView {
         }
     }
 
-    // Press on the scrollbar: grab the thumb, or page the track.
+    // Press on the scrollbar: an arrow steps, the track pages, the thumb
+    // starts a drag — all from the shared run.
     private func pressScrollbar(atRow row: Int, rowCount: Int, height: Int) {
-        let (start, length) = scrollbarThumb(rowCount: rowCount, height: height)
-
-        if row >= start, row < start + length {
-            scrollbarGrab = row - start
-        } else {
-            let page = max(1, height - 1)
-            offset.y = min(max(0, rowCount - height), max(0, offset.y + (row < start ? -page : page)))
-            setNeedsDisplay()
-        }
+        let run = scrollbarRun(rowCount: rowCount, height: height)
+        offset.y = clampedOffset(run.offset(forPress: row, grab: &scrollbarGrab), rowCount: rowCount, height: height)
+        setNeedsDisplay()
     }
 
     // Drag maps the thumb's top row to a proportional scroll offset.
     private func dragScrollbar(toRow row: Int, height: Int) {
         let rowCount = layout().rows.count
-        let (_, length) = scrollbarThumb(rowCount: rowCount, height: height)
-        let maxStart = max(0, height - length)
-        let targetStart = min(maxStart, max(0, row - (scrollbarGrab ?? 0)))
-        let maxOffset = max(0, rowCount - height)
+        let run = scrollbarRun(rowCount: rowCount, height: height)
+        let target = run.offset(forThumbStart: row - (scrollbarGrab ?? 0))
 
-        offset.y = maxStart > 0 ? targetStart * maxOffset / maxStart : 0
+        offset.y = clampedOffset(target, rowCount: rowCount, height: height)
         setNeedsDisplay()
+    }
+
+    private func clampedOffset(_ value: Int, rowCount: Int, height: Int) -> Int {
+        min(max(0, value), max(0, rowCount - height))
     }
 
     // MARK: - Editing

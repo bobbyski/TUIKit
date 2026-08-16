@@ -115,9 +115,12 @@ private func renderedBuffer(_ view: TUIKit.TUIView, size: TUIKit.Size) -> CellBu
     let beforeBuffer = renderedBuffer(view, size: TUIKit.Size(width: 20, height: 4))
     let before = beforeBuffer.textLines()
     #expect(before[0].hasPrefix("• line 1"))
+    // The shared bar — no arrows at four cells (see `wantsArrows`), so the
+    // thumb still starts at the top. This was the last of six separate
+    // scrollbar implementations.
     #expect(
         beforeBuffer[TUIKit.Point(x: 19, y: 0)].style.background == .named(.white),
-        "overflowing documents show the solid indicator thumb"
+        "overflowing documents show the indicator thumb"
     )
 
     _ = view.keyDown(KeyInput(key: .end))
@@ -239,17 +242,19 @@ private func renderedBuffer(_ view: TUIKit.TUIView, size: TUIKit.Size) -> CellBu
     editor.frame = window.bounds
     window.addSubview(editor)
 
-    // Bottom row (y=5) is the horizontal bar; thumb at the left while unscrolled.
+    // Bottom row (y=5) is the horizontal bar, `◂`/`▸` at its ends.
     let buffer = SceneRenderer(root: window).render(size: TUIKit.Size(width: 20, height: 6))
-    #expect(buffer[TUIKit.Point(x: 0, y: 5)].style.background == .named(.white), "H thumb at the left")
-    #expect(buffer[TUIKit.Point(x: 19, y: 5)].style.background == .named(.brightBlack), "H track to the right")
+    #expect(buffer[TUIKit.Point(x: 0, y: 5)].character == "◂")
+    #expect(buffer[TUIKit.Point(x: 19, y: 5)].character == "▸")
+    #expect(buffer[TUIKit.Point(x: 1, y: 5)].style.background == .named(.white), "H thumb at the left")
+    #expect(buffer[TUIKit.Point(x: 18, y: 5)].style.background == .named(.brightBlack), "H track to the right")
 
     // Grab the thumb and drag right → scrolled to the end horizontally.
-    _ = editor.mouseEvent(MouseInput(position: TUIKit.Point(x: 0, y: 5), action: .press, button: .left))
-    _ = editor.mouseEvent(MouseInput(position: TUIKit.Point(x: 19, y: 5), action: .drag, button: .left))
+    _ = editor.mouseEvent(MouseInput(position: TUIKit.Point(x: 1, y: 5), action: .press, button: .left))
+    _ = editor.mouseEvent(MouseInput(position: TUIKit.Point(x: 18, y: 5), action: .drag, button: .left))
     let scrolled = SceneRenderer(root: window).render(size: TUIKit.Size(width: 20, height: 6))
-    #expect(scrolled[TUIKit.Point(x: 0, y: 5)].style.background == .named(.brightBlack), "thumb left the far-left")
-    #expect(scrolled[TUIKit.Point(x: 19, y: 5)].style.background == .named(.white), "thumb dragged to the right end")
+    #expect(scrolled[TUIKit.Point(x: 1, y: 5)].style.background == .named(.brightBlack), "thumb left the far-left")
+    #expect(scrolled[TUIKit.Point(x: 18, y: 5)].style.background == .named(.white), "thumb dragged to the right end")
 }
 
 @Test @MainActor func syntaxEditorReadOnlyIgnoresEditsAndHidesCursor() {
@@ -279,14 +284,15 @@ private func renderedBuffer(_ view: TUIKit.TUIView, size: TUIKit.Size) -> CellBu
     editor.frame = window.bounds
     window.addSubview(editor)
 
-    // 30 lines in 6 rows → a scrollbar in the last column, thumb at the top.
+    // 30 lines in 6 rows → a scrollbar in the last column, arrows at its ends.
     let buffer = SceneRenderer(root: window).render(size: TUIKit.Size(width: 20, height: 6))
-    #expect(buffer[TUIKit.Point(x: 19, y: 0)].style.background == .named(.white), "thumb at top")
-    #expect(buffer[TUIKit.Point(x: 19, y: 5)].style.background == .named(.brightBlack), "dim track below")
+    #expect(buffer[TUIKit.Point(x: 19, y: 0)].character == "▴")
+    #expect(buffer[TUIKit.Point(x: 19, y: 1)].style.background == .named(.white), "thumb at the track's top")
+    #expect(buffer[TUIKit.Point(x: 19, y: 4)].style.background == .named(.brightBlack), "dim track below")
 
     // Grab the thumb and drag to the bottom → the last page (line 25 first).
-    _ = editor.mouseEvent(MouseInput(position: TUIKit.Point(x: 19, y: 0), action: .press, button: .left))
-    _ = editor.mouseEvent(MouseInput(position: TUIKit.Point(x: 19, y: 5), action: .drag, button: .left))
+    _ = editor.mouseEvent(MouseInput(position: TUIKit.Point(x: 19, y: 1), action: .press, button: .left))
+    _ = editor.mouseEvent(MouseInput(position: TUIKit.Point(x: 19, y: 4), action: .drag, button: .left))
     let lines = SceneRenderer(root: window).render(size: TUIKit.Size(width: 20, height: 6)).textLines()
     #expect(lines[0].contains("line 25"), "dragging to the bottom scrolls to the end")
 }

@@ -74,9 +74,13 @@ private func render(_ view: TUIView, size: Size) -> [String] {
     view.frame = window.bounds
     window.addSubview(view)
 
-    // 20 wrapped rows in 5 → the last column becomes a proportional scrollbar,
-    // thumb at the top while unscrolled.
+    // 20 wrapped rows in 5 → the last column becomes a proportional
+    // scrollbar. It wears `▴`/`▾` end arrows now, like every other bar in the
+    // framework: they all share one `ScrollbarRun`, where before this control
+    // had its own thumb maths and no arrows.
     let buffer = SceneRenderer(root: window).render(size: Size(width: 12, height: 5))
+    // No arrows on a five-cell bar: `ScrollbarRun.wantsArrows` wants six, or
+    // the arrows eat the track and the thumb has nowhere to travel.
     #expect(buffer[Point(x: 11, y: 0)].style.background == .named(.white), "thumb at top")
     #expect(buffer[Point(x: 11, y: 4)].style.background == .named(.brightBlack), "dim track below")
 
@@ -96,8 +100,9 @@ private func render(_ view: TUIView, size: Size) -> [String] {
     window.addSubview(view)
     _ = SceneRenderer(root: window).render(size: window.frame.size)   // lay out
 
-    // Grab the thumb (top) and drag to the bottom row → scrolled to the end.
-    _ = view.mouseEvent(MouseInput(position: Point(x: 11, y: 0), action: .press, button: .left))
+    // Grab the thumb and drag to the bottom → scrolled to the end. Row 0 is
+    // the ▴ arrow now, so the thumb starts at row 1.
+    _ = view.mouseEvent(MouseInput(position: Point(x: 11, y: 1), action: .press, button: .left))
     _ = view.mouseEvent(MouseInput(position: Point(x: 11, y: 4), action: .drag, button: .left))
 
     // After the drag, the first visible row is the last page (row 15 of 20).

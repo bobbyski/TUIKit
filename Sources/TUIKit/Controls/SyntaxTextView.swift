@@ -552,46 +552,35 @@ public final class SyntaxTextView: TUIView {
         return line > start.y && line < end.y
     }
 
-    // A solid proportional indicator (dim track, bright thumb — no glyph
-    // patterns), reusing ScrollView's indicator styling.
+    // One shared painter and one shared geometry — see `ScrollbarRun`.
     private func drawVScrollbar(_ painter: Painter, at column: Int, height: Int) {
         let (track, thumb) = ScrollView.indicatorStyles(for: effectiveTheme, focused: isFirstResponder)
-        let (start, length) = vScrollbarThumb(height: height)
-
-        for y in 0..<height {
-            let inThumb = y >= start && y < start + length
-            painter.set(TerminalCell(character: " ", style: inThumb ? thumb : track), at: Point(x: column, y: y))
-        }
+        vScrollbarRun(height: height).draw(in: painter, vertical: true, at: column, track: track, thumb: thumb)
     }
 
     private func drawHScrollbar(_ painter: Painter, at row: Int, x0: Int, width: Int) {
         let (track, thumb) = ScrollView.indicatorStyles(for: effectiveTheme, focused: isFirstResponder)
-        let (start, length) = hScrollbarThumb(width: width)
-
-        for x in 0..<width {
-            let inThumb = x >= start && x < start + length
-            painter.set(TerminalCell(character: " ", style: inThumb ? thumb : track), at: Point(x: x0 + x, y: row))
-        }
+        var run = hScrollbarRun(width: width)
+        run.start = x0
+        run.draw(in: painter, vertical: false, at: row, track: track, thumb: thumb)
     }
 
-    // Thumb start/length over the line count / longest line — shared by drawing
-    // and dragging so the thumb the user grabs is the one drawn.
-    private func vScrollbarThumb(height: Int) -> (start: Int, length: Int) {
-        let count = lines.count
-        let length = max(1, height * height / max(1, count))
-        let maxStart = max(0, height - length)
-        let maxOffset = max(1, count - height)
-        let start = min(maxStart, offset.y * maxStart / maxOffset)
-        return (start, length)
+    // Runs over the line count / longest line — shared by drawing and
+    // dragging so the thumb the user grabs is the one drawn.
+    private func vScrollbarRun(height: Int) -> ScrollbarRun {
+        ScrollbarRun(
+            start: 0,
+            length: height,
+            span: ScrollSpan(offset: offset.y, viewport: height, content: max(1, lines.count))
+        )
     }
 
-    private func hScrollbarThumb(width: Int) -> (start: Int, length: Int) {
-        let total = longestLine
-        let length = max(1, width * width / max(1, total))
-        let maxStart = max(0, width - length)
-        let maxOffset = max(1, total - width)
-        let start = min(maxStart, offset.x * maxStart / maxOffset)
-        return (start, length)
+    private func hScrollbarRun(width: Int) -> ScrollbarRun {
+        ScrollbarRun(
+            start: 0,
+            length: width,
+            span: ScrollSpan(offset: offset.x, viewport: width, content: max(1, longestLine))
+        )
     }
 
     // MARK: - Keyboard
@@ -826,49 +815,33 @@ public final class SyntaxTextView: TUIView {
         )
     }
 
-    // Press on the vertical scrollbar: grab the thumb, or page the track.
+    // Press: an arrow steps, the track pages, the thumb starts a drag — all
+    // from the shared run, so both axes behave like every other bar.
     private func pressVScrollbar(atRow row: Int, height: Int) {
-        let (start, length) = vScrollbarThumb(height: height)
-
-        if row >= start, row < start + length {
-            scrollbarGrab = row - start
-        } else {
-            let page = max(1, height - 1)
-            offset.y = min(max(0, lines.count - height), max(0, offset.y + (row < start ? -page : page)))
-            setNeedsDisplay()
-        }
-    }
-
-    private func dragVScrollbar(toRow row: Int, height: Int) {
-        let (_, length) = vScrollbarThumb(height: height)
-        let maxStart = max(0, height - length)
-        let targetStart = min(maxStart, max(0, row - (scrollbarGrab ?? 0)))
-        let maxOffset = max(0, lines.count - height)
-
-        offset.y = maxStart > 0 ? targetStart * maxOffset / maxStart : 0
+        let run = vScrollbarRun(height: height)
+        offset.y = min(max(0, lines.count - height), max(0, run.offset(forPress: row, grab: &scrollbarGrab)))
         setNeedsDisplay()
     }
 
-    // Press on the horizontal scrollbar: grab the thumb, or page the track.
-    private func pressHScrollbar(atColumn column: Int, width: Int) {
-        let (start, length) = hScrollbarThumb(width: width)
+    private func dragVScrollbar(toRow row: Int, height: Int) {
+        let run = vScrollbarRun(height: height)
+        let target = run.offset(forThumbStart: row - (scrollbarGrab ?? 0))
 
-        if column >= start, column < start + length {
-            hScrollbarGrab = column - start
-        } else {
-            let page = max(1, width - 1)
-            offset.x = min(max(0, longestLine - width), max(0, offset.x + (column < start ? -page : page)))
-            setNeedsDisplay()
-        }
+        offset.y = min(max(0, lines.count - height), max(0, target))
+        setNeedsDisplay()
+    }
+
+    private func pressHScrollbar(atColumn column: Int, width: Int) {
+        let run = hScrollbarRun(width: width)
+        offset.x = min(max(0, longestLine - width), max(0, run.offset(forPress: column, grab: &hScrollbarGrab)))
+        setNeedsDisplay()
     }
 
     private func dragHScrollbar(toColumn column: Int, width: Int) {
-        let (_, length) = hScrollbarThumb(width: width)
-        let maxStart = max(0, width - length)
-        let targetStart = min(maxStart, max(0, column - (hScrollbarGrab ?? 0)))
-        let maxOffset = max(0, longestLine - width)
+        let run = hScrollbarRun(width: width)
+        let target = run.offset(forThumbStart: column - (hScrollbarGrab ?? 0))
 
-        offset.x = maxStart > 0 ? targetStart * maxOffset / maxStart : 0
+        offset.x = min(max(0, longestLine - width), max(0, target))
         setNeedsDisplay()
     }
 

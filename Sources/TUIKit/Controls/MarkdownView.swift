@@ -72,26 +72,18 @@ public final class MarkdownView: TUIView {
             }
         }
 
-        // Proportional indicator when the document overflows: rounded
-        // bar × (visible ÷ total), min 2 cells, never the whole bar.
+        // The shared bar, like everything else that scrolls. This used to be
+        // its own inline thumb maths with a two-cell minimum — the last of
+        // six separate implementations.
         if lines.count > height {
-            let proportional = (height * height + lines.count / 2) / lines.count
-            let thumbLength = min(max(height > 2 ? 2 : 1, proportional), max(1, height - 1))
-            let maxThumbStart = height - thumbLength
-            let maxOffset = lines.count - height
-            let thumbStart = maxOffset > 0 ? min(maxThumbStart, scrollOffset * maxThumbStart / maxOffset) : 0
-            let (trackStyle, thumbStyle) = ScrollView.indicatorStyles(
-                for: effectiveTheme,
-                focused: isFirstResponder
-            )
+            let (track, thumb) = ScrollView.indicatorStyles(for: effectiveTheme, focused: isFirstResponder)
 
-            for cell in 0..<height {
-                let inThumb = cell >= thumbStart && cell < thumbStart + thumbLength
-                painter.set(
-                    TerminalCell(character: " ", style: inThumb ? thumbStyle : trackStyle),
-                    at: Point(x: width - 1, y: cell)
-                )
-            }
+            ScrollbarRun(
+                start: 0,
+                length: height,
+                span: ScrollSpan(offset: scrollOffset, viewport: height, content: lines.count)
+            )
+            .draw(in: painter, vertical: true, at: width - 1, track: track, thumb: thumb)
         }
     }
 

@@ -452,7 +452,7 @@ public final class Panel: TUIView {
             return nil
         }
 
-        return ScrollbarRun(start: start, length: length, span: span, hasArrows: length >= 4)
+        return ScrollbarRun(start: start, length: length, span: span)
     }
 
     // The bottom-border bar's run, or nil when the client has no horizontal
@@ -476,7 +476,7 @@ public final class Panel: TUIView {
             return nil
         }
 
-        return ScrollbarRun(start: start, length: length, span: span, hasArrows: length >= 4)
+        return ScrollbarRun(start: start, length: length, span: span)
     }
 
     // Paints both embedded bars over the border (after junctions, so a bar

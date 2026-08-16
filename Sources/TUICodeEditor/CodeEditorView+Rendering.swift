@@ -177,13 +177,6 @@ extension CodeEditorView {
         }
     }
 
-    // Proportional thumb, shared by both axes.
-    private func thumbGeometry(span: Int, content: Int, offset: Int) -> (start: Int, length: Int) {
-        let length = max(1, span * span / max(1, content))
-        let maxStart = max(0, span - length)
-        let maxOffset = max(1, content - span)
-        return (min(maxStart, offset * maxStart / maxOffset), length)
-    }
 
     /// The document line drawn on a screen row, folds applied.
     func documentLine(atRow row: Int) -> Int {
