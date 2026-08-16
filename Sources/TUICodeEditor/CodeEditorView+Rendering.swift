@@ -140,30 +140,39 @@ extension CodeEditorView {
             thumb.flags.insert(.dim)
         }
 
-        if drawsVerticalBar {
-            let column = bounds.size.width - 1
-            let height = bounds.size.height
-            let (start, length) = thumbGeometry(
-                span: height,
-                content: engineDocument.lineCount,
-                offset: topLine
-            )
+        // Arrow glyphs read against the track, the way the border-embedded
+        // bars do — the two are the same control in two places and should not
+        // look like different controls.
+        var arrow = track
+        arrow.foreground = thumb.background == .standard ? track.foreground : thumb.background
 
-            for y in 0..<height {
-                let inThumb = y >= start && y < start + length
+        if drawsVerticalBar, let run = ownVerticalRun() {
+            let column = bounds.size.width - 1
+            let (thumbStart, thumbLength) = run.thumb
+
+            for y in run.start..<(run.start + run.length) {
+                let inThumb = y >= thumbStart && y < thumbStart + thumbLength
                 painter.set(TerminalCell(character: " ", style: inThumb ? thumb : track), at: Point(x: column, y: y))
+            }
+
+            if run.hasArrows {
+                painter.set(TerminalCell(character: "▴", style: arrow), at: Point(x: column, y: run.start))
+                painter.set(TerminalCell(character: "▾", style: arrow), at: Point(x: column, y: run.start + run.length - 1))
             }
         }
 
-        if drawsHorizontalBar {
+        if drawsHorizontalBar, let run = ownHorizontalRun() {
             let row = bounds.size.height - 1
-            let from = gutterColumns
-            let width = max(1, bounds.size.width - from - (drawsVerticalBar ? 1 : 0))
-            let (start, length) = thumbGeometry(span: width, content: longestVisibleLine, offset: leftColumn)
+            let (thumbStart, thumbLength) = run.thumb
 
-            for x in 0..<width {
-                let inThumb = x >= start && x < start + length
-                painter.set(TerminalCell(character: " ", style: inThumb ? thumb : track), at: Point(x: from + x, y: row))
+            for x in run.start..<(run.start + run.length) {
+                let inThumb = x >= thumbStart && x < thumbStart + thumbLength
+                painter.set(TerminalCell(character: " ", style: inThumb ? thumb : track), at: Point(x: x, y: row))
+            }
+
+            if run.hasArrows {
+                painter.set(TerminalCell(character: "◂", style: arrow), at: Point(x: run.start, y: row))
+                painter.set(TerminalCell(character: "▸", style: arrow), at: Point(x: run.start + run.length - 1, y: row))
             }
         }
     }

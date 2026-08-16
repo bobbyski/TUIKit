@@ -298,3 +298,43 @@ private func styles(_ editor: CodeEditorView, row: Int, width: Int = 44, height:
     editor.unfoldAll()
     #expect(editor.visibleDocumentLines.count == 6)
 }
+
+// MARK: - The view's own scrollbars
+
+@Test @MainActor func ownScrollbarsWearArrowsLikeTheEmbeddedOnes() {
+    let editor = CodeEditorView(text: (1...60).map { "line \($0) " + String(repeating: "z", count: 90) }.joined(separator: "\n"))
+    editor.showsOwnScrollbars = true
+
+    let lines = render(editor, width: 40, height: 10)
+
+    // The interior pair had no arrows and no drag while the border-embedded
+    // pair had both — two implementations of one control, drifted apart.
+    #expect(lines[0].hasSuffix("▴"))
+    #expect(lines[8].hasSuffix("▾"))
+    #expect(lines[9].hasPrefix("◂"), "and the horizontal one runs the WHOLE view, not from the gutter")
+    #expect(lines[9].contains("▸"))
+}
+
+@Test @MainActor func pressingAnArrowStepsAndDraggingTheThumbScrolls() {
+    let editor = CodeEditorView(text: (1...60).map { "line \($0)" }.joined(separator: "\n"))
+    editor.showsOwnScrollbars = true
+    _ = render(editor, width: 40, height: 10)
+
+    let column = 39
+
+    // The ▾ arrow steps one line.
+    _ = editor.mouseEvent(MouseInput(position: Point(x: column, y: 9), action: .press, button: .left))
+    #expect(editor.verticalScrollSpan?.offset == 1)
+    _ = editor.mouseEvent(MouseInput(position: Point(x: column, y: 9), action: .release, button: .left))
+
+    // A track press below the thumb pages down, keeping one line of context.
+    _ = editor.mouseEvent(MouseInput(position: Point(x: column, y: 7), action: .press, button: .left))
+    #expect((editor.verticalScrollSpan?.offset ?? 0) > 1)
+    _ = editor.mouseEvent(MouseInput(position: Point(x: column, y: 7), action: .release, button: .left))
+
+    // And the thumb drags.
+    let before = editor.verticalScrollSpan?.offset ?? 0
+    _ = editor.mouseEvent(MouseInput(position: Point(x: column, y: 3), action: .press, button: .left))
+    _ = editor.mouseEvent(MouseInput(position: Point(x: column, y: 6), action: .drag, button: .left))
+    #expect((editor.verticalScrollSpan?.offset ?? 0) != before, "the thumb follows the pointer")
+}

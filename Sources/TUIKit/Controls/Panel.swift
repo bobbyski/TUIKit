@@ -403,35 +403,6 @@ public final class Panel: TUIView {
     // One embedded bar, in border cells: `start..<start+length` along its edge
     // (rows for vertical, columns for horizontal), with arrow endpoints when
     // the run is long enough, and the thumb inside the track between them.
-    private struct BarRun {
-        var start: Int
-        var length: Int
-        var span: ScrollSpan
-        var hasArrows: Bool
-
-        // Track region (between the arrows, or the whole run without them).
-        var trackStart: Int { start + (hasArrows ? 1 : 0) }
-        var trackLength: Int { length - (hasArrows ? 2 : 0) }
-
-        // Thumb start/length within the track — proportional, always ≥ 1.
-        var thumb: (start: Int, length: Int) {
-            let n = trackLength
-            let length = max(1, min(n, n * span.viewport / max(1, span.content)))
-            let maxStart = max(0, n - length)
-            let start = span.maxOffset > 0
-                ? min(maxStart, span.offset * maxStart / max(1, span.maxOffset))
-                : 0
-            return (trackStart + start, length)
-        }
-
-        // Maps a track cell back to a scroll offset (for thumb drags).
-        func offset(forThumbStart start: Int) -> Int {
-            let maxStart = max(0, trackLength - thumb.length)
-            let clamped = min(max(0, start - trackStart), maxStart)
-            return maxStart > 0 ? clamped * span.maxOffset / maxStart : 0
-        }
-    }
-
     // The client's frame in panel coordinates, or nil when it isn't a visible
     // descendant of `content` (e.g. it sits in a hidden tab).
     private func clientFrameInPanel() -> Rect? {
@@ -461,7 +432,7 @@ public final class Panel: TUIView {
     // The right-border bar's run, or nil when the client has no vertical axis.
     // A span that *fits* still gets a bar — embedded bars are permanent chrome
     // (the Borland look); the thumb just fills the track.
-    private func verticalBarRun() -> BarRun? {
+    private func verticalScrollbarRun() -> ScrollbarRun? {
         guard let span = scrollClient?.verticalScrollSpan, span.viewport > 0 else {
             return nil
         }
@@ -481,12 +452,12 @@ public final class Panel: TUIView {
             return nil
         }
 
-        return BarRun(start: start, length: length, span: span, hasArrows: length >= 4)
+        return ScrollbarRun(start: start, length: length, span: span, hasArrows: length >= 4)
     }
 
     // The bottom-border bar's run, or nil when the client has no horizontal
     // axis. Permanent chrome, like the vertical bar.
-    private func horizontalBarRun() -> BarRun? {
+    private func horizontalScrollbarRun() -> ScrollbarRun? {
         guard let span = scrollClient?.horizontalScrollSpan, span.viewport > 0 else {
             return nil
         }
@@ -505,7 +476,7 @@ public final class Panel: TUIView {
             return nil
         }
 
-        return BarRun(start: start, length: length, span: span, hasArrows: length >= 4)
+        return ScrollbarRun(start: start, length: length, span: span, hasArrows: length >= 4)
     }
 
     // Paints both embedded bars over the border (after junctions, so a bar
@@ -518,7 +489,7 @@ public final class Panel: TUIView {
         var arrow = track
         arrow.foreground = thumb.background == .standard ? track.foreground : thumb.background
 
-        if let run = verticalBarRun() {
+        if let run = verticalScrollbarRun() {
             let column = bounds.size.width - 1
             let (thumbStart, thumbLength) = run.thumb
 
@@ -533,7 +504,7 @@ public final class Panel: TUIView {
             }
         }
 
-        if let run = horizontalBarRun() {
+        if let run = horizontalScrollbarRun() {
             let row = bounds.size.height - 1
             let (thumbStart, thumbLength) = run.thumb
 
@@ -552,41 +523,21 @@ public final class Panel: TUIView {
     // A press on an embedded bar: arrows step by one, the track pages toward
     // the press, the thumb starts a drag.
     private func pressEmbeddedBar(at point: Point) -> Bool {
-        if point.x == bounds.size.width - 1, let run = verticalBarRun(),
+        if point.x == bounds.size.width - 1, let run = verticalScrollbarRun(),
            point.y >= run.start, point.y < run.start + run.length {
-            scrollVertically(to: targetOffset(for: point.y, in: run, grab: &verticalBarGrab))
+            scrollVertically(to: run.offset(forPress: point.y, grab: &verticalBarGrab))
             return true
         }
 
-        if point.y == bounds.size.height - 1, let run = horizontalBarRun(),
+        if point.y == bounds.size.height - 1, let run = horizontalScrollbarRun(),
            point.x >= run.start, point.x < run.start + run.length {
-            scrollHorizontally(to: targetOffset(for: point.x, in: run, grab: &horizontalBarGrab))
+            scrollHorizontally(to: run.offset(forPress: point.x, grab: &horizontalBarGrab))
             return true
         }
 
         return false
     }
 
-    // Shared press logic for one axis; sets `grab` when the thumb was hit.
-    private func targetOffset(for cell: Int, in run: BarRun, grab: inout Int?) -> Int {
-        let (thumbStart, thumbLength) = run.thumb
-
-        if run.hasArrows, cell == run.start {
-            return run.span.offset - 1
-        }
-
-        if run.hasArrows, cell == run.start + run.length - 1 {
-            return run.span.offset + 1
-        }
-
-        if cell >= thumbStart, cell < thumbStart + thumbLength {
-            grab = cell - thumbStart
-            return run.span.offset
-        }
-
-        let page = max(1, run.span.viewport - 1)
-        return run.span.offset + (cell < thumbStart ? -page : page)
-    }
 
     private func scrollVertically(to offset: Int) {
         guard let client = scrollClient, let span = client.verticalScrollSpan else {
@@ -633,12 +584,12 @@ public final class Panel: TUIView {
             return pressEmbeddedBar(at: mouse.position)
 
         case .drag:
-            if let grab = verticalBarGrab, let run = verticalBarRun() {
+            if let grab = verticalBarGrab, let run = verticalScrollbarRun() {
                 scrollVertically(to: run.offset(forThumbStart: mouse.position.y - grab))
                 return true
             }
 
-            if let grab = horizontalBarGrab, let run = horizontalBarRun() {
+            if let grab = horizontalBarGrab, let run = horizontalScrollbarRun() {
                 scrollHorizontally(to: run.offset(forThumbStart: mouse.position.x - grab))
                 return true
             }

@@ -61,6 +61,11 @@ public final class CodeEditorView: TUIView, BorderScrollable {
 
     /// Whether the view draws its own scrollbars (off when a window border
     /// hosts them).
+    // In-flight thumb drags: the pointer's offset within the thumb at
+    // the grab, so the thumb does not jump under the cursor.
+    var verticalBarGrab: Int?
+    var horizontalBarGrab: Int?
+
     public var showsOwnScrollbars = true {
         didSet {
             if showsOwnScrollbars != oldValue {
@@ -625,6 +630,12 @@ public final class CodeEditorView: TUIView, BorderScrollable {
     /// Click to place the caret, drag to select, double/triple click to take
     /// a word or a line, wheel to scroll.
     public override func mouseEvent(_ mouse: MouseInput) -> Bool {
+        // Bars first: a press on the last column is a scrollbar press, not a
+        // click at the end of that line.
+        if showsOwnScrollbars, pressOwnScrollbar(mouse) {
+            return true
+        }
+
         switch mouse.action {
         case .scrollUp:
             setScrollOffset(vertical: topLine - 3)
@@ -709,5 +720,89 @@ public final class CodeEditorView: TUIView, BorderScrollable {
     public func setScrollOffset(horizontal offset: Int) {
         leftColumn = max(0, offset)
         setNeedsDisplay()
+    }
+}
+
+// MARK: - Own scrollbars
+
+extension CodeEditorView {
+    /// The vertical run for this view's OWN bar, when it draws one.
+    ///
+    /// Same `ScrollbarRun` the border-embedded bars use, so the interior pair
+    /// gets arrows, paging and thumb drags for free. They had none of the
+    /// three: the two implementations had drifted, and nobody noticed while
+    /// the border always carried the bars — a slide-out handing them back is
+    /// what surfaced it.
+    func ownVerticalRun() -> ScrollbarRun? {
+        guard let span = verticalScrollSpan, bounds.size.height > 0 else {
+            return nil
+        }
+
+        // Stop above the horizontal bar: the corner cell belongs to one of
+        // them, and a `▾` sitting in the other bar's track reads as a glitch.
+        let height = max(0, bounds.size.height - (drawsHorizontalBar ? 1 : 0))
+
+        return ScrollbarRun(start: 0, length: height, span: span, hasArrows: height >= 3)
+    }
+
+    /// The horizontal run for this view's own bar.
+    ///
+    /// Spans the WHOLE view, not from the gutter rightward. Bobby: *"the
+    /// bottom bar is well inside the editor — it is limiting its size to the
+    /// gutter, not the view."* The gutter does not scroll horizontally, which
+    /// is what made insetting look defensible, but the bar is chrome for the
+    /// view and every other bar in the app runs its full edge.
+    func ownHorizontalRun() -> ScrollbarRun? {
+        guard let span = horizontalScrollSpan, bounds.size.width > 0 else {
+            return nil
+        }
+
+        let width = max(0, bounds.size.width - (drawsVerticalBar ? 1 : 0))
+
+        return ScrollbarRun(start: 0, length: width, span: span, hasArrows: width >= 3)
+    }
+
+    /// Handles a press or drag on this view's own bars.
+    ///
+    /// - Returns: Whether the event belonged to a bar.
+    func pressOwnScrollbar(_ mouse: MouseInput) -> Bool {
+        switch mouse.action {
+        case .press where mouse.button == .left:
+            if drawsVerticalBar, mouse.position.x == bounds.size.width - 1, let run = ownVerticalRun() {
+                setScrollOffset(vertical: run.offset(forPress: mouse.position.y, grab: &verticalBarGrab))
+                return true
+            }
+
+            if drawsHorizontalBar, mouse.position.y == bounds.size.height - 1, let run = ownHorizontalRun() {
+                setScrollOffset(horizontal: run.offset(forPress: mouse.position.x, grab: &horizontalBarGrab))
+                return true
+            }
+
+            return false
+
+        case .drag:
+            // The grab offset is what stops the thumb jumping to centre
+            // itself under the pointer on the first drag event.
+            if let grab = verticalBarGrab, let run = ownVerticalRun() {
+                setScrollOffset(vertical: run.offset(forThumbStart: mouse.position.y - grab))
+                return true
+            }
+
+            if let grab = horizontalBarGrab, let run = ownHorizontalRun() {
+                setScrollOffset(horizontal: run.offset(forThumbStart: mouse.position.x - grab))
+                return true
+            }
+
+            return false
+
+        case .release:
+            let wasDragging = verticalBarGrab != nil || horizontalBarGrab != nil
+            verticalBarGrab = nil
+            horizontalBarGrab = nil
+            return wasDragging
+
+        default:
+            return false
+        }
     }
 }
