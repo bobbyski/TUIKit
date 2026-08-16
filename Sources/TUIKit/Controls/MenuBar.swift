@@ -16,6 +16,12 @@ public final class MenuItem {
     /// Called when the item activates.
     public var action: () -> Void
 
+    /// A nested menu this item opens instead of acting.
+    ///
+    /// An item has one or the other: a submenu item's `action` is never
+    /// called, because opening the child IS what activating it does.
+    public var submenu: Menu?
+
     /// Creates an item.
     ///
     /// - Parameters:
@@ -73,6 +79,32 @@ public final class Menu {
         let item = MenuItem(title, keyEquivalent: keyEquivalent, action: action)
         items.append(item)
         return item
+    }
+
+    /// Appends an item that opens a nested menu.
+    ///
+    /// The child is returned so it can be filled in place:
+    ///
+    /// ```swift
+    /// let themes = view.addSubmenu("&Theme")
+    /// for (name, theme) in Theme.builtIn {
+    ///     themes.addItem(name) { apply(theme) }
+    /// }
+    /// ```
+    ///
+    /// Submenus exist for exactly this: a list that would otherwise bury the
+    /// commands around it. A dozen theme names in a View menu means every
+    /// other item in that menu is below a fold.
+    ///
+    /// - Parameter title: Item text; a `▸` is drawn after it.
+    /// - Returns: The new child menu, empty.
+    @discardableResult
+    public func addSubmenu(_ title: String) -> Menu {
+        let child = Menu(title)
+        let item = MenuItem(title)
+        item.submenu = child
+        items.append(item)
+        return child
     }
 
     /// Appends a separator line.
@@ -134,6 +166,11 @@ public final class MenuBar: TUIView {
 
     // Open dropdown, when any.
     private var dropdown: MenuDropdown?
+
+    // The open child dropdown, when a submenu row was activated. One level:
+    // a menu that needs two is a menu that needs rethinking, and the depth
+    // would cost placement and focus rules nothing has asked for.
+    private var childDropdown: MenuDropdown?
 
     /// Creates an empty menu bar.
     public init() {
@@ -333,6 +370,14 @@ public final class MenuBar: TUIView {
             self.openMenu(at: ((self.selectedMenuIndex + direction) % count + count) % count)
         }
 
+        view.onOpenSubmenu = { [weak self, weak view] item, row in
+            guard let self, let view, let submenu = item.submenu else {
+                return
+            }
+
+            self.openSubmenu(submenu, besideRow: row, of: view)
+        }
+
         let size = view.intrinsicContentSize ?? Size(width: 10, height: 4)
         view.frame = Rect(
             origin: frame.origin + Point(x: titleStart(of: index), y: 1),
@@ -342,6 +387,85 @@ public final class MenuBar: TUIView {
         superview.addSubview(view)
         dropdown = view
         owningWindow?.makeFirstResponder(view)
+        setNeedsDisplay()
+    }
+
+    // Opens a child dropdown to the RIGHT of the row that owns it, flipping
+    // to the left when there is no room — the parent is already at the right
+    // edge often enough that a child hanging off the screen is the common
+    // case, not the exotic one.
+    private func openSubmenu(_ submenu: Menu, besideRow row: Int, of parent: MenuDropdown) {
+        guard let superview else {
+            return
+        }
+
+        closeSubmenu()
+
+        let view = MenuDropdown(menu: submenu)
+
+        view.onActivate = { [weak self] item in
+            self?.isActive = false
+            self?.closeMenu()
+            item.action()
+        }
+
+        // Esc or Left in a child closes only the child, leaving the parent
+        // open — the whole reason to cascade rather than replace.
+        view.onClose = { [weak self] in
+            self?.closeSubmenu()
+        }
+
+        view.onSwitchMenu = { [weak self] direction in
+            if direction < 0 {
+                self?.closeSubmenu()
+            }
+        }
+
+        let size = view.intrinsicContentSize ?? Size(width: 10, height: 4)
+        let available = superview.bounds.size.width
+        let parentRight = parent.frame.minX + parent.frame.size.width
+        let x = parentRight + size.width <= available
+            ? parentRight - 1                     // overlap the shared border
+            : max(0, parent.frame.minX - size.width + 1)
+
+        view.frame = Rect(
+            origin: Point(x: x, y: parent.frame.minY + row),
+            size: size
+        )
+
+        superview.addSubview(view)
+        childDropdown = view
+
+        // The hand-off below is a resign for the parent; without this it
+        // would read it as a click elsewhere and close the whole cascade.
+        parent.closesOnResign = false
+        owningWindow?.makeFirstResponder(view)
+        parent.closesOnResign = true
+        setNeedsDisplay()
+    }
+
+    // Closes the child, handing focus back to its parent so the cascade
+    // unwinds one level at a time.
+    private func closeSubmenu() {
+        guard let child = childDropdown else {
+            return
+        }
+
+        let window = owningWindow
+        let childHadFocus = window?.firstResponder === child
+
+        childDropdown = nil
+        child.removeFromSuperview()
+
+        if childHadFocus, let dropdown {
+            // Same hand-off in reverse: the CHILD is resigning, and it has
+            // already been removed, so nothing should read this as a
+            // dismissal either.
+            dropdown.closesOnResign = false
+            window?.makeFirstResponder(dropdown)
+            dropdown.closesOnResign = true
+        }
+
         setNeedsDisplay()
     }
 
@@ -355,6 +479,7 @@ public final class MenuBar: TUIView {
         let window = owningWindow
         let dropdownHadFocus = window?.firstResponder === dropdown
 
+        closeSubmenu()
         self.dropdown = nil
         dropdown.removeFromSuperview()
 
@@ -409,6 +534,11 @@ final class MenuDropdown: TUIView {
     var onClose: () -> Void = {}
     var onSwitchMenu: (Int) -> Void = { _ in }
 
+    /// Opens a child dropdown for an item's submenu: (item, row within this
+    /// dropdown). The bar owns the placement, because only it knows what the
+    /// dropdowns are attached to.
+    var onOpenSubmenu: (MenuItem, Int) -> Void = { _, _ in }
+
     private let menu: Menu
     private var highlightedIndex: Int
 
@@ -428,15 +558,31 @@ final class MenuDropdown: TUIView {
         true
     }
 
+    /// Whether losing focus should be treated as a dismissal.
+    ///
+    /// Off while this dropdown has a CHILD open: handing focus to the child
+    /// is a resign, and treating it as "the user clicked elsewhere" closed
+    /// the whole cascade the instant it opened. That was the first bug the
+    /// submenu tests caught, and it is invisible without them — the child
+    /// appeared and vanished within one frame.
+    var closesOnResign = true
+
     /// Losing focus closes the menu — so a click anywhere else dismisses
     /// it without the click being lost.
     override func didResignFirstResponder() {
+        guard closesOnResign else {
+            return
+        }
+
         onClose()
     }
 
     override var intrinsicContentSize: Size? {
         let widest = menu.items.map {
-            Accelerator($0.title).display.count + Self.hint(for: $0.keyEquivalent).count + 2
+            // A submenu row shows "▸" where a key hint would go, so it costs
+            // the same two cells rather than a special case in the layout.
+            Accelerator($0.title).display.count + Self.hint(for: $0.keyEquivalent).count
+                + ($0.submenu == nil ? 0 : 2) + 2
         }.max() ?? 4
         return Size(width: widest + 4, height: menu.items.count + 2)
     }
@@ -476,7 +622,7 @@ final class MenuDropdown: TUIView {
             }
 
             let accelerator = Accelerator(item.title)
-            let hint = Self.hint(for: item.keyEquivalent)
+            let hint = item.submenu == nil ? Self.hint(for: item.keyEquivalent) : "▸"
             let title = Label.truncated(accelerator.display, width: max(0, innerWidth - hint.count))
             let padding = max(0, innerWidth - title.count - hint.count)
             let line = " " + title + String(repeating: " ", count: padding) + hint + " "
@@ -527,7 +673,15 @@ final class MenuDropdown: TUIView {
             return true
 
         case .right:
-            onSwitchMenu(1)
+            // Right opens a child when there is one — the standard cascade —
+            // and otherwise walks to the next menu on the bar.
+            if menu.items.indices.contains(highlightedIndex),
+               menu.items[highlightedIndex].submenu != nil {
+                activate(at: highlightedIndex)
+            } else {
+                onSwitchMenu(1)
+            }
+
             return true
 
         case .enter:
@@ -562,6 +716,13 @@ final class MenuDropdown: TUIView {
         let item = menu.items[index]
 
         guard item.isEnabled, !item.isSeparator else {
+            return
+        }
+
+        // A submenu item has no action: opening the child IS what activating
+        // it does.
+        if item.submenu != nil {
+            onOpenSubmenu(item, index)
             return
         }
 

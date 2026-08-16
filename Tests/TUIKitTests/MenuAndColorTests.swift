@@ -250,3 +250,84 @@ private func makeMenuWindow() -> (Window, MenuBar, Menu, [String]) {
     #expect(ColorPreview.describe(.rgb(red: 1, green: 2, blue: 3)) == "rgb(1, 2, 3)")
     #expect(ColorPreview.describe(.named(.brightCyan)) == "brightCyan")
 }
+
+// MARK: - Submenus
+
+@MainActor
+private func makeSubmenuWindow() -> (Window, MenuBar, Menu) {
+    let window = Window(frame: Rect(x: 0, y: 0, width: 60, height: 20))
+    let bar = MenuBar()
+
+    let view = Menu("&View")
+    view.addItem("&Fold All")
+    let themes = view.addSubmenu("&Theme")
+    themes.addItem("Turbo")
+    themes.addItem("Ambiance")
+
+    bar.addMenu(view)
+    bar.frame = Rect(x: 0, y: 0, width: 60, height: 1)
+    window.addSubview(bar)
+    window.makeFirstResponder(bar)
+    return (window, bar, view)
+}
+
+@MainActor
+private func screenRows(_ window: Window) -> [String] {
+    SceneRenderer(root: window).render(size: window.frame.size).textLines()
+}
+
+@Test @MainActor func aSubmenuItemOpensAChildInsteadOfActing() {
+    let (window, bar, _) = makeSubmenuWindow()
+
+    window.route(.key(KeyInput(key: .enter)))       // open View
+    #expect(bar.isMenuOpen)
+    #expect(screenRows(window).contains { $0.contains("▸") }, "the row says it has a child")
+
+    window.route(.key(KeyInput(key: .down)))        // highlight Theme
+    window.route(.key(KeyInput(key: .right)))       // cascade
+
+    // A submenu item has no action of its own: opening the child IS what
+    // activating it does.
+    #expect(screenRows(window).contains { $0.contains("Turbo") }, "the child is on screen")
+    #expect(screenRows(window).contains { $0.contains("Fold All") }, "beside its parent, not instead of it")
+}
+
+@Test @MainActor func closingAChildLeavesItsParentOpen() {
+    let (window, bar, _) = makeSubmenuWindow()
+
+    window.route(.key(KeyInput(key: .enter)))
+    window.route(.key(KeyInput(key: .down)))
+    window.route(.key(KeyInput(key: .right)))
+    #expect(screenRows(window).contains { $0.contains("Turbo") })
+
+    // Esc unwinds ONE level. Collapsing the whole cascade would make a
+    // mis-aimed Right cost you the menu you were in.
+    window.route(.key(KeyInput(key: .escape)))
+
+    #expect(bar.isMenuOpen, "the parent survives")
+    #expect(!screenRows(window).contains { $0.contains("Turbo") }, "and the child is gone")
+}
+
+@Test @MainActor func activatingASubmenuLeafRunsItAndClosesEverything() {
+    let window = Window(frame: Rect(x: 0, y: 0, width: 60, height: 20))
+    let bar = MenuBar()
+
+    var applied: String?
+    let view = Menu("&View")
+    view.addItem("&Fold All")
+    let themes = view.addSubmenu("&Theme")
+    themes.addItem("Turbo") { applied = "Turbo" }
+
+    bar.addMenu(view)
+    bar.frame = Rect(x: 0, y: 0, width: 60, height: 1)
+    window.addSubview(bar)
+    window.makeFirstResponder(bar)
+
+    window.route(.key(KeyInput(key: .enter)))
+    window.route(.key(KeyInput(key: .down)))
+    window.route(.key(KeyInput(key: .right)))
+    window.route(.key(KeyInput(key: .enter)))
+
+    #expect(applied == "Turbo")
+    #expect(!bar.isMenuOpen, "a leaf activation exits menu mode entirely")
+}

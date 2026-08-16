@@ -70,9 +70,22 @@ open class FloatingWindow: Window {
         vertical: BorderScrollbarExtent = .fullEdge,
         horizontal: BorderScrollbarExtent = .underClient
     ) {
+        // Remember the REQUEST, then let `updateScrollbarOwnership` decide
+        // whether to honour it right now. An app calling this while a panel
+        // is open would otherwise re-embed bars the panel had just taken
+        // away — which is exactly what happened: the app re-embeds on every
+        // tab switch, so the handed-back bars lasted until the next one.
         borderScrollClient = client
         borderScrollExtents = (vertical, horizontal)
-        panel.embedScrollbars(for: client, vertical: vertical, horizontal: horizontal)
+
+        guard client != nil else {
+            // An explicit "no client" is the caller giving the bars up; there
+            // is nothing left to arbitrate.
+            panel.embedScrollbars(for: nil)
+            return
+        }
+
+        updateScrollbarOwnership()
     }
 
     /// Whether the title row drags the window.
@@ -196,28 +209,41 @@ open class FloatingWindow: Window {
         }
     }
 
-    /// Moves the document's scrollbars off the window border while a TRAILING
-    /// slide-out is open, and back when it closes.
+    /// Moves the document's scrollbars off the window border while a panel
+    /// stands between the border and the document, and back when it closes.
     ///
     /// Bobby: *"on the right switch the view to use the scroll bars in the
     /// border… I would like to see the slider move in and back again when it
-    /// closes."* The border bar rides the window's right edge, and a trailing
-    /// panel puts itself between that edge and the document — so the bar ends
-    /// up beside the panel, scrolling something it is nowhere near. Handing
-    /// the bars back to the view moves the slider inward to the document's own
-    /// edge; closing the panel hands them back to the border.
+    /// closes"* — and then, of the bottom: *"right bar worked, the bottom
+    /// didn't."*
+    ///
+    /// The first attempt at the bottom was `BorderScrollbarExtent.underClient`
+    /// for the vertical bar, which is a real improvement but the wrong tool:
+    /// an extent bounds how far a bar RUNS along its edge, not which edge it
+    /// sits on. The horizontal bar therefore stayed on the window's bottom
+    /// border — below the build panel, nowhere near the document it scrolls.
+    ///
+    /// Both edges are the same problem: a trailing panel puts itself between
+    /// the right border and the document, a bottom panel between the bottom
+    /// border and the document. Either way the bars belong to the view, whose
+    /// own edges are where the document actually ends. Closing the panel hands
+    /// them back to the border.
     ///
     /// The visible transition is the point, not a side effect: the slider
     /// moving in and back out is what tells you the bar still belongs to the
     /// document.
-    func updateScrollbarOwnership() {
+    public func updateScrollbarOwnership() {
         guard let client = borderScrollClient else {
             return
         }
 
-        let trailingIsOpen = slideOut(at: .trailing)?.isOpen ?? false
+        // A LEADING panel is not in this list: it sits between the document
+        // and the left border, and neither bar lives there.
+        let displacesABar = [SlideOutEdge.trailing, .bottom].contains {
+            slideOut(at: $0)?.isOpen ?? false
+        }
 
-        if trailingIsOpen {
+        if displacesABar {
             // `embedScrollbars(for: nil)` hands the previous client its own
             // bars back, which is exactly the inward move.
             panel.embedScrollbars(for: nil)
