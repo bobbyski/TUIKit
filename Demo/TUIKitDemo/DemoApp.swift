@@ -9,6 +9,19 @@ final class DemoApp {
     let app = App(driver: ANSIDriver())
     var exampleCount = 0
 
+    /// The most recent slide-out demo window, so the Panels menu has
+    /// something to act on.
+    ///
+    /// The menu needs this because **keys go only to the key window**
+    /// (`App.run` → `keyWindow?.route`). A menu equivalent fires when the
+    /// MENU BAR's window is key — which is exactly the state you are in right
+    /// after using the menu to open something — and a window's own
+    /// `handleHotKey` fires when THAT window is key. The two are
+    /// complementary, not duplicate: only one window is ever key, so only one
+    /// of them sees any given press. Wiring both is what makes the shortcut
+    /// work whichever you last clicked.
+    weak var slideOutDemo: SlideOutDemoWindow?
+
     /// Builds the desktop, menu bar, and status strip, opens the initial
     /// windows, and runs the app until it stops.
     func run() async throws {
@@ -76,7 +89,11 @@ final class DemoApp {
             self.exampleCount += 1
             app.present(self.makeDeclarativeExample(index: self.exampleCount))
         }
-        fileMenu.addItem("New &Manual Example", keyEquivalent: KeyInput(key: .character("m"), modifiers: .control)) {
+        // ^U, not ^M: Ctrl+M *is* ASCII 0x0D, which the decoder turns into
+        // `.enter`, so this equivalent could never fire. (^H, ^I and ^J are
+        // Backspace, Tab and Return's twin for the same reason.) Alt+M still
+        // reaches it through the accelerator.
+        fileMenu.addItem("New &Manual Example", keyEquivalent: KeyInput(key: .character("u"), modifiers: .control)) {
             self.exampleCount += 1
             app.present(self.makeManualExample(index: self.exampleCount))
         }
@@ -91,6 +108,12 @@ final class DemoApp {
         fileMenu.addItem("New &File Dialog Demo", keyEquivalent: KeyInput(key: .character("f"), modifiers: .control)) {
             self.exampleCount += 1
             app.present(self.makeFileDialogDemo(index: self.exampleCount))
+        }
+        fileMenu.addItem("New Slide-&Out Demo") {
+            self.exampleCount += 1
+            let window = makeSlideOutDemo(index: self.exampleCount)
+            self.slideOutDemo = window
+            app.present(window)
         }
         fileMenu.addItem("New &CSS Demo") {
             self.exampleCount += 1
@@ -108,6 +131,34 @@ final class DemoApp {
             app.stop()
         }
 
+        // Panels: the same four actions the slide-out demo window binds
+        // itself, but reachable when the menu bar is the key window — and
+        // discoverable, which a bare chord is not.
+        let panelsMenu = Menu("&Panels")
+
+        func togglePanel(_ edge: SlideOutEdge) {
+            self.slideOutDemo?.toggleSlideOut(edge)
+        }
+
+        panelsMenu.addItem("Toggle &Files", keyEquivalent: KeyInput(key: .character("l"), modifiers: .control)) {
+            togglePanel(.leading)
+        }
+        panelsMenu.addItem("Toggle &Inspector", keyEquivalent: KeyInput(key: .character("r"), modifiers: .control)) {
+            togglePanel(.trailing)
+        }
+        // ^T, not ^J: Ctrl+J *is* ASCII 0x0A, which the decoder turns into
+        // `.enter`, so a ^J equivalent can never fire. ^H, ^I and ^M are
+        // Backspace, Tab and Return for the same reason.
+        panelsMenu.addItem("Toggle &Build", keyEquivalent: KeyInput(key: .character("t"), modifiers: .control)) {
+            togglePanel(.bottom)
+        }
+        panelsMenu.addSeparator()
+        panelsMenu.addItem("&Pin Files Panel", keyEquivalent: KeyInput(key: .character("p"), modifiers: .control)) {
+            if let files = self.slideOutDemo?.slideOut(at: .leading) {
+                files.isPinned.toggle()
+            }
+        }
+
         let themeMenu = Menu("&Theme")
         for (name, theme) in TUIKit.Theme.builtIn {
             themeMenu.addItem(name) {
@@ -117,6 +168,7 @@ final class DemoApp {
 
         let menuBar = MenuBar()
         menuBar.addMenu(fileMenu)
+        menuBar.addMenu(panelsMenu)
         menuBar.addMenu(themeMenu)
         // Span the full width so the whole menu row is gray chrome, not just the
         // titles' width (trailing: 0 stretches it edge-to-edge).

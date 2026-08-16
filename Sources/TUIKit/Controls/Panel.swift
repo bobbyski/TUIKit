@@ -138,6 +138,35 @@ public final class Panel: TUIView {
         setNeedsDisplay()
     }
 
+    /// A small button drawn immediately after the title, or nil for none.
+    ///
+    /// Three cells like the others (`[<]`, `[>]`), and in the same border
+    /// style, so a panel can carry one affordance of its own without an app
+    /// having to reimplement a title bar. `FloatingWindow` uses it for the
+    /// slide-out toggle; the right-hand `[+]`/`[x]` zone is untouched.
+    public var titleButton: String? {
+        didSet {
+            if titleButton != oldValue {
+                setNeedsDisplay()
+            }
+        }
+    }
+
+    /// Called when ``titleButton`` is clicked.
+    public var onTitleButton: () -> Void = {}
+
+    // Where the title button sits: after the title text, which starts at
+    // column 2 with a space either side.
+    var titleButtonX: Int {
+        title.isEmpty ? 2 : 2 + min(title.count, max(0, bounds.size.width - reservedButtonWidth)) + 2
+    }
+
+    // Cells the right-hand button zone reserves — shared by the title
+    // truncation and the button positions so they cannot disagree.
+    var reservedButtonWidth: Int {
+        showsMaximizeButton ? 10 : 6
+    }
+
     /// Creates a panel.
     ///
     /// - Parameter title: Title shown in the top border.
@@ -148,13 +177,27 @@ public final class Panel: TUIView {
     }
 
     /// Positions the content view inside the border.
-    public override func layoutSubviews() {
-        content.frame = Rect(
+    /// The content area for a panel of a given size, WITHOUT needing a layout
+    /// pass to have run.
+    ///
+    /// `layoutSubviews` uses it, so the two cannot drift — and anything that
+    /// must know the content area before layout (a window placing slide-outs,
+    /// which are positioned in the same pass that sizes this panel) can ask
+    /// without depending on ordering.
+    ///
+    /// - Parameter bounds: The panel's bounds.
+    /// - Returns: The content rect in panel coordinates.
+    public static func contentRect(forBounds bounds: Rect) -> Rect {
+        Rect(
             x: 1,
             y: 1,
             width: max(0, bounds.size.width - 2),
             height: max(0, bounds.size.height - 2)
         )
+    }
+
+    public override func layoutSubviews() {
+        content.frame = Self.contentRect(forBounds: bounds)
     }
 
     /// Draws the background, border, title, and close button.
@@ -182,11 +225,15 @@ public final class Panel: TUIView {
 
             // Reserve the right-hand border for the buttons: [x] alone, or
             // the maximize box plus [x].
-            let reserved = showsMaximizeButton ? 10 : 6
+            let reserved = reservedButtonWidth
 
             if !title.isEmpty, width > reserved {
                 let text = " " + Label.truncated(title, width: width - reserved) + " "
                 painter.write(text, at: Point(x: 2, y: 0), style: theme.header)
+            }
+
+            if let titleButton, width > reserved + titleButtonX {
+                painter.write(titleButton, at: Point(x: titleButtonX, y: 0), style: theme.border)
             }
 
             if showsMaximizeButton, width >= 11 {
@@ -567,6 +614,11 @@ public final class Panel: TUIView {
             if mouse.position.y == 0 {
                 if showsCloseButton, mouse.position.x >= closeButtonX, mouse.position.x < closeButtonX + titleButtonSpan {
                     onClose()
+                    return true
+                }
+
+                if titleButton != nil, mouse.position.x >= titleButtonX, mouse.position.x < titleButtonX + titleButtonSpan {
+                    onTitleButton()
                     return true
                 }
 

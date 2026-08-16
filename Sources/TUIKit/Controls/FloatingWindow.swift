@@ -40,8 +40,15 @@ open class FloatingWindow: Window {
     public var onCloseRequest: () -> Void = {}
 
     /// Container for application content, inset by the chrome.
+    ///
+    /// Not `panel.content` itself but a container inside it, because a PINNED
+    /// slide-out has to shrink the document without shrinking the area the
+    /// slide-outs are laid out in — and if those were the same view, a pinned
+    /// panel would move out from under itself on every layout pass. The panel
+    /// content stays the full inside of the chrome (the slide-out region);
+    /// this container is what the document gets to keep.
     public var content: TUIView {
-        panel.content
+        documentContainer
     }
 
     /// Embeds a view's scrollbars into the window border (the Borland trick):
@@ -53,11 +60,18 @@ open class FloatingWindow: Window {
     ///   - client: The scrollable view (a `content` descendant), or `nil`.
     ///   - vertical: Run of the right-border bar (default: the full edge).
     ///   - horizontal: Run of the bottom bar (default: under the client).
+    // Remembered so a trailing slide-out can hand the bars back and forth:
+    // when the panel opens, the border bar is on the wrong side of it.
+    private var borderScrollClient: (any BorderScrollable)?
+    private var borderScrollExtents: (BorderScrollbarExtent, BorderScrollbarExtent) = (.fullEdge, .underClient)
+
     public func embedScrollbars(
         for client: BorderScrollable?,
         vertical: BorderScrollbarExtent = .fullEdge,
         horizontal: BorderScrollbarExtent = .underClient
     ) {
+        borderScrollClient = client
+        borderScrollExtents = (vertical, horizontal)
         panel.embedScrollbars(for: client, vertical: vertical, horizontal: horizontal)
     }
 
@@ -133,6 +147,133 @@ open class FloatingWindow: Window {
         }
         panel.anchors = .fill()
         addSubview(panel)
+
+        documentContainer.anchors = .fill()
+        panel.content.addSubview(documentContainer)
+    }
+
+    // MARK: - Slide-out chrome
+
+    /// The edge whose slide-out the title-bar button toggles, or nil for no
+    /// button.
+    ///
+    /// The button sits right after the title and says which way the panel
+    /// will move: `[>]` when closed (it will come out), `[<]` when open (it
+    /// will go back). It is the discoverable half of a slide-out — the
+    /// keyboard shortcut is the fast half, and a panel with neither is a
+    /// feature nobody finds.
+    public var slideOutToggleEdge: SlideOutEdge? {
+        didSet {
+            refreshSlideOutToggle()
+        }
+    }
+
+    /// Updates the toggle glyph from the slide-out's state.
+    ///
+    /// Called on every open and close, because the button has to say what it
+    /// will do NEXT, not what it did last.
+    func refreshSlideOutToggle() {
+        guard let edge = slideOutToggleEdge, let slideOut = slideOut(at: edge) else {
+            panel.titleButton = nil
+            return
+        }
+
+        // A leading panel comes out to the RIGHT, so `[>]` opens it. A
+        // trailing panel comes out to the left, so the arrows swap.
+        switch edge {
+        case .leading:
+            panel.titleButton = slideOut.isOpen ? "[<]" : "[>]"
+
+        case .trailing:
+            panel.titleButton = slideOut.isOpen ? "[>]" : "[<]"
+
+        case .bottom:
+            panel.titleButton = slideOut.isOpen ? "[^]" : "[v]"
+        }
+
+        panel.onTitleButton = { [weak self] in
+            self?.toggleSlideOut(edge)
+        }
+    }
+
+    /// Moves the document's scrollbars off the window border while a TRAILING
+    /// slide-out is open, and back when it closes.
+    ///
+    /// Bobby: *"on the right switch the view to use the scroll bars in the
+    /// border… I would like to see the slider move in and back again when it
+    /// closes."* The border bar rides the window's right edge, and a trailing
+    /// panel puts itself between that edge and the document — so the bar ends
+    /// up beside the panel, scrolling something it is nowhere near. Handing
+    /// the bars back to the view moves the slider inward to the document's own
+    /// edge; closing the panel hands them back to the border.
+    ///
+    /// The visible transition is the point, not a side effect: the slider
+    /// moving in and back out is what tells you the bar still belongs to the
+    /// document.
+    func updateScrollbarOwnership() {
+        guard let client = borderScrollClient else {
+            return
+        }
+
+        let trailingIsOpen = slideOut(at: .trailing)?.isOpen ?? false
+
+        if trailingIsOpen {
+            // `embedScrollbars(for: nil)` hands the previous client its own
+            // bars back, which is exactly the inward move.
+            panel.embedScrollbars(for: nil)
+        } else {
+            panel.embedScrollbars(
+                for: client,
+                vertical: borderScrollExtents.0,
+                horizontal: borderScrollExtents.1
+            )
+        }
+    }
+
+    /// What the document gets after pinned slide-outs have taken their space.
+    ///
+    /// Anchored to fill until something is pinned; from then on its frame is
+    /// set outright, which is why `applySlideOutContent` clears the anchors.
+    private let documentContainer = TUIView()
+
+    open override func applySlideOutContent(_ rect: Rect) {
+        // Window coordinates in, panel-content coordinates out.
+        let region = slideOutRegion
+        let local = Rect(
+            x: rect.minX - region.minX,
+            y: rect.minY - region.minY,
+            width: rect.size.width,
+            height: rect.size.height
+        )
+
+        guard local != documentContainer.frame else {
+            return   // the common case: nothing pinned, nothing to do
+        }
+
+        documentContainer.anchors = AnchorSet()
+        documentContainer.frame = local
+        documentContainer.layoutIfNeeded()
+    }
+
+    /// The inside of the chrome, in window coordinates.
+    ///
+    /// This is the whole of "exist outside of the scroll bars": a slide-out
+    /// covers content, never the border, so the bars embedded in that border
+    /// (`embedScrollbars`) stay where they are and stay usable with a panel
+    /// open. The trailing slide-out stops one column short of the vertical
+    /// bar rather than covering it.
+    open override var slideOutRegion: Rect {
+        // Computed from the window's bounds rather than read off
+        // `panel.content.frame`, because slide-outs are positioned in the SAME
+        // layout pass that sizes the panel. Reading the frame meant opening a
+        // panel before the window had ever laid out gave it a zero region —
+        // and a slide-out that silently never appears the first time is the
+        // worst kind of bug, since the second time it works.
+        //
+        // `panel` fills the window, so panel coordinates are window
+        // coordinates, and `Panel.contentRect` is the same function the panel
+        // lays its own content out with.
+        Panel.contentRect(forBounds: bounds)
     }
 
     /// Fills the superview (minus `maximizeInsets`), saving the current frame

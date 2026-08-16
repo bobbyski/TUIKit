@@ -46,6 +46,46 @@ open class Window: TUIView {
     /// key. `Dialog` is modal by default; plain windows are not.
     public var isModal = false
 
+    /// Edge panels that slide over the content. See ``SlideOut``.
+    ///
+    /// Storage only — the API and the geometry live in `SlideOut.swift`,
+    /// because a stored property has to sit in the class body and none of the
+    /// behaviour does.
+    var slideOuts: [SlideOut] = []
+
+    /// Where focus was before a slide-out took it, so closing can give it
+    /// back. A panel you can open but not leave is a broken window.
+    weak var responderBeforeSlideOut: TUIView?
+
+    // The slide-out whose inner edge is being dragged, if any.
+    weak var resizingSlideOut: SlideOut?
+
+    /// The area slide-outs may cover.
+    ///
+    /// The whole window by default; `FloatingWindow` narrows it to the inside
+    /// of its chrome, so a slide-out never paints over the border — and
+    /// therefore never over the scrollbars embedded in it.
+    open var slideOutRegion: Rect {
+        bounds
+    }
+
+    /// Lays out subviews, then places any open slide-outs over them.
+    open override func layoutSubviews() {
+        super.layoutSubviews()
+        layoutSlideOuts()
+    }
+
+    /// Hands the window the area left for its content after PINNED slide-outs
+    /// have taken theirs, in window coordinates.
+    ///
+    /// The default does nothing, which is exactly right for the overlay case:
+    /// an overlaid panel is supposed to leave the document alone. Only a
+    /// window that can inset its content — `FloatingWindow` — overrides it,
+    /// and only pinning ever passes anything smaller than the whole region.
+    ///
+    /// - Parameter rect: The content area, in window coordinates.
+    open func applySlideOutContent(_ rect: Rect) {}
+
     /// Creates a window.
     ///
     /// - Parameter frame: Position and size in screen coordinates. A zero
@@ -236,6 +276,14 @@ open class Window: TUIView {
         }
 
         // A captured drag or release bypasses hit testing entirely.
+        // Slide-out resizing is a PRE-PASS, ahead of hit-test delivery: the
+        // edge being dragged is the panel's own border, and the panel would
+        // otherwise get first refusal on it. Same reason `handleHotKey` runs
+        // before focus routing.
+        if resizeSlideOut(with: mouse) {
+            return true
+        }
+
         if let grabbed = mouseGrabView, mouse.action == .drag || mouse.action == .release {
             var localMouse = mouse
             localMouse.position = mouse.position - windowOrigin(of: grabbed)
