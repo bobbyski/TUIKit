@@ -56,8 +56,24 @@ public final class CodeEditorView: TUIView, BorderScrollable {
     /// Called when the caret moves.
     public var onCursorMoved: (TextPosition) -> Void = { _ in }
 
-    /// System clipboard, when the host provides one.
+    /// The clipboard cut/copy/paste use.
+    ///
+    /// **Defaults to the app's**, found through the window, rather than
+    /// staying nil until a host remembers to wire it. It stayed nil in
+    /// OmegaCLIDE for the editor's whole life, which is why ^C/^X/^V there did
+    /// nothing at all: the keys were bound, the methods were written and
+    /// tested, and every one of them returned early on a nil pasteboard. An
+    /// opt-in that nobody opts into is a feature that does not exist.
+    ///
+    /// Assign to override — a host wanting a private clipboard for one view
+    /// still can.
     public var pasteboard: Pasteboard?
+
+    // The injected one, or the app's — the same shape `SyntaxTextView` has
+    // had all along. This editor simply never adopted it.
+    private var resolvedPasteboard: Pasteboard? {
+        pasteboard ?? owningWindow?.app?.pasteboard
+    }
 
     /// Whether the view draws its own scrollbars (off when a window border
     /// hosts them).
@@ -234,7 +250,7 @@ public final class CodeEditorView: TUIView, BorderScrollable {
             return false
         }
 
-        pasteboard?.copy(selected)
+        resolvedPasteboard?.copy(selected)
         return true
     }
 
@@ -249,7 +265,7 @@ public final class CodeEditorView: TUIView, BorderScrollable {
 
     /// Pastes the clipboard at the caret.
     public func paste() {
-        guard let text = pasteboard?.string, !text.isEmpty else {
+        guard let text = resolvedPasteboard?.string, !text.isEmpty else {
             return
         }
 
@@ -804,5 +820,19 @@ extension CodeEditorView {
         default:
             return false
         }
+    }
+}
+
+extension CodeEditorView: ClipboardEditing {
+    public func clipboardCopy() {
+        _ = copySelection()
+    }
+
+    public func clipboardCut() {
+        cutSelection()
+    }
+
+    public func clipboardPaste() {
+        paste()
     }
 }

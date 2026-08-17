@@ -128,6 +128,28 @@ public final class TextField: TUIView {
             return true
         }
 
+        // Clipboard, before the plain-key switch below rejects modifiers.
+        if key.modifiers == .control, case .character(let letter) = key.key {
+            switch Character(letter.lowercased()) {
+            case "v":
+                paste()
+                return true
+
+            case "c":
+                copyAll()
+                return true
+
+            case "x":
+                copyAll()
+                setText("")
+                onChanged(text)
+                return true
+
+            default:
+                break
+            }
+        }
+
         guard key.modifiers.isEmpty else {
             return false
         }
@@ -164,6 +186,53 @@ public final class TextField: TUIView {
         default:
             return false
         }
+    }
+
+    // MARK: - Clipboard
+
+    /// The clipboard cut/copy/paste use — the app's, via the window.
+    ///
+    /// A text field had NO clipboard at all before this: `^V` fell through
+    /// the modifier guard below and did nothing, so the Find field was a box
+    /// you could only type into. Assign to override.
+    public var pasteboard: Pasteboard?
+
+    // The injected one, or the app's.
+    private var resolvedPasteboard: Pasteboard? {
+        pasteboard ?? owningWindow?.app?.pasteboard
+    }
+
+    /// Inserts the clipboard at the cursor.
+    ///
+    /// Newlines become spaces: a field is one line, and a pasted path or
+    /// query with a stray newline should land as text rather than silently
+    /// losing everything after it.
+    public func paste() {
+        guard let clipboard = resolvedPasteboard?.string, !clipboard.isEmpty else {
+            return
+        }
+
+        let flattened = clipboard
+            .replacingOccurrences(of: "\r\n", with: " ")
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "\r", with: " ")
+
+        for character in flattened {
+            insert(character)
+        }
+    }
+
+    /// Copies the whole field.
+    ///
+    /// The WHOLE field, because a text field has a cursor and no selection —
+    /// so "the selection" would be a fiction. Copying everything is what the
+    /// user means by ^C in a one-line box.
+    public func copyAll() {
+        guard !text.isEmpty else {
+            return
+        }
+
+        resolvedPasteboard?.copy(text)
     }
 
     /// Click places the cursor.
@@ -232,4 +301,16 @@ public final class TextField: TUIView {
 
         scrollOffset = max(0, min(scrollOffset, max(0, text.count - width + 1)))
     }
+}
+
+extension TextField: ClipboardEditing {
+    public func clipboardCopy() { copyAll() }
+
+    public func clipboardCut() {
+        copyAll()
+        setText("")
+        onChanged(text)
+    }
+
+    public func clipboardPaste() { paste() }
 }

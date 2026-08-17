@@ -338,3 +338,30 @@ private func styles(_ editor: CodeEditorView, row: Int, width: Int = 44, height:
     _ = editor.mouseEvent(MouseInput(position: Point(x: column, y: 6), action: .drag, button: .left))
     #expect((editor.verticalScrollSpan?.offset ?? 0) != before, "the thumb follows the pointer")
 }
+
+// MARK: - Clipboard
+
+@Test @MainActor func theEditorUsesTheAppClipboardWithoutTheHostWiringIt() {
+    let app = App(driver: HeadlessDriver(size: Size(width: 40, height: 8)))
+    let window = Window(frame: Rect(x: 0, y: 0, width: 40, height: 8))
+    let editor = CodeEditorView(text: "alpha\nbeta", language: "swift")
+    editor.frame = window.bounds
+    window.addSubview(editor)
+    app.present(window)
+    window.makeFirstResponder(editor)
+
+    // THE bug: `pasteboard` was an opt-in the host never opted into, so ^C,
+    // ^X and ^V were bound, implemented, and returned early on nil — copy and
+    // paste simply did nothing in OmegaCLIDE's code window for the editor's
+    // whole life. It now falls back to the app's, which is the shape
+    // `SyntaxTextView` already had.
+    app.pasteboard.copy("gamma")
+    #expect(editor.keyDown(KeyInput(key: .character("v"), modifiers: .control)))
+    #expect(editor.text.contains("gamma"))
+
+    // And copy reaches the app clipboard, so it also reaches the SYSTEM one:
+    // `App` forwards copies to the driver, which emits OSC 52.
+    editor.selectAll()
+    #expect(editor.copySelection())
+    #expect(app.pasteboard.string?.contains("gamma") == true)
+}

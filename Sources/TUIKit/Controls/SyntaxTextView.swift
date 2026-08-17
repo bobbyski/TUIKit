@@ -967,3 +967,9 @@ extension SyntaxTextView: BorderScrollable {
         setNeedsDisplay()
     }
 }
+
+extension SyntaxTextView: ClipboardEditing {
+    public func clipboardCopy() { copySelection() }
+    public func clipboardCut() { cutSelection() }
+    public func clipboardPaste() { paste() }
+}

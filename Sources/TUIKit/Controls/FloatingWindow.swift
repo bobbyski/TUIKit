@@ -244,9 +244,15 @@ open class FloatingWindow: Window {
         }
 
         if displacesABar {
-            // `embedScrollbars(for: nil)` hands the previous client its own
-            // bars back, which is exactly the inward move.
             panel.embedScrollbars(for: nil)
+
+            // Set it on the CURRENT client explicitly. `embedScrollbars(for:
+            // nil)` only hands bars back to whatever the panel's PREVIOUS
+            // client was — which is the outgoing editor when you switch tabs,
+            // never the incoming one. So switching from a file that needed no
+            // bars to one that did left the new editor silenced and the
+            // border empty: no scrollbars anywhere.
+            client.showsOwnScrollbars = true
         } else {
             panel.embedScrollbars(
                 for: client,

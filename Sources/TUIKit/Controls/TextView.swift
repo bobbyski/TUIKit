@@ -152,6 +152,23 @@ public final class TextView: TUIView {
 
     /// Movement and editing keys (Tab is left for focus movement).
     public override func keyDown(_ key: KeyInput) -> Bool {
+        // Clipboard first: the guard below rejects every modified key, which
+        // is why ^V did nothing in a commit message box.
+        if isEditable, key.modifiers == .control, case .character(let letter) = key.key {
+            switch Character(letter.lowercased()) {
+            case "v":
+                paste()
+                return true
+
+            case "c":
+                copyAll()
+                return true
+
+            default:
+                break
+            }
+        }
+
         guard key.modifiers.isEmpty else {
             return false
         }
@@ -282,6 +299,44 @@ public final class TextView: TUIView {
 
     private func clampedOffset(_ value: Int, rowCount: Int, height: Int) -> Int {
         min(max(0, value), max(0, rowCount - height))
+    }
+
+    // MARK: - Clipboard
+
+    /// The clipboard, when a host injects one.
+    public var pasteboard: Pasteboard?
+
+    // The injected one, or the app's — the same shape `SyntaxTextView` has
+    // had all along.
+    private var resolvedPasteboard: Pasteboard? {
+        pasteboard ?? owningWindow?.app?.pasteboard
+    }
+
+    /// Inserts the clipboard at the cursor.
+    ///
+    /// Newlines are KEPT here, unlike a one-line `TextField`: this is a
+    /// paragraph view, and a pasted commit message is meant to have them.
+    public func paste() {
+        guard isEditable, let clipboard = resolvedPasteboard?.string, !clipboard.isEmpty else {
+            return
+        }
+
+        for character in clipboard where character != "\r" {
+            if character == "\n" {
+                splitLine()
+            } else {
+                insert(String(character))
+            }
+        }
+    }
+
+    /// Copies the whole text — this view has a cursor, not a selection.
+    public func copyAll() {
+        guard !text.isEmpty else {
+            return
+        }
+
+        resolvedPasteboard?.copy(text)
     }
 
     // MARK: - Editing
@@ -475,4 +530,17 @@ public final class TextView: TUIView {
         let clamped = rows[min(max(0, row), rows.count - 1)]
         return (clamped.line, min(clamped.start + max(0, column), clamped.start + clamped.length))
     }
+}
+
+extension TextView: ClipboardEditing {
+    public func clipboardCopy() { copyAll() }
+
+    public func clipboardCut() {
+        guard isEditable else { return }
+
+        copyAll()
+        setText("", notify: true)
+    }
+
+    public func clipboardPaste() { paste() }
 }
