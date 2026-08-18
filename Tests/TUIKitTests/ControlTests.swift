@@ -418,3 +418,26 @@ private func doubleClickField(_ field: TextField, atColumn column: Int) {
     #expect(BorderStyle.double.junctions?.teeLeft == "╠")
     #expect(BorderStyle.none.junctions == nil)
 }
+
+@Test @MainActor func theMultiClickWindowIsLongerThanADesktopsAndSettable() {
+    let app = App(driver: HeadlessDriver(size: Size(width: 20, height: 5)))
+
+    // 420 ms rather than the 280 ms desktop convention: a window manager sees
+    // the second press when it happens, while here it travels as bytes
+    // through a tty, and the slack in that path turned real double-clicks
+    // into two singles.
+    #expect(app.multiClickIntervalMilliseconds == 420)
+    #expect(app.multiClickInterval == .milliseconds(420))
+
+    app.multiClickIntervalMilliseconds = 600
+    #expect(app.multiClickInterval == .milliseconds(600))
+    #expect(app.multiClickIntervalMilliseconds == 600)
+
+    // A host that thinks in Durations and one that thinks in milliseconds
+    // read the same value.
+    app.multiClickInterval = .milliseconds(250)
+    #expect(app.multiClickIntervalMilliseconds == 250)
+
+    app.multiClickIntervalMilliseconds = -1
+    #expect(app.multiClickIntervalMilliseconds == 0, "a negative window is no window")
+}

@@ -55,8 +55,29 @@ public final class App {
     /// How long a completed click waits for a follow-up before its `.click`
     /// event is delivered. A second click within this window makes it a double
     /// (then a triple), so a single click's semantic event never fires ahead of
-    /// a double. ~280 ms by default, matching desktop conventions.
-    public var multiClickInterval: Duration = .milliseconds(280)
+    /// a double.
+    ///
+    /// 420 ms — half again longer than the 280 ms desktop convention, and the
+    /// difference is the terminal. A window manager sees the second press the
+    /// moment it happens; here it has to travel as bytes through a tty, be
+    /// read by whatever is polling, and be decoded, and the slack in that
+    /// path is enough that a real double-click regularly arrived as two
+    /// singles. The cost of the longer window is that a genuine single click
+    /// acts 140 ms later; the cost of the shorter one was that double-click
+    /// mostly did not work.
+    public var multiClickInterval: Duration = .milliseconds(420)
+
+    /// ``multiClickInterval`` in milliseconds, for hosts that would rather
+    /// think in numbers than in `Duration`s.
+    public var multiClickIntervalMilliseconds: Int {
+        get {
+            let components = multiClickInterval.components
+            return Int(components.seconds * 1_000 + components.attoseconds / 1_000_000_000_000_000)
+        }
+        set {
+            multiClickInterval = .milliseconds(max(0, newValue))
+        }
+    }
 
     /// The application clipboard. Cut/copy/paste in editing controls flow
     /// through here; copies are forwarded to the terminal's system clipboard
