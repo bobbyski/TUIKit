@@ -79,6 +79,104 @@ public final class TextView: TUIView {
         true
     }
 
+    /// A stretch of the text, from where it started to where it ended.
+    public struct Selection: Equatable, Sendable {
+        /// Where the selection was begun.
+        public var anchor: Point
+
+        /// Where it ended — before the anchor when dragged backwards.
+        public var head: Point
+
+        /// The earlier end.
+        public var start: Point {
+            (anchor.y, anchor.x) <= (head.y, head.x) ? anchor : head
+        }
+
+        /// The later end.
+        public var end: Point {
+            (anchor.y, anchor.x) <= (head.y, head.x) ? head : anchor
+        }
+
+        /// Whether it covers nothing.
+        public var isEmpty: Bool {
+            anchor == head
+        }
+
+        /// Creates a selection.
+        public init(anchor: Point, head: Point) {
+            self.anchor = anchor
+            self.head = head
+        }
+    }
+
+    /// What is selected, or nil for a bare caret.
+    public private(set) var selection: Selection? {
+        didSet {
+            if selection != oldValue {
+                setNeedsDisplay()
+            }
+        }
+    }
+
+    /// The selected text, when any.
+    public var selectedText: String? {
+        guard let selection, !selection.isEmpty else {
+            return nil
+        }
+
+        let start = selection.start
+        let end = selection.end
+
+        guard start.y < lines.count, end.y < lines.count else {
+            return nil
+        }
+
+        if start.y == end.y {
+            let characters = Array(lines[start.y])
+            let from = min(max(0, start.x), characters.count)
+            let to = min(max(from, end.x), characters.count)
+            return String(characters[from..<to])
+        }
+
+        var pieces: [String] = [String(Array(lines[start.y]).dropFirst(min(start.x, lines[start.y].count)))]
+
+        for line in (start.y + 1)..<end.y {
+            pieces.append(lines[line])
+        }
+
+        pieces.append(String(Array(lines[end.y]).prefix(end.x)))
+        return pieces.joined(separator: "\n")
+    }
+
+    /// Selects everything.
+    public func selectAll() {
+        guard let last = lines.indices.last else {
+            return
+        }
+
+        selection = Selection(anchor: .zero, head: Point(x: lines[last].count, y: last))
+    }
+
+    /// Drops the selection.
+    public func clearSelection() {
+        selection = nil
+    }
+
+    /// Foreground colour per LINE, for a view showing text that means
+    /// different things.
+    ///
+    /// A transcript is the case: an error in the same ink as an answer is an
+    /// error nobody sees. Per line rather than per range because that is the
+    /// grain the thing showing it thinks in — a message is lines — and a
+    /// range model would be a span table to keep in step with every edit.
+    public var lineColors: [Int: TerminalColor] = [:] {
+        didSet {
+            if lineColors != oldValue {
+                setNeedsDisplay()
+            }
+        }
+    }
+
     // MARK: - Drawing
 
     /// Draws the visible wrapped rows, the cursor, and — when the content
@@ -103,9 +201,23 @@ public final class TextView: TUIView {
             let row = rows[rowIndex]
             let characters = Array(lines[row.line])
 
+            // A wrapped row keeps the colour of the LINE it came from, so a
+            // long error stays red all the way down.
+            var style = CellStyle()
+
+            if let color = lineColors[row.line] {
+                style.foreground = color
+            }
+
             for column in 0..<row.length {
                 let character = characters[row.start + column]
-                painter.set(TerminalCell(character: character, style: CellStyle()), at: Point(x: column, y: viewportRow))
+                var cellStyle = style
+
+                if isSelected(line: row.line, column: row.start + column) {
+                    cellStyle = effectiveTheme.selection
+                }
+
+                painter.set(TerminalCell(character: character, style: cellStyle), at: Point(x: column, y: viewportRow))
             }
         }
 
@@ -252,8 +364,22 @@ public final class TextView: TUIView {
                 return true
             }
 
+            // Focus on click. Without this a read-only view — a transcript,
+            // a log — could never be the first responder, so ^C found no
+            // editor to copy from and did nothing at all.
+            owningWindow?.makeFirstResponder(self)
+
+            selectionBeforeClick = selection
+            clearSelection()
+
             let logical = logicalPosition(row: offset.y + mouse.position.y, column: max(0, mouse.position.x), in: rows)
             moveCursor(line: logical.line, column: logical.column)
+            return true
+
+        case .click where mouse.clickCount >= 2:
+            let (rows, _, _) = layout()
+            let logical = logicalPosition(row: offset.y + mouse.position.y, column: max(0, mouse.position.x), in: rows)
+            escalateSelection(at: logical)
             return true
 
         case .drag where scrollbarGrab != nil:
@@ -395,6 +521,92 @@ public final class TextView: TUIView {
     }
 
     // MARK: - Cursor & viewport
+
+    // What was selected when this click sequence began.
+    private var selectionBeforeClick: Selection?
+
+    // Whether a character falls inside the selection.
+    private func isSelected(line: Int, column: Int) -> Bool {
+        guard let selection, !selection.isEmpty else {
+            return false
+        }
+
+        let start = selection.start
+        let end = selection.end
+
+        guard line >= start.y, line <= end.y else {
+            return false
+        }
+
+        let from = line == start.y ? start.x : 0
+        let to = line == end.y ? end.x : Int.max
+        return column >= from && column < to
+    }
+
+    // Word, then line, then everything, then nothing — the same ladder as the
+    // source editor and the text field, because a double-click should mean
+    // one thing everywhere.
+    private func escalateSelection(at position: (line: Int, column: Int)) {
+        guard position.line < lines.count else {
+            return
+        }
+
+        let characters = Array(lines[position.line])
+        let word = Self.wordRange(around: min(position.column, max(0, characters.count - 1)), in: characters)
+        let wordSelection = Selection(
+            anchor: Point(x: word.lowerBound, y: position.line),
+            head: Point(x: word.upperBound, y: position.line)
+        )
+        let lineSelection = Selection(
+            anchor: Point(x: 0, y: position.line),
+            head: Point(x: characters.count, y: position.line)
+        )
+        let last = max(0, lines.count - 1)
+        let all = Selection(anchor: .zero, head: Point(x: lines[last].count, y: last))
+
+        func covers(_ other: Selection) -> Bool {
+            guard let current = selectionBeforeClick else {
+                return false
+            }
+
+            return current.start == other.start && current.end == other.end
+        }
+
+        switch SelectionEscalation.nextScope(
+            isWord: covers(wordSelection),
+            isLine: covers(lineSelection),
+            isAll: covers(all)
+        ) {
+        case .word: selection = wordSelection
+        case .line: selection = lineSelection
+        case .all: selection = all
+        case .none: clearSelection()
+        }
+    }
+
+    private static func wordRange(around index: Int, in characters: [Character]) -> Range<Int> {
+        guard characters.indices.contains(index) else {
+            return 0..<0
+        }
+
+        func isWord(_ character: Character) -> Bool {
+            character.isLetter || character.isNumber || character == "_"
+        }
+
+        let inWord = isWord(characters[index])
+        var start = index
+        var end = index
+
+        while start > 0, isWord(characters[start - 1]) == inWord {
+            start -= 1
+        }
+
+        while end < characters.count, isWord(characters[end]) == inWord {
+            end += 1
+        }
+
+        return start..<end
+    }
 
     /// Scrolls to the bottom and puts the caret there.
     ///
@@ -545,7 +757,14 @@ public final class TextView: TUIView {
 }
 
 extension TextView: ClipboardEditing {
-    public func clipboardCopy() { copyAll() }
+    public func clipboardCopy() {
+        guard let selected = selectedText, !selected.isEmpty else {
+            copyAll()   // nothing chosen means the lot, as it always did
+            return
+        }
+
+        resolvedPasteboard?.copy(selected)
+    }
 
     public func clipboardCut() {
         guard isEditable else { return }

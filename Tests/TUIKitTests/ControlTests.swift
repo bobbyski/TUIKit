@@ -519,3 +519,71 @@ private func sliderRows(_ slider: Slider, width: Int, height: Int) -> [String] {
     #expect(slider.intrinsicContentSize == Size(width: 16, height: 1))
     #expect(Slider(orientation: .vertical).intrinsicContentSize == Size(width: 1, height: 8))
 }
+
+// MARK: - Copying out of a text view
+
+@MainActor
+private func doubleClickView(_ view: TextView, at point: Point) {
+    _ = view.mouseEvent(MouseInput(position: point, action: .press, button: .left))
+    _ = view.mouseEvent(MouseInput(position: point, action: .click, button: .left, clickCount: 2))
+}
+
+@Test @MainActor func aReadOnlyTextViewTakesFocusSoItCanBeCopiedFrom() {
+    // THE BUG: a transcript never became first responder, so the clipboard
+    // router found no editor and ^C did nothing at all.
+    let window = Window(frame: Rect(x: 0, y: 0, width: 30, height: 6))
+    let view = TextView(text: "alpha beta\ngamma delta")
+    view.isEditable = false
+    view.frame = Rect(x: 0, y: 0, width: 30, height: 6)
+    window.addSubview(view)
+
+    _ = view.mouseEvent(MouseInput(position: Point(x: 2, y: 0), action: .press, button: .left))
+
+    #expect(window.firstResponder === view)
+    #expect(window.focusedClipboardEditor === view)
+}
+
+@Test @MainActor func doubleClickingATextViewWalksTheSameLadder() {
+    let pasteboard = Pasteboard()
+    let view = TextView(text: "alpha beta\ngamma delta")
+    view.frame = Rect(x: 0, y: 0, width: 30, height: 6)
+    view.pasteboard = pasteboard
+
+    doubleClickView(view, at: Point(x: 7, y: 0))
+    #expect(view.selectedText == "beta")
+
+    doubleClickView(view, at: Point(x: 7, y: 0))
+    #expect(view.selectedText == "alpha beta", "its line")
+
+    doubleClickView(view, at: Point(x: 7, y: 0))
+    #expect(view.selectedText == "alpha beta\ngamma delta", "everything")
+
+    doubleClickView(view, at: Point(x: 7, y: 0))
+    #expect(view.selectedText == nil)
+}
+
+@Test @MainActor func copyTakesTheSelectionOrTheLot() {
+    let pasteboard = Pasteboard()
+    let view = TextView(text: "alpha beta\ngamma delta")
+    view.frame = Rect(x: 0, y: 0, width: 30, height: 6)
+    view.pasteboard = pasteboard
+
+    view.clipboardCopy()
+    #expect(pasteboard.string == "alpha beta\ngamma delta", "nothing chosen means the lot, as it always did")
+
+    doubleClickView(view, at: Point(x: 0, y: 1))
+    view.clipboardCopy()
+    #expect(pasteboard.string == "gamma")
+}
+
+@Test @MainActor func lineColoursSurviveWrapping() {
+    let view = TextView(text: "ordinary\nthis error line is long enough to wrap twice over")
+    view.frame = Rect(x: 0, y: 0, width: 20, height: 6)
+    view.lineColors = [1: .named(.brightRed)]
+
+    let buffer = SceneRenderer(root: view).render(size: Size(width: 20, height: 6))
+
+    #expect(buffer[Point(x: 0, y: 0)].style.foreground != .named(.brightRed))
+    #expect(buffer[Point(x: 0, y: 1)].style.foreground == .named(.brightRed))
+    #expect(buffer[Point(x: 0, y: 2)].style.foreground == .named(.brightRed), "a wrapped row keeps its line's colour")
+}
