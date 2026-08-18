@@ -545,9 +545,9 @@ extension DemoApp {
         }
 
         let toolbar = Toolbar()
-        toolbar.addItem("Run", icon: "▶") { status.text = "toolbar ▸ Run" }
-        toolbar.addItem("Stop", icon: "■") { status.text = "toolbar ▸ Stop" }
-        toolbar.addItem("Reset", icon: "↺") { status.text = "toolbar ▸ Reset" }
+        toolbar.addItem("Run", glyph: "▶") { status.text = "toolbar ▸ Run" }
+        toolbar.addItem("Stop", glyph: "■") { status.text = "toolbar ▸ Stop" }
+        toolbar.addItem("Reset", glyph: "↺") { status.text = "toolbar ▸ Reset" }
         toolbar.addItem("Export") { status.text = "toolbar ▸ Export" }
         toolbar.addItem("Settings") { status.text = "toolbar ▸ Settings" }
 

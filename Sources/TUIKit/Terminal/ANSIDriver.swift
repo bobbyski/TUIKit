@@ -404,6 +404,33 @@ public actor ANSIDriver: TerminalDriver {
         let layer = command.layer == .underText ? VTGLayer.underText : VTGLayer.defaultOverlay
 
         switch command.shape {
+        case .image(let rect, let data, let format):
+            let pixels = mapper.rect(rect)
+
+            switch format {
+            case .png:
+                canvas.image(
+                    id: command.id,
+                    x: pixels.x,
+                    y: pixels.y,
+                    width: pixels.width,
+                    height: pixels.height,
+                    pngData: data,
+                    layer: layer
+                )
+
+            case .jpeg:
+                canvas.image(
+                    id: command.id,
+                    x: pixels.x,
+                    y: pixels.y,
+                    width: pixels.width,
+                    height: pixels.height,
+                    jpegData: data,
+                    layer: layer
+                )
+            }
+
         case .rect(let rect, let fill, let stroke, let lineWidth, let radius, let corners):
             let pixels = mapper.rect(rect)
 

@@ -1,3 +1,4 @@
+import Foundation
 // Phase 10 — VTG vector chrome (see Docs/VTGChrome.md).
 //
 // Chrome is a *presentation upgrade*: when the terminal speaks VectorTerminal
@@ -306,6 +307,20 @@ public struct ChromeCommand: Hashable, Sendable {
 
         /// A straight line.
         case line(from: ChromePoint, to: ChromePoint, color: ChromeColor, width: Double)
+
+        /// A raster image, placed and scaled into a rectangle.
+        ///
+        /// The one shape whose payload is not geometry. It exists because a
+        /// toolbar icon wants a real picture on a VTG terminal and a glyph on
+        /// a plain one, and VectorTerminalSDK has had `canvas.image` all
+        /// along — TUIKit simply never surfaced it.
+        case image(ChromeRect, data: Data, format: ImageFormat)
+    }
+
+    /// Raster formats VTG accepts.
+    public enum ImageFormat: String, Hashable, Sendable {
+        case png
+        case jpeg
     }
 
     /// Creates a command.
@@ -332,6 +347,9 @@ public struct ChromeCommand: Hashable, Sendable {
                 width: horizontal * 2,
                 height: radius * 2
             )
+
+        case .image(let rect, _, _):
+            return rect
 
         case .line(let from, let to, _, _):
             let minX = Swift.min(from.x, to.x)
@@ -424,6 +442,21 @@ public struct ChromeSurface {
 
             target.appendChrome(command)
 
+        case .image(let rect, let data, let format):
+            // Clipped like a rect, and for the same reason: a toolbar icon
+            // near a pane edge must not paint over its neighbour.
+            let clipped = rect.offset(by: origin).intersection(chromeClip)
+
+            guard !clipped.isEmpty else {
+                return
+            }
+
+            target.appendChrome(ChromeCommand(
+                id: id,
+                layer: layer,
+                shape: .image(clipped, data: data, format: format)
+            ))
+
         case .line(let from, let to, let color, let width):
             let a = ChromePoint(x: from.x + Double(origin.x), y: from.y + Double(origin.y))
             let b = ChromePoint(x: to.x + Double(origin.x), y: to.y + Double(origin.y))
@@ -448,6 +481,24 @@ public struct ChromeSurface {
     ///   - radius: Corner radius in cell heights.
     ///   - corners: Which corners round.
     ///   - layer: Drawing plane.
+    /// Places a raster image in a rectangle.
+    ///
+    /// - Parameters:
+    ///   - key: Id unique within the drawing view.
+    ///   - rect: TUIView-local rectangle in fractional cells.
+    ///   - data: PNG or JPEG bytes.
+    ///   - format: Which of the two `data` is.
+    ///   - layer: Plane to draw on.
+    public func image(
+        _ key: String,
+        _ rect: ChromeRect,
+        data: Data,
+        format: ChromeCommand.ImageFormat,
+        layer: ChromeLayer = .underText
+    ) {
+        append(key, layer: layer, shape: .image(rect, data: data, format: format))
+    }
+
     public func rect(
         _ key: String,
         _ rect: ChromeRect,

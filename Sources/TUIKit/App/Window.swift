@@ -53,6 +53,11 @@ open class Window: TUIView {
     /// behaviour does.
     var slideOuts: [SlideOut] = []
 
+    /// The bar pinned across the top of the window. See ``Window/setToolbar(_:)``.
+    ///
+    /// Storage only — the API and the geometry live in `WindowToolbar.swift`.
+    var windowToolbar: Toolbar?
+
     /// Where focus was before a slide-out took it, so closing can give it
     /// back. A panel you can open but not leave is a broken window.
     weak var responderBeforeSlideOut: TUIView?
@@ -69,9 +74,14 @@ open class Window: TUIView {
         bounds
     }
 
-    /// Lays out subviews, then places any open slide-outs over them.
+    /// Lays out subviews, then the toolbar, then any open slide-outs.
+    ///
+    /// Order matters: the toolbar takes its rows off the top first, so the
+    /// slide-outs (and the document under them) get what is left. A toolbar
+    /// is *above* the panels, not beside them.
     open override func layoutSubviews() {
         super.layoutSubviews()
+        layoutWindowToolbar()
         layoutSlideOuts()
     }
 

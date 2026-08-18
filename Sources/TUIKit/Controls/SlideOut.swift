@@ -526,11 +526,16 @@ public extension Window {
     /// Called from `layoutSubviews`; a caller should not need this.
     func layoutSlideOuts() {
         guard !slideOuts.isEmpty else {
-            return   // the common case, and it must cost nothing
+            // No panels, but a toolbar still shortens the document.
+            if windowToolbar != nil {
+                applySlideOutContent(slideOutContentRegion)
+            }
+
+            return   // otherwise the common case, and it must cost nothing
         }
 
         let result = SlideOutLayout.resolve(
-            region: slideOutRegion,
+            region: slideOutContentRegion,
             requests: slideOuts.map {
                 SlideOutLayout.Request(
                     edge: $0.edge,
@@ -619,7 +624,7 @@ extension Window {
             // Measured from the FIXED edge — the one the panel is anchored
             // to — because the panel's own frame moves as it resizes and a
             // length measured against a moving edge chases the pointer.
-            let region = slideOutRegion
+            let region = slideOutContentRegion
 
             switch slideOut.edge {
             case .leading:
