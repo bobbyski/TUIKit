@@ -94,8 +94,13 @@ public struct CellBuffer: Equatable, Sendable {
             return ""
         }
 
+        // Continuation cells are skipped, so this stays a VISUAL projection:
+        // a test asserting `line == "日本"` reads the way its author meant,
+        // rather than counting the half-cells the grid needs underneath.
         let start = row * size.width
-        return String(storage[start..<(start + size.width)].map(\.character))
+        return String(storage[start..<(start + size.width)]
+            .filter { !$0.isContinuation }
+            .map(\.character))
     }
 
     /// Projects the whole buffer as plain text lines, ignoring styles.

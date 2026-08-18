@@ -97,6 +97,16 @@ public struct TerminalCell: Hashable, Sendable {
     /// Style applied to the cell.
     public var style: CellStyle
 
+    /// Whether this cell is the right half of a two-column grapheme.
+    ///
+    /// The terminal's cursor already advanced past this column when it drew
+    /// the glyph in the cell before it, so nothing is emitted here — but the
+    /// cell still exists, still carries style, and still occupies a grid
+    /// position. Without it there is no way to say "this position belongs to
+    /// my neighbour", and writing anything at all in it displaces every cell
+    /// after it on the row.
+    public var isContinuation: Bool = false
+
     /// A blank cell in the default style.
     public static let blank = TerminalCell(character: " ")
 
@@ -105,8 +115,10 @@ public struct TerminalCell: Hashable, Sendable {
     /// - Parameters:
     ///   - character: Character shown in the cell.
     ///   - style: Style applied to the cell.
-    public init(character: Character, style: CellStyle = .default) {
+    ///   - isContinuation: Whether this is the right half of a wide glyph.
+    public init(character: Character, style: CellStyle = .default, isContinuation: Bool = false) {
         self.character = character
         self.style = style
+        self.isContinuation = isContinuation
     }
 }

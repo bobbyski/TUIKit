@@ -54,6 +54,14 @@ public enum ANSIEncoder {
                     activeStyle = cell.style
                 }
 
+                // A continuation cell is the right half of the glyph before
+                // it: the terminal's cursor is already here, and emitting
+                // anything would push the rest of the row one column right.
+                // The style run still merges, since it carries the same style.
+                guard !cell.isContinuation else {
+                    continue
+                }
+
                 line.append(cell.character)
             }
 

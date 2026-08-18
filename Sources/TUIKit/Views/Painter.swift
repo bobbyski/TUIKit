@@ -142,8 +142,28 @@ public struct Painter {
         var x = point.x
 
         for character in text {
+            let width = DisplayWidth.of(character)
+
+            // Zero-width marks ride along in the cell they modify rather than
+            // claiming one of their own — a combining accent is part of the
+            // letter before it, not a column after it.
+            guard width > 0 else {
+                continue
+            }
+
             set(TerminalCell(character: character, style: style), at: Point(x: x, y: point.y))
-            x += 1
+
+            // A wide glyph OWNS the next column. Saying so is what stops the
+            // rest of the row being pushed one column right by a terminal
+            // whose cursor advanced two.
+            if width == 2 {
+                set(
+                    TerminalCell(character: " ", style: style, isContinuation: true),
+                    at: Point(x: x + 1, y: point.y)
+                )
+            }
+
+            x += width
         }
     }
 
