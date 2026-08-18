@@ -59,6 +59,7 @@ public actor ANSIDriver: TerminalDriver {
         var canvas: VectorTerminalCanvas?
         var mapper: CellPixelMapper?
         var previous: [ChromeCommand] = []
+        var capabilities: GraphicsCapabilities?
     }
 
     // VTGOutput writing straight to the terminal descriptor, waiting out
@@ -300,6 +301,17 @@ public actor ANSIDriver: TerminalDriver {
         graphicsDetected
     }
 
+    /// What that VectorTerminal said it can do.
+    ///
+    /// Asked once during the probe, inside a budget already being spent on
+    /// two round trips — and treated as optional: a terminal that draws
+    /// images but will not answer the question reports the baseline rather
+    /// than nothing, because "it draws images, we do not know what else" is
+    /// the true statement and refusing to draw anything would be a worse one.
+    public var graphicsCapabilities: GraphicsCapabilities? {
+        graphicsDetected ? (vtgState.capabilities ?? .baseline) : nil
+    }
+
     // Detects VTG support and glyph metrics on the output queue, where the
     // probe's blocking poll-with-deadline reads cannot park a cooperative
     // thread. Runs before the read source exists, so the APC responses on
@@ -334,10 +346,17 @@ public actor ANSIDriver: TerminalDriver {
                     return
                 }
 
+                // One more round trip, before the read source exists and
+                // while the APC responses on stdin are still the probe's to
+                // consume. A terminal that does not answer leaves this nil
+                // and the baseline stands.
+                let reported = canvas.queryCapabilityInfo(timeoutMilliseconds: 400)
+
                 canvas.clear()
                 state.canvas = canvas
                 state.mapper = CellPixelMapper(glyphWidth: glyph.width, glyphHeight: glyph.height)
                 state.previous = []
+                state.capabilities = reported.map(GraphicsCapabilities.init(reported:))
                 continuation.resume(returning: true)
             }
         }

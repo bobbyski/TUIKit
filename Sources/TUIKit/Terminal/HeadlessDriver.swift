@@ -39,7 +39,12 @@ public actor HeadlessDriver: TerminalDriver {
     ///     (Phase 10). On, presented chrome commands are recorded for
     ///     assertion; off (the default), the app renders cells only —
     ///     exactly the plain-terminal fallback.
-    public init(size: Size = Size(width: 80, height: 24), supportsGraphicsChrome: Bool = false) {
+    public init(
+        size: Size = Size(width: 80, height: 24),
+        supportsGraphicsChrome: Bool = false,
+        graphicsCapabilities: GraphicsCapabilities? = nil
+    ) {
+        self.pinnedCapabilities = graphicsCapabilities
         self.currentSize = size
         self.graphicsChrome = supportsGraphicsChrome
     }
@@ -116,6 +121,21 @@ public actor HeadlessDriver: TerminalDriver {
     }
 
     /// Whether this driver simulates a VTG terminal (set at creation).
+    /// The capability set tests pinned, or the baseline when a graphics
+    /// plane was simulated without one being named.
+    public var graphicsCapabilities: GraphicsCapabilities? {
+        get async {
+            guard graphicsChrome else {
+                return nil
+            }
+
+            return pinnedCapabilities ?? .baseline
+        }
+    }
+
+    // What a test said the terminal can do.
+    private let pinnedCapabilities: GraphicsCapabilities?
+
     public var supportsGraphicsChrome: Bool {
         graphicsChrome
     }

@@ -87,6 +87,15 @@ public protocol TerminalDriver: Sendable {
     /// and no driver is required to support it.
     var supportsGraphicsChrome: Bool { get async }
 
+    /// What the graphics plane can do, when there is one.
+    ///
+    /// `nil` on a driver with no graphics plane, matching
+    /// `supportsGraphicsChrome == false`. Defaulted, so a driver written
+    /// before this existed keeps compiling and answers the honest "I have not
+    /// been asked" — which for a driver with a plane is the baseline set
+    /// rather than nothing.
+    var graphicsCapabilities: GraphicsCapabilities? { get async }
+
     /// Presents one frame of vector chrome alongside the cell buffer.
     ///
     /// Called after `present(_:)` with the frame's full command list; the
@@ -123,6 +132,18 @@ public protocol TerminalDriver: Sendable {
 }
 
 extension TerminalDriver {
+    /// Default: the baseline set when there IS a graphics plane, and nil when
+    /// there is not.
+    ///
+    /// A driver written before this existed therefore keeps working and says
+    /// something true: it draws images, and nothing optional has been
+    /// established. Nobody has to update a driver to keep compiling.
+    public var graphicsCapabilities: GraphicsCapabilities? {
+        get async {
+            await supportsGraphicsChrome ? .baseline : nil
+        }
+    }
+
     /// Default: nothing to give back.
     public func suspend() async {}
 
