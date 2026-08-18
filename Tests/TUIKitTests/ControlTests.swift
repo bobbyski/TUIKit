@@ -441,3 +441,81 @@ private func doubleClickField(_ field: TextField, atColumn column: Int) {
     app.multiClickIntervalMilliseconds = -1
     #expect(app.multiClickIntervalMilliseconds == 0, "a negative window is no window")
 }
+
+// MARK: - Vertical sliders
+
+@MainActor
+private func sliderRows(_ slider: Slider, width: Int, height: Int) -> [String] {
+    slider.frame = Rect(x: 0, y: 0, width: width, height: height)
+    let buffer = SceneRenderer(root: slider).render(size: Size(width: width, height: height))
+
+    return (0..<height).map { row in
+        String((0..<width).map { buffer[Point(x: $0, y: row)].character })
+    }
+}
+
+@Test @MainActor func aVerticalSliderRunsLowAtTheBottom() {
+    // It is a fader: up is more. A vertical control that grew downwards would
+    // be the only one in the world.
+    let slider = Slider(value: 0, in: 0...100, orientation: .vertical)
+    let low = sliderRows(slider, width: 1, height: 7)
+
+    #expect(low.last == "┴", "the track's caps are the theme's own junctions")
+    #expect(low.first == "┬")
+    #expect(low[5] == "█", "value 0 sits at the bottom")
+
+    slider.setValue(100)
+    let high = sliderRows(slider, width: 1, height: 7)
+    #expect(high[1] == "█", "and 100 at the top")
+}
+
+@Test @MainActor func aVerticalSliderTakesUpAndDown() {
+    let slider = Slider(value: 50, in: 0...100, step: 10, orientation: .vertical)
+    slider.frame = Rect(x: 0, y: 0, width: 1, height: 8)
+
+    #expect(slider.keyDown(KeyInput(key: .up)))
+    #expect(slider.value == 60, "up is more")
+
+    #expect(slider.keyDown(KeyInput(key: .down)))
+    #expect(slider.value == 50)
+
+    // The other axis is not its business — left/right belong to whatever the
+    // focus would move to.
+    #expect(!slider.keyDown(KeyInput(key: .left)))
+    #expect(!slider.keyDown(KeyInput(key: .right)))
+
+    // Home and End mean the bounds either way round.
+    #expect(slider.keyDown(KeyInput(key: .end)))
+    #expect(slider.value == 100)
+}
+
+@Test @MainActor func clickingAVerticalTrackPositionsTheHandleFromTheBottom() {
+    let slider = Slider(value: 0, in: 0...100, orientation: .vertical)
+    slider.frame = Rect(x: 0, y: 0, width: 1, height: 12)
+
+    var reported: [Int] = []
+    slider.onValueChanged = { reported.append($0) }
+
+    _ = slider.mouseEvent(MouseInput(position: Point(x: 0, y: 1), action: .press, button: .left))
+    #expect(slider.value == 100, "a click near the top is a high value")
+
+    _ = slider.mouseEvent(MouseInput(position: Point(x: 0, y: 10), action: .drag, button: .left))
+    #expect(slider.value == 0, "and near the bottom, a low one")
+    #expect(reported == [100, 0])
+}
+
+@Test @MainActor func aSliderKeepsItsHorizontalBehaviour() {
+    let slider = Slider(value: 40, in: 0...100, step: 5)
+    let rows = sliderRows(slider, width: 12, height: 1)
+
+    #expect(rows[0].hasPrefix("├"))
+    #expect(rows[0].hasSuffix("┤"))
+    #expect(rows[0].contains("█"))
+
+    #expect(slider.keyDown(KeyInput(key: .right)))
+    #expect(slider.value == 45)
+    #expect(!slider.keyDown(KeyInput(key: .up)), "up is not the axis of a horizontal slider")
+
+    #expect(slider.intrinsicContentSize == Size(width: 16, height: 1))
+    #expect(Slider(orientation: .vertical).intrinsicContentSize == Size(width: 1, height: 8))
+}
