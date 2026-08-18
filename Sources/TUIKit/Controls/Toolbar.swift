@@ -383,6 +383,19 @@ public final class Toolbar: TUIView {
         }
     }
 
+    /// Overrides the colour of items that cannot be used.
+    ///
+    /// The theme's placeholder style is the default and is right inside a
+    /// document, where it means "nothing here yet". On a command bar it has
+    /// to mean "this command exists but not now", and a host that has already
+    /// dressed the bar (see ``chromeStyle``) is the only thing that knows
+    /// which grey reads as off against it.
+    public var disabledStyle: CellStyle? {
+        didSet {
+            setNeedsDisplay()
+        }
+    }
+
     /// Rows the bar needs.
     ///
     /// One, except in `.both` — where the label sits on its own row under the
@@ -702,7 +715,7 @@ public final class Toolbar: TUIView {
 
     private func slotStyle(forSlot slot: Int, item: ToolbarItem?, theme: ResolvedTheme) -> CellStyle {
         if let item, !item.isEnabled {
-            var dimmed = theme.placeholder
+            var dimmed = disabledStyle ?? theme.placeholder
             dimmed.background = barStyle(theme).background
             return dimmed
         }

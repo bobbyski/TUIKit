@@ -105,6 +105,20 @@ public final class PopUpButton: TUIView {
         }
     }
 
+    /// Overrides the resting colours, for a popup living in someone else's
+    /// chrome.
+    ///
+    /// A popup on a toolbar is part of the bar, not part of the document
+    /// under it — without this it wears the window's colours and reads as a
+    /// control that fell onto the strip from somewhere else. Focus and the
+    /// open state still use the theme's selection style, because "this is
+    /// where the keyboard is" has to look the same everywhere.
+    public var chromeStyle: CellStyle? {
+        didSet {
+            setNeedsDisplay()
+        }
+    }
+
     /// Draws the selected value and `▾`, accent-tinted (or bracketed) at rest
     /// and in the selection style while focused or open.
     public override func draw(_ painter: Painter) {
@@ -117,7 +131,7 @@ public final class PopUpButton: TUIView {
         } else if isFirstResponder {
             cellStyle = theme.selection
         } else {
-            cellStyle = style.restingStyle(theme: theme)
+            cellStyle = chromeStyle ?? style.restingStyle(theme: theme)
         }
 
         let (lead, trail) = style == .bordered ? ("[ ", " ▾ ]") : (" ", " ▾ ")
