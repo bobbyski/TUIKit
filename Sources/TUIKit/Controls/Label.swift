@@ -100,7 +100,7 @@ public final class Label: TUIView {
     ///   - text: Text to truncate.
     ///   - width: Available cell count.
     /// - Returns: The text, or a prefix ending in `…` when it does not fit.
-    static func truncated(_ text: String, width: Int) -> String {
+    public static func truncated(_ text: String, width: Int) -> String {
         guard text.count > width else {
             return text
         }
