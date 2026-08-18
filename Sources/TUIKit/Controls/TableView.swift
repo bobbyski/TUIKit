@@ -172,6 +172,30 @@ public final class TableView: TUIView {
         }
     }
 
+    /// A single click landed on a cell (row, column).
+    ///
+    /// Selection and `onActivate` still behave exactly as before; this is the
+    /// hook for a table whose cells DO something — a checkbox column, a row's
+    /// delete button — where which column was hit is the whole message.
+    public var onCellClicked: (Int, Int) -> Void = { _, _ in }
+
+    /// Which cell a point falls in, or nil for the header and past the rows.
+    ///
+    /// - Parameter point: In this view's coordinates.
+    public func cell(at point: Point) -> (row: Int, column: Int)? {
+        guard point.y > 0, let column = columnIndex(at: point.x) else {
+            return nil
+        }
+
+        let row = scrollOffset + point.y - 1
+
+        guard row < rows.count else {
+            return nil
+        }
+
+        return (row, column)
+    }
+
     /// Navigation and activation keys (identical model to `ListView`).
     public override func keyDown(_ key: KeyInput) -> Bool {
         guard key.modifiers.isEmpty else {
@@ -247,6 +271,10 @@ public final class TableView: TUIView {
                 onActivate(index)
             } else {
                 moveSelection(to: index)
+
+                if let column = columnIndex(at: mouse.position.x) {
+                    onCellClicked(index, column)
+                }
             }
 
             return true
