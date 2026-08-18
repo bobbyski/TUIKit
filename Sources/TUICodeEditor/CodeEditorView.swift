@@ -551,7 +551,16 @@ public final class CodeEditorView: TUIView, BorderScrollable {
             return false
         }
 
-        return longestVisibleLine > max(1, bounds.size.width - gutterColumns)
+        // A substituted axis decides for itself. Asking the TEXT how wide it
+        // is gets the wrong answer for content composed to FIT the width — a
+        // side-by-side diff's rows are exactly as wide as the editor by
+        // construction, so the bar would never appear no matter how long the
+        // lines inside its columns are.
+        if let substitute = substituteHorizontalSpan {
+            return substitute.content > substitute.viewport
+        }
+
+        return longestVisibleLine > max(1, bounds.size.width - gutterColumns - trailingColumns)
     }
 
     /// Longest line currently on screen — the horizontal scroll extent.
