@@ -396,6 +396,18 @@ public final class TextView: TUIView {
 
     // MARK: - Cursor & viewport
 
+    /// Scrolls to the bottom and puts the caret there.
+    ///
+    /// What a view showing a growing transcript needs after every append: a
+    /// log you have to scroll to the end of yourself is a log you stop
+    /// reading. Public because the alternative — a host reaching for the End
+    /// key on the view's behalf — is a keystroke standing in for an intent.
+    public func scrollToEnd() {
+        moveCursor(line: lines.count - 1, column: lines.last?.count ?? 0)
+        ensureCursorVisible()
+        setNeedsDisplay()
+    }
+
     private func moveCursor(line: Int, column: Int) {
         let clampedLine = min(max(0, line), lines.count - 1)
         let clampedColumn = min(max(0, column), lines[clampedLine].count)
