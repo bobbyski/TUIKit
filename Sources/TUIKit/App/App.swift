@@ -491,6 +491,19 @@ public final class App {
         case .press:
             leftPressScreen = screen
 
+            // Hold the guard while the button is DOWN. Without this the timer
+            // could fire mid-sequence — armed by the previous release, expiring
+            // while the next click was still being held — and deliver the click
+            // early with the lower count. The rest of the sequence then started
+            // over, so a triple click arrived as a double and a double as two
+            // singles, exactly as if the window were too short. It was not: a
+            // slow press was simply escaping it.
+            //
+            // `pendingClick` is deliberately kept: the sequence is continuing,
+            // and the release below will extend it.
+            clickGuardTimer?.cancel()
+            clickGuardTimer = nil
+
         case .release:
             guard let pressed = leftPressScreen else {
                 return

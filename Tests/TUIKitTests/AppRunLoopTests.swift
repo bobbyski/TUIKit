@@ -379,3 +379,61 @@ private final class ClickRecorder: TUIView {
     await driver.send(.key(KeyInput(key: .character("c"), modifiers: .control)))
     try await session.value
 }
+
+@Test @MainActor func aSlowClickCannotEscapeTheGuardMidSequence() async throws {
+    // THE BUG behind "a triple click gives me a double, and I can never get
+    // the third rung": the guard timer was armed by a release and kept
+    // running while the NEXT click was being held down. If it expired during
+    // that hold, the click was delivered early with the lower count and the
+    // rest of the sequence started over — indistinguishable from the window
+    // being too short, which is why making it longer did not help.
+    let driver = HeadlessDriver(size: Size(width: 10, height: 4))
+    let clock = ManualTimerSource()
+    let app = App(driver: driver, timerSource: clock)
+
+    let window = Window(frame: Rect(x: 0, y: 0, width: 10, height: 4))
+    let recorder = ClickRecorder(frame: Rect(x: 0, y: 0, width: 10, height: 4))
+    window.addSubview(recorder)
+
+    let session = Task { try await app.run(window) }
+
+    func settle(_ times: Int = 200) async {
+        for _ in 0..<times {
+            await Task.yield()
+        }
+    }
+
+    while await driver.presentCount == 0 {
+        await Task.yield()
+    }
+
+    let point = Point(x: 3, y: 1)
+
+    // Click one, complete: the guard is now armed.
+    await driver.send(.mouse(MouseInput(position: point, action: .press, button: .left)))
+    await driver.send(.mouse(MouseInput(position: point, action: .release, button: .left)))
+    await settle()
+
+    // Click two goes DOWN, and the guard expires while it is still held.
+    await driver.send(.mouse(MouseInput(position: point, action: .press, button: .left)))
+    await settle()
+    clock.fire()
+    await settle()
+
+    #expect(recorder.clicks.isEmpty, "a click still under the finger is not a click yet")
+
+    // Release it, then a third click. The sequence was never broken, so what
+    // arrives is one triple rather than a single and a double.
+    await driver.send(.mouse(MouseInput(position: point, action: .release, button: .left)))
+    await driver.send(.mouse(MouseInput(position: point, action: .press, button: .left)))
+    await driver.send(.mouse(MouseInput(position: point, action: .release, button: .left)))
+    await settle()
+
+    clock.fire()
+    await settle()
+
+    #expect(recorder.clicks == [3], "three presses, one click event, count three")
+
+    app.stop()
+    try await session.value
+}
