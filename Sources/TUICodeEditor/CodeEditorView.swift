@@ -536,6 +536,19 @@ public final class CodeEditorView: TUIView, BorderScrollable {
         max(1, bounds.size.height - (showsOwnScrollbars && drawsHorizontalBar ? 1 : 0))
     }
 
+    /// Columns actually available for text.
+    ///
+    /// Everything the gutters and the scrollbars have taken, already
+    /// subtracted. Public because anything composing text to FIT the editor —
+    /// a side-by-side diff working out its column width — has to compose to
+    /// THIS, and assembling it from the parts is how a caller ends up a few
+    /// columns wide and clipping its own content off the right-hand edge with
+    /// no way to scroll to it: the row is too wide, and scrolling inside a
+    /// column cannot reveal what the row itself cut.
+    public var textAreaWidth: Int {
+        textWidth
+    }
+
     private var textWidth: Int {
         max(1, bounds.size.width - gutterColumns - trailingColumns - (showsOwnScrollbars && drawsVerticalBar ? 1 : 0))
     }
