@@ -28,13 +28,26 @@ extension CodeEditorView {
         let width = max(0, bounds.size.width - gutter - (drawsVerticalBar ? 1 : 0))
         let selection = engineSelection
 
+        // A tinted line is the same line on a different ground: everything
+        // below layers over THIS, so syntax colours survive inside a diff
+        // block instead of being flattened to one colour.
+        var base = theme.base
+
+        if let tint = lineTints[line] {
+            base.background = tint
+            painter.fill(
+                Rect(x: gutter, y: row, width: width, height: 1),
+                with: TerminalCell(character: " ", style: base)
+            )
+        }
+
         // One resolved style per character. Building the row this way stops
         // syntax, selection, and diagnostics fighting over the same cell —
         // they layer in a defined order instead.
-        var styles = [CellStyle](repeating: theme.base, count: characters.count)
+        var styles = [CellStyle](repeating: base, count: characters.count)
 
         for token in tokenStore.tokens(forLine: line) {
-            let style = syntaxTheme.style(for: token.scope).cellStyle(over: theme.base)
+            let style = syntaxTheme.style(for: token.scope).cellStyle(over: base)
 
             for index in token.range.lowerBound..<min(token.range.upperBound, characters.count) {
                 styles[index] = style

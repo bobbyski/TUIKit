@@ -365,3 +365,38 @@ private func styles(_ editor: CodeEditorView, row: Int, width: Int = 44, height:
     #expect(editor.copySelection())
     #expect(app.pasteboard.string?.contains("gamma") == true)
 }
+
+@Test @MainActor func tintedLinesKeepTheirSyntaxColoursOnANewGround() {
+    // The inline diff's colouring: a tinted line is the same line on a
+    // different ground, not a line repainted one flat colour. Syntax has to
+    // survive, or a diff block stops being readable code.
+    let editor = CodeEditorView(text: "let a = 1\nlet b = 2", language: "swift")
+    editor.frame = Rect(x: 0, y: 0, width: 40, height: 4)
+    editor.lineTints = [1: .rgb(red: 80, green: 30, blue: 40)]
+
+    let buffer = SceneRenderer(root: editor).render(size: Size(width: 40, height: 4))
+
+    // The TEXT area, not the gutter: line numbers stay on the window's own
+    // ground, the way they do in every diff worth copying — the band marks
+    // the code, and a tinted gutter would just make the numbers harder to read.
+    // Found rather than hard-coded, since the gutter's width follows the line
+    // count.
+    let divider = (0..<40).first { buffer[Point(x: $0, y: 1)].character == "│" } ?? 0
+    let text = (divider + 1)..<38
+
+    func cells(onRow row: Int) -> [TerminalCell] {
+        text.map { buffer[Point(x: $0, y: row)] }
+    }
+
+    let plain = cells(onRow: 0)
+    let tinted = cells(onRow: 1)
+
+    #expect(tinted.allSatisfy { $0.style.background == .rgb(red: 80, green: 30, blue: 40) },
+            "the whole text area wears the tint, including past the end of the line")
+    #expect(plain.allSatisfy { $0.style.background != .rgb(red: 80, green: 30, blue: 40) })
+
+    // `let` is a keyword on both rows and keeps its colour on the tinted one.
+    let keyword = zip(plain, tinted).first { $0.0.character == "l" && $0.1.character == "l" }
+    #expect(keyword != nil)
+    #expect(keyword?.0.style.foreground == keyword?.1.style.foreground)
+}

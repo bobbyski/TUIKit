@@ -50,6 +50,22 @@ public final class CodeEditorView: TUIView, BorderScrollable {
     /// Whether typing is allowed.
     public var isEditable = true
 
+    /// Background tint per document line — the inline diff's colouring.
+    ///
+    /// The editor keeps drawing everything it always draws (syntax, the
+    /// gutter, folds, the caret); a tinted line just gets a different ground
+    /// under all of it. That is what lets a diff be shown in the editor the
+    /// file is already open in rather than in a window of its own: unchanged
+    /// code stays exactly as it looked, and the changed stretches read as
+    /// bands because their background changed, not their text.
+    public var lineTints: [Int: TerminalColor] = [:] {
+        didSet {
+            if lineTints != oldValue {
+                setNeedsDisplay()
+            }
+        }
+    }
+
     /// Called after every change, with the full text.
     public var onChanged: (String) -> Void = { _ in }
 
