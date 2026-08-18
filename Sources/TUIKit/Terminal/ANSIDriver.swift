@@ -456,7 +456,7 @@ public actor ANSIDriver: TerminalDriver {
                     ChromeCommand(
                         id: command.id,
                         layer: command.layer,
-                        shape: .image(rect, data: asset.data, format: asset.format)
+                        shape: .image(rect, source: nil, data: asset.data, format: asset.format)
                     ),
                     on: canvas,
                     mapper: mapper,
@@ -498,8 +498,23 @@ public actor ANSIDriver: TerminalDriver {
                 layer: layer
             )
 
-        case .image(let rect, let data, let format):
+        case .image(let rect, let source, let data, let format):
             let pixels = mapper.rect(rect)
+
+            // NOT YET HONOURED, and deliberately not faked: VTG's `image`
+            // command takes an id, a format, a rect and a filter — there is
+            // no source rectangle in the protocol, so a terminal cannot be
+            // asked to crop. A partly-scrolled image is therefore still
+            // scaled into what survives clipping, which is the squash R3
+            // describes.
+            //
+            // The rect is carried anyway because the geometry is the hard
+            // part and it is right: the day VTG grows a source parameter,
+            // this switch is the only place that changes. Until then a
+            // consumer can read it and decide for itself — which is what
+            // TUIWebBrowser does, drawing a placeholder for anything not
+            // wholly visible.
+            _ = source
 
             switch format {
             case .png:

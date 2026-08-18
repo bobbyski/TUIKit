@@ -70,3 +70,39 @@ private func sprite(_ id: String, rect: ChromeRect, asset: ChromeImageAsset) -> 
     #expect(asset.id == "_proj_images_hero_photo_png")
     #expect(ChromeImageAsset(id: "", data: Data()).id == "asset")
 }
+
+// MARK: - Source rects (R3's geometry)
+
+@Test @MainActor func clippingAnImageRecordsWhichFractionSurvived() {
+    // Half the image is off the top of the pane: the visible part is the
+    // BOTTOM half of the picture, not the whole of it squashed.
+    let full = ChromeRect(x: 0, y: -5, width: 10, height: 10)
+    let visible = ChromeRect(x: 0, y: 0, width: 10, height: 5)
+
+    let source = ChromeSurface.sourceRect(visible: visible, of: full, within: nil)
+
+    #expect(source?.y == 0.5)
+    #expect(source?.height == 0.5)
+    #expect(source?.x == 0)
+    #expect(source?.width == 1)
+}
+
+@Test @MainActor func anImageThatFitsCarriesNoSourceRect() {
+    // The common case stays payload-free, so it compares equal to itself.
+    let rect = ChromeRect(x: 0, y: 0, width: 10, height: 10)
+
+    #expect(ChromeSurface.sourceRect(visible: rect, of: rect, within: nil) == nil)
+}
+
+@Test @MainActor func clippingSomethingAlreadyCroppedCropsFurther() {
+    // Composed rather than replaced: a pane inside a pane cuts twice, and
+    // the second cut is a fraction OF THE FIRST.
+    let full = ChromeRect(x: 0, y: 0, width: 10, height: 10)
+    let visible = ChromeRect(x: 0, y: 0, width: 10, height: 5)
+    let already = ChromeRect(x: 0, y: 0.5, width: 1, height: 0.5)
+
+    let source = ChromeSurface.sourceRect(visible: visible, of: full, within: already)
+
+    #expect(source?.y == 0.5, "starts where the earlier crop started")
+    #expect(source?.height == 0.25, "and takes half of what that crop left")
+}

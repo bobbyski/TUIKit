@@ -315,7 +315,15 @@ public struct ChromeCommand: Hashable, Sendable {
         /// toolbar icon wants a real picture on a VTG terminal and a glyph on
         /// a plain one, and VectorTerminalSDK has had `canvas.image` all
         /// along — TUIKit simply never surfaced it.
-        case image(ChromeRect, data: Data, format: ImageFormat)
+        ///
+        /// `source` is the visible FRACTION of the image, in 0…1 image
+        /// coordinates, or nil for all of it. It exists because clipping the
+        /// destination rect alone squashes: a terminal scales whatever image
+        /// it is given into whatever rect it is given, so an image half off
+        /// the top of a pane was drawn whole into half the height. Correct
+        /// for a toolbar icon, which is never partly scrolled; wrong for
+        /// anything that scrolls, which is most content.
+        case image(ChromeRect, source: ChromeRect?, data: Data, format: ImageFormat)
 
         /// A raster image uploaded once and thereafter only moved.
         ///
@@ -369,7 +377,7 @@ public struct ChromeCommand: Hashable, Sendable {
         case .sprite(let rect, _):
             return rect
 
-        case .image(let rect, _, _):
+        case .image(let rect, _, _, _):
             return rect
 
         case .line(let from, let to, _, _):
@@ -477,10 +485,14 @@ public struct ChromeSurface {
                 shape: .sprite(clipped, asset: asset)
             ))
 
-        case .image(let rect, let data, let format):
+        case .image(let rect, let source, let data, let format):
             // Clipped like a rect, and for the same reason: a toolbar icon
-            // near a pane edge must not paint over its neighbour.
-            let clipped = rect.offset(by: origin).intersection(chromeClip)
+            // near a pane edge must not paint over its neighbour. What is
+            // different from a rect is that the PICTURE has to be cropped to
+            // match, or the terminal scales the whole of it into the part
+            // that survived.
+            let translated = rect.offset(by: origin)
+            let clipped = translated.intersection(chromeClip)
 
             guard !clipped.isEmpty else {
                 return
@@ -489,7 +501,12 @@ public struct ChromeSurface {
             target.appendChrome(ChromeCommand(
                 id: id,
                 layer: layer,
-                shape: .image(clipped, data: data, format: format)
+                shape: .image(
+                    clipped,
+                    source: Self.sourceRect(visible: clipped, of: translated, within: source),
+                    data: data,
+                    format: format
+                )
             ))
 
         case .line(let from, let to, let color, let width):
@@ -531,7 +548,41 @@ public struct ChromeSurface {
         format: ChromeCommand.ImageFormat,
         layer: ChromeLayer = .underText
     ) {
-        append(key, layer: layer, shape: .image(rect, data: data, format: format))
+        append(key, layer: layer, shape: .image(rect, source: nil, data: data, format: format))
+    }
+
+    /// The fraction of an image that survives clipping, in 0…1 coordinates.
+    ///
+    /// Composed with whatever fraction was already being shown, so clipping
+    /// something already cropped crops further rather than starting over.
+    static func sourceRect(visible: ChromeRect, of full: ChromeRect, within source: ChromeRect?) -> ChromeRect? {
+        guard full.width > 0, full.height > 0 else {
+            return source
+        }
+
+        let fraction = ChromeRect(
+            x: (visible.x - full.x) / full.width,
+            y: (visible.y - full.y) / full.height,
+            width: visible.width / full.width,
+            height: visible.height / full.height
+        )
+
+        // Nothing was cut: say nothing, so the common case carries no payload
+        // and compares equal to itself.
+        guard fraction.x > 0 || fraction.y > 0 || fraction.width < 1 || fraction.height < 1 else {
+            return source
+        }
+
+        guard let source else {
+            return fraction
+        }
+
+        return ChromeRect(
+            x: source.x + fraction.x * source.width,
+            y: source.y + fraction.y * source.height,
+            width: fraction.width * source.width,
+            height: fraction.height * source.height
+        )
     }
 
     /// Places an image the terminal keeps, so moving it costs almost nothing.
