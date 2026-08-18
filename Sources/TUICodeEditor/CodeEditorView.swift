@@ -101,6 +101,24 @@ public final class CodeEditorView: TUIView, BorderScrollable {
         }
     }
 
+    /// Horizontal scrolling handled by someone else.
+    ///
+    /// A side-by-side diff composes each row to FIT the width — two columns
+    /// and a gap — so scrolling the row sideways would slide the right column
+    /// across the divider and out of its own gutter. What has to scroll is
+    /// the text INSIDE each column, which only the thing that composed the
+    /// row can do. Setting this hands the horizontal axis over: the view
+    /// reports this span, and offsets go to
+    /// ``onSubstituteHorizontalScroll`` instead of moving the text.
+    public var substituteHorizontalSpan: ScrollSpan? {
+        didSet {
+            setNeedsDisplay()
+        }
+    }
+
+    /// Receives horizontal offsets while ``substituteHorizontalSpan`` is set.
+    public var onSubstituteHorizontalScroll: (Int) -> Void = { _ in }
+
     /// Background tint per document line — the inline diff's colouring.
     ///
     /// The editor keeps drawing everything it always draws (syntax, the
@@ -508,7 +526,10 @@ public final class CodeEditorView: TUIView, BorderScrollable {
             return 0
         }
 
-        return String(widest).count + 2   // a space either side of the number
+        // A separator, a space, the digits, a space — the mirror of the left
+        // gutter, so the column reads as a gutter rather than as text that
+        // drifted to the edge.
+        return String(widest).count + 3
     }
 
     private var visibleLineCount: Int {
@@ -804,9 +825,13 @@ public final class CodeEditorView: TUIView, BorderScrollable {
 
     /// Horizontal scroll state for a border-embedded bar.
     public var horizontalScrollSpan: ScrollSpan? {
-        ScrollSpan(
+        if let substitute = substituteHorizontalSpan {
+            return substitute
+        }
+
+        return ScrollSpan(
             offset: leftColumn,
-            viewport: max(1, bounds.size.width - gutterColumns),
+            viewport: max(1, bounds.size.width - gutterColumns - trailingColumns),
             content: max(1, longestVisibleLine)
         )
     }
@@ -819,6 +844,11 @@ public final class CodeEditorView: TUIView, BorderScrollable {
 
     /// Scrolls to a first-visible column.
     public func setScrollOffset(horizontal offset: Int) {
+        guard substituteHorizontalSpan == nil else {
+            onSubstituteHorizontalScroll(max(0, offset))
+            return
+        }
+
         leftColumn = max(0, offset)
         setNeedsDisplay()
     }

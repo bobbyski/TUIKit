@@ -138,12 +138,19 @@ extension CodeEditorView {
         var style = theme.base
         style.flags.insert(line == engineSelection.head.line ? .bold : .dim)
 
-        let start = bounds.size.width - trailing - (drawsVerticalBar ? 1 : 0)
-        let text = (trailingNumbers[line].map(String.init) ?? "")
-            .padded(to: trailing - 1, alignedRight: true) + " "
+        var separator = theme.base
+        separator.flags.insert(.dim)
 
-        for (offset, character) in text.enumerated() where start + offset < bounds.size.width {
-            painter.set(TerminalCell(character: character, style: style), at: Point(x: start + offset, y: row))
+        // A rule down the inside edge, mirroring the one after the left
+        // gutter: the numbers are a gutter, and a gutter has an edge.
+        let start = bounds.size.width - trailing - (drawsVerticalBar ? 1 : 0)
+        painter.set(TerminalCell(character: "│", style: separator), at: Point(x: start, y: row))
+
+        let text = (trailingNumbers[line].map(String.init) ?? "")
+            .padded(to: trailing - 2, alignedRight: true) + " "
+
+        for (offset, character) in text.enumerated() where start + 1 + offset < bounds.size.width {
+            painter.set(TerminalCell(character: character, style: style), at: Point(x: start + 1 + offset, y: row))
         }
     }
 
