@@ -711,6 +711,12 @@ public final class Toolbar: TUIView {
             return theme.selection
         }
 
+        // A host that named the bar's colours has already said what the
+        // resting items should look like; tinting over it would overrule it.
+        guard chromeStyle == nil else {
+            return barStyle(theme)
+        }
+
         // Resting: the bar's slot, tinted with the accent (or underlined on
         // a colorless theme) when the tinted style is active.
         var resting = barStyle(theme)
