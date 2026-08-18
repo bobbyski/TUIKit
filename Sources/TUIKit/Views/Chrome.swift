@@ -282,6 +282,7 @@ public struct ChromeCommand: Hashable, Sendable {
     /// The shape itself.
     public var shape: Shape
 
+
     /// A chrome shape. Scalar sizes (corner radius, line width) are
     /// fractions of the cell *height* — the taller cell axis — so "0.25"
     /// reads as a quarter of a text row everywhere.
@@ -315,6 +316,23 @@ public struct ChromeCommand: Hashable, Sendable {
         /// a plain one, and VectorTerminalSDK has had `canvas.image` all
         /// along — TUIKit simply never surfaced it.
         case image(ChromeRect, data: Data, format: ImageFormat)
+
+        /// A raster image uploaded once and thereafter only moved.
+        ///
+        /// The difference from ``image(_:data:format:)`` is not what it draws
+        /// — it is what comparing two frames costs. An asset carries an id
+        /// its producer guarantees is content-addressed, so two commands
+        /// naming the same asset are known to hold the same pixels without
+        /// looking at any of them. `.image` cannot make that promise: its
+        /// bytes are all it has, so an unchanged frame compares them, and
+        /// `Data` compares lengths first — meaning the full comparison
+        /// happens exactly when nothing moved, which is every frame of a
+        /// scene at rest.
+        ///
+        /// A sampled digest was tried instead, and is unsound: a byte between
+        /// samples changes the picture and not the number. Cheap AND correct
+        /// needs an identity, and only whoever made the image can supply one.
+        case sprite(ChromeRect, asset: ChromeImageAsset)
     }
 
     /// Raster formats VTG accepts.
@@ -347,6 +365,9 @@ public struct ChromeCommand: Hashable, Sendable {
                 width: horizontal * 2,
                 height: radius * 2
             )
+
+        case .sprite(let rect, _):
+            return rect
 
         case .image(let rect, _, _):
             return rect
@@ -442,6 +463,20 @@ public struct ChromeSurface {
 
             target.appendChrome(command)
 
+        case .sprite(let rect, let asset):
+            let translated = rect.offset(by: origin)
+            let clipped = translated.intersection(chromeClip)
+
+            guard !clipped.isEmpty else {
+                return
+            }
+
+            target.appendChrome(ChromeCommand(
+                id: id,
+                layer: layer,
+                shape: .sprite(clipped, asset: asset)
+            ))
+
         case .image(let rect, let data, let format):
             // Clipped like a rect, and for the same reason: a toolbar icon
             // near a pane edge must not paint over its neighbour.
@@ -497,6 +532,28 @@ public struct ChromeSurface {
         layer: ChromeLayer = .underText
     ) {
         append(key, layer: layer, shape: .image(rect, data: data, format: format))
+    }
+
+    /// Places an image the terminal keeps, so moving it costs almost nothing.
+    ///
+    /// Prefer this to ``image(_:_:data:format:layer:)`` for anything that
+    /// moves — page content, a scrolling list's thumbnails. The asset's id
+    /// says when the pixels changed, so a frame where only the rect moved is
+    /// recognised as such without the bytes being looked at, and a terminal
+    /// with sprite support moves it rather than receiving it again.
+    ///
+    /// - Parameters:
+    ///   - key: View-scoped object id for the placement.
+    ///   - rect: Where it goes, in cells.
+    ///   - asset: The image, with the identity of its bytes.
+    ///   - layer: Which plane.
+    public func sprite(
+        _ key: String,
+        _ rect: ChromeRect,
+        asset: ChromeImageAsset,
+        layer: ChromeLayer = .underText
+    ) {
+        append(key, layer: layer, shape: .sprite(rect, asset: asset))
     }
 
     public func rect(

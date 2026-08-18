@@ -60,6 +60,7 @@ public actor ANSIDriver: TerminalDriver {
         var mapper: CellPixelMapper?
         var previous: [ChromeCommand] = []
         var capabilities: GraphicsCapabilities?
+        var uploadedAssets: Set<String> = []
     }
 
     // VTGOutput writing straight to the terminal descriptor, waiting out
@@ -408,9 +409,23 @@ public actor ANSIDriver: TerminalDriver {
                     canvas.delete(id: id)
                 }
 
+                // Assets already sent, so a scroll moves twenty bytes rather
+                // than re-sending the picture. Kept on the driver, because
+                // "has this terminal seen these pixels" is a fact about the
+                // terminal and about nothing above it.
+                var uploaded = state.uploadedAssets
+
                 for command in draws {
-                    Self.draw(command, on: canvas, mapper: mapper)
+                    Self.draw(
+                        command,
+                        on: canvas,
+                        mapper: mapper,
+                        uploaded: &uploaded,
+                        supportsSprites: state.capabilities?.supportsSprites ?? false
+                    )
                 }
+
+                state.uploadedAssets = uploaded
 
                 canvas.endFrame(id: "tuikit-chrome")
                 state.previous = commands
@@ -419,10 +434,70 @@ public actor ANSIDriver: TerminalDriver {
     }
 
     // One chrome command as SDK calls, in canvas pixels.
-    private static func draw(_ command: ChromeCommand, on canvas: VectorTerminalCanvas, mapper: CellPixelMapper) {
+    private static func draw(
+        _ command: ChromeCommand,
+        on canvas: VectorTerminalCanvas,
+        mapper: CellPixelMapper,
+        uploaded: inout Set<String>,
+        supportsSprites: Bool
+    ) {
         let layer = command.layer == .underText ? VTGLayer.underText : VTGLayer.defaultOverlay
 
         switch command.shape {
+        case .sprite(let rect, let asset):
+            let pixels = mapper.rect(rect)
+
+            // A terminal without sprite support draws the picture the plain
+            // way, from the same bytes. An asset must never be the reason
+            // something does not appear — that is the blank-region failure
+            // capabilities exist to prevent.
+            guard supportsSprites else {
+                draw(
+                    ChromeCommand(
+                        id: command.id,
+                        layer: command.layer,
+                        shape: .image(rect, data: asset.data, format: asset.format)
+                    ),
+                    on: canvas,
+                    mapper: mapper,
+                    uploaded: &uploaded,
+                    supportsSprites: false
+                )
+                return
+            }
+
+            // Uploaded once, keyed by the asset's own id: every later frame
+            // that places it sends the placement and not the payload.
+            if uploaded.insert(asset.id).inserted {
+                switch asset.format {
+                case .png:
+                    canvas.uploadSprite(
+                        id: asset.id,
+                        width: asset.pixelWidth > 0 ? asset.pixelWidth : pixels.width,
+                        height: asset.pixelHeight > 0 ? asset.pixelHeight : pixels.height,
+                        pngData: asset.data
+                    )
+
+                case .jpeg:
+                    canvas.uploadSprite(
+                        id: asset.id,
+                        width: asset.pixelWidth > 0 ? asset.pixelWidth : pixels.width,
+                        height: asset.pixelHeight > 0 ? asset.pixelHeight : pixels.height,
+                        jpegData: asset.data
+                    )
+                }
+            }
+
+            canvas.sprite(
+                id: command.id,
+                imageID: asset.id,
+                x: pixels.x,
+                y: pixels.y,
+                anchorX: 0,
+                anchorY: 0,
+                layer: layer
+            )
+
         case .image(let rect, let data, let format):
             let pixels = mapper.rect(rect)
 
