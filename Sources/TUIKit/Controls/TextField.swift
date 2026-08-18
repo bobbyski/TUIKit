@@ -37,6 +37,37 @@ public final class TextField: TUIView {
     // First visible character offset (horizontal scrolling).
     private var scrollOffset = 0
 
+    /// The selected characters, or nil when there is only a caret.
+    ///
+    /// A field had a cursor and no selection until the escalating
+    /// double-click needed somewhere to put "the word" — so this is the
+    /// smallest selection that makes that behaviour honest: it draws, it is
+    /// what ^C copies, and typing replaces it. It is not a full selection
+    /// model — no shift-arrow, no drag — and it should grow into one rather
+    /// than be worked around.
+    public private(set) var selectedRange: Range<Int>?
+
+    /// The selected text, when any.
+    public var selectedText: String? {
+        selectedRange.map { String(Array(text)[$0]) }
+    }
+
+    /// Selects everything (the top rung of the double-click ladder).
+    public func selectAll() {
+        selectedRange = text.isEmpty ? nil : 0..<text.count
+        setNeedsDisplay()
+    }
+
+    /// Drops the selection, leaving the caret where it is.
+    public func clearSelection() {
+        guard selectedRange != nil else {
+            return
+        }
+
+        selectedRange = nil
+        setNeedsDisplay()
+    }
+
     /// Creates a text field.
     ///
     /// - Parameters:
@@ -99,6 +130,24 @@ public final class TextField: TUIView {
             painter.write(visible, at: .zero, style: field)
         }
 
+        if let selected = selectedRange {
+            var style = effectiveTheme.selection
+
+            // The field's own ground where the theme has nothing to say, so a
+            // selection never turns the well a colour the field never wears.
+            if style.background == .standard {
+                style.background = field.background
+                style.flags.insert(.inverse)
+            }
+
+            for index in selected where index >= scrollOffset && index < visibleEnd {
+                painter.set(
+                    TerminalCell(character: characters[index], style: style),
+                    at: Point(x: index - scrollOffset, y: 0)
+                )
+            }
+        }
+
         if isFirstResponder {
             let cursorColumn = cursorIndex - scrollOffset
             let underCursor: Character
@@ -140,9 +189,7 @@ public final class TextField: TUIView {
                 return true
 
             case "x":
-                copyAll()
-                setText("")
-                onChanged(text)
+                clipboardCut()
                 return true
 
             default:
@@ -168,19 +215,19 @@ public final class TextField: TUIView {
             return true
 
         case .left:
-            moveCursor(to: cursorIndex - 1)
+            moveCursorClearingSelection(to: cursorIndex - 1)
             return true
 
         case .right:
-            moveCursor(to: cursorIndex + 1)
+            moveCursorClearingSelection(to: cursorIndex + 1)
             return true
 
         case .home:
-            moveCursor(to: 0)
+            moveCursorClearingSelection(to: 0)
             return true
 
         case .end:
-            moveCursor(to: text.count)
+            moveCursorClearingSelection(to: text.count)
             return true
 
         default:
@@ -222,32 +269,106 @@ public final class TextField: TUIView {
         }
     }
 
-    /// Copies the whole field.
+    /// Copies the selection, or the whole field when there is none.
     ///
-    /// The WHOLE field, because a text field has a cursor and no selection —
-    /// so "the selection" would be a fiction. Copying everything is what the
-    /// user means by ^C in a one-line box.
+    /// Everything, still, for a field with only a caret in it: that is what
+    /// ^C means in a one-line box, and it is what this did before there was
+    /// any selection to speak of.
     public func copyAll() {
-        guard !text.isEmpty else {
+        let copied = selectedText ?? text
+
+        guard !copied.isEmpty else {
             return
         }
 
-        resolvedPasteboard?.copy(text)
+        resolvedPasteboard?.copy(copied)
     }
 
-    /// Click places the cursor.
+    /// Click places the cursor; double-click walks word → everything → none.
     public override func mouseEvent(_ mouse: MouseInput) -> Bool {
-        guard mouse.action == .press, mouse.button == .left else {
+        guard mouse.button == .left else {
             return false
         }
 
-        moveCursor(to: scrollOffset + mouse.position.x)
-        return true
+        switch mouse.action {
+        case .press:
+            // Stashed before the caret clears it: the press of a double-click
+            // lands first, and the ladder has to know which rung it was on.
+            selectionBeforeClick = selectedRange
+            clearSelection()
+            moveCursor(to: scrollOffset + mouse.position.x)
+            return true
+
+        case .click where mouse.clickCount >= 2:
+            escalateSelection(at: scrollOffset + mouse.position.x)
+            return true
+
+        default:
+            return false
+        }
+    }
+
+    // A one-line field: its line IS everything, so the ladder is word, then
+    // all, then nothing — one rung shorter than an editor's, which falls out
+    // of passing the same range for both.
+    private func escalateSelection(at index: Int) {
+        let characters = Array(text)
+
+        guard !characters.isEmpty else {
+            return
+        }
+
+        let word = wordRange(around: min(index, characters.count - 1), in: characters)
+        let all = 0..<characters.count
+        let current = selectionBeforeClick
+
+        switch SelectionEscalation.nextScope(
+            isWord: current == word,
+            isLine: current == all,
+            isAll: current == all
+        ) {
+        case .word:
+            selectedRange = word
+            moveCursor(to: word.upperBound)
+
+        case .line, .all:
+            selectedRange = all
+            moveCursor(to: all.upperBound)
+
+        case .none:
+            clearSelection()
+        }
+
+        setNeedsDisplay()
+    }
+
+    // The run of word characters around an index, or the run of non-word
+    // characters when the click landed on punctuation or spaces — the same
+    // rule the source editor uses, so a double-click means one thing.
+    private func wordRange(around index: Int, in characters: [Character]) -> Range<Int> {
+        func isWord(_ character: Character) -> Bool {
+            character.isLetter || character.isNumber || character == "_"
+        }
+
+        let inWord = isWord(characters[index])
+        var start = index
+        var end = index
+
+        while start > 0, isWord(characters[start - 1]) == inWord {
+            start -= 1
+        }
+
+        while end < characters.count, isWord(characters[end]) == inWord {
+            end += 1
+        }
+
+        return start..<end
     }
 
     // MARK: - Editing
 
     private func insert(_ character: Character) {
+        deleteSelection()
         var characters = Array(text)
         characters.insert(character, at: cursorIndex)
         text = String(characters)
@@ -256,6 +377,10 @@ public final class TextField: TUIView {
     }
 
     private func deleteBackward() {
+        if deleteSelection() {
+            return   // Backspace over a selection removes the selection
+        }
+
         guard cursorIndex > 0 else {
             return
         }
@@ -265,6 +390,25 @@ public final class TextField: TUIView {
         text = String(characters)
         cursorIndex -= 1
         changed()
+    }
+
+    /// Removes the selected text, if any.
+    ///
+    /// - Returns: Whether anything was removed.
+    @discardableResult
+    private func deleteSelection() -> Bool {
+        guard let selected = selectedRange, !selected.isEmpty else {
+            clearSelection()
+            return false
+        }
+
+        var characters = Array(text)
+        characters.removeSubrange(selected)
+        text = String(characters)
+        cursorIndex = selected.lowerBound
+        clearSelection()
+        changed()
+        return true
     }
 
     private func deleteForward() {
@@ -277,6 +421,14 @@ public final class TextField: TUIView {
         characters.remove(at: cursorIndex)
         text = String(characters)
         changed()
+    }
+
+    // What was selected when this click sequence began.
+    private var selectionBeforeClick: Range<Int>?
+
+    private func moveCursorClearingSelection(to index: Int) {
+        clearSelection()
+        moveCursor(to: index)
     }
 
     private func moveCursor(to index: Int) {
@@ -308,8 +460,14 @@ extension TextField: ClipboardEditing {
 
     public func clipboardCut() {
         copyAll()
-        setText("")
-        onChanged(text)
+
+        // The selection when there is one, the whole field when there is not
+        // — the same rule copy follows, so cut is copy plus delete rather
+        // than a second opinion about what "the text" means.
+        if !deleteSelection() {
+            setText("")
+            onChanged(text)
+        }
     }
 
     public func clipboardPaste() { paste() }

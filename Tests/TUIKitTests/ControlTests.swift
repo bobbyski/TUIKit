@@ -318,3 +318,88 @@ private func press(_ character: Character) -> KeyInput {
 
     #expect(group.intrinsicContentSize == Size(width: 12, height: 2))
 }
+
+// MARK: - The escalating double-click in a text field
+
+@MainActor
+private func doubleClickField(_ field: TextField, atColumn column: Int) {
+    _ = field.mouseEvent(MouseInput(position: Point(x: column, y: 0), action: .press, button: .left))
+    _ = field.mouseEvent(MouseInput(position: Point(x: column, y: 0), action: .click, button: .left, clickCount: 2))
+}
+
+@Test @MainActor func aFieldsDoubleClickWalksWordThenEverythingThenNothing() {
+    let field = TextField(text: "alpha beta gamma")
+    field.frame = Rect(x: 0, y: 0, width: 20, height: 1)
+
+    doubleClickField(field, atColumn: 7)
+    #expect(field.selectedText == "beta")
+
+    // A one-line field's line IS everything, so the ladder is one rung
+    // shorter than an editor's rather than looping.
+    doubleClickField(field, atColumn: 7)
+    #expect(field.selectedText == "alpha beta gamma")
+
+    doubleClickField(field, atColumn: 7)
+    #expect(field.selectedText == nil)
+}
+
+@Test @MainActor func aFieldsSelectionIsWhatCopyTakesAndTypingReplaces() {
+    let pasteboard = Pasteboard()
+    let field = TextField(text: "alpha beta")
+    field.frame = Rect(x: 0, y: 0, width: 20, height: 1)
+    field.pasteboard = pasteboard
+
+    doubleClickField(field, atColumn: 0)
+    #expect(field.selectedText == "alpha")
+
+    field.clipboardCopy()
+    #expect(pasteboard.string == "alpha", "the selection, not the whole field")
+
+    _ = field.keyDown(KeyInput(key: .character("X")))
+    #expect(field.text == "X beta", "typing replaces the selection")
+    #expect(field.selectedText == nil)
+
+    // And with only a caret, copy still means the whole one-line box.
+    field.clipboardCopy()
+    #expect(pasteboard.string == "X beta")
+}
+
+@Test @MainActor func aFieldsCutTakesTheSelectionWhenThereIsOne() {
+    let pasteboard = Pasteboard()
+    let field = TextField(text: "alpha beta")
+    field.frame = Rect(x: 0, y: 0, width: 20, height: 1)
+    field.pasteboard = pasteboard
+
+    doubleClickField(field, atColumn: 6)
+    field.clipboardCut()
+
+    #expect(pasteboard.string == "beta")
+    #expect(field.text == "alpha ")
+
+    // Nothing selected: cut still empties the box, as it always did.
+    field.clipboardCut()
+    #expect(field.text.isEmpty)
+}
+
+@Test @MainActor func movingTheCaretDropsAFieldsSelection() {
+    let field = TextField(text: "alpha beta")
+    field.frame = Rect(x: 0, y: 0, width: 20, height: 1)
+
+    doubleClickField(field, atColumn: 0)
+    #expect(field.selectedText == "alpha")
+
+    _ = field.keyDown(KeyInput(key: .right))
+    #expect(field.selectedText == nil, "an arrow key is a new place, not a wider one")
+}
+
+@Test @MainActor func aFieldsSelectionDraws() {
+    let field = TextField(text: "alpha beta")
+    field.frame = Rect(x: 0, y: 0, width: 20, height: 1)
+    doubleClickField(field, atColumn: 0)
+
+    let buffer = SceneRenderer(root: field).render(size: Size(width: 20, height: 1))
+    let selected = (0..<5).map { buffer[Point(x: $0, y: 0)].style }
+    let unselected = buffer[Point(x: 7, y: 0)].style
+
+    #expect(selected.allSatisfy { $0 != unselected }, "a selection you cannot see is not a selection")
+}

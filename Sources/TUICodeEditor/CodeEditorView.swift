@@ -783,6 +783,12 @@ public final class CodeEditorView: TUIView, BorderScrollable {
                 return handleGutterClick(at: mouse.position)
             }
 
+            // Stashed before the caret collapses it: the press of a
+            // double-click arrives first and clears the selection, so the
+            // ladder would forget which rung it was on and re-select the word
+            // for ever. This is the one thing worth remembering — and it is
+            // refreshed by every press, so it cannot go stale.
+            selectionBeforeClick = engine.selection
             perform(.select(TextSelection(caret: position(at: mouse.position))))
             return true
 
@@ -805,14 +811,10 @@ public final class CodeEditorView: TUIView, BorderScrollable {
             // double from a single, so word/line selection lives here.
             switch mouse.clickCount {
             case 2:
-                perform(.select(WordBoundaries.word(around: position, in: engine.document)))
+                escalateSelection(at: position)
 
             case 3:
-                let length = engine.document.line(at: position.line).count
-                perform(.select(TextSelection(
-                    anchor: TextPosition(line: position.line, column: 0),
-                    head: TextPosition(line: position.line, column: length)
-                )))
+                perform(.select(lineSelection(at: position.line)))
 
             default:
                 return false   // the press already placed the caret
@@ -822,6 +824,62 @@ public final class CodeEditorView: TUIView, BorderScrollable {
 
         default:
             return false
+        }
+    }
+
+    // MARK: - Selection
+
+    // What was selected when this click sequence began.
+    private var selectionBeforeClick: TextSelection?
+
+    /// The whole of one line, as a selection.
+    private func lineSelection(at line: Int) -> TextSelection {
+        TextSelection(
+            anchor: TextPosition(line: line, column: 0),
+            head: TextPosition(line: line, column: engine.document.line(at: line).count)
+        )
+    }
+
+    /// Everything, as a selection.
+    private var everything: TextSelection {
+        let last = max(0, engine.document.lineCount - 1)
+
+        return TextSelection(
+            anchor: TextPosition(line: 0, column: 0),
+            head: TextPosition(line: last, column: engine.document.line(at: last).count)
+        )
+    }
+
+    // Word, then line, then everything, then nothing — the Mac ladder.
+    private func escalateSelection(at position: TextPosition) {
+        let word = WordBoundaries.word(around: position, in: engine.document)
+        let line = lineSelection(at: position.line)
+        let all = everything
+        let current = selectionBeforeClick ?? engine.selection
+
+        // Compared by START and END rather than by anchor and head: a
+        // selection dragged right to left holds the same text as one dragged
+        // left to right, and the ladder is about what is selected.
+        func covers(_ other: TextSelection) -> Bool {
+            current.start == other.start && current.end == other.end
+        }
+
+        switch SelectionEscalation.nextScope(
+            isWord: covers(word),
+            isLine: covers(line),
+            isAll: covers(all)
+        ) {
+        case .word:
+            perform(.select(word))
+
+        case .line:
+            perform(.select(line))
+
+        case .all:
+            perform(.select(all))
+
+        case .none:
+            perform(.select(TextSelection(caret: position)))
         }
     }
 
