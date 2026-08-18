@@ -441,3 +441,31 @@ private func styles(_ editor: CodeEditorView, row: Int, width: Int = 44, height:
     let right = String((25..<30).map { withNumbers[Point(x: $0, y: 0)].character })
     #expect(right.contains("412"), "the new file's number sits down the right edge")
 }
+
+@Test @MainActor func columnTintsGiveTwoHalvesOfOneRowDifferentGrounds() {
+    // What makes a side-by-side diff possible in ONE editor: the row holds
+    // both versions, and the halves need different grounds. Two editors would
+    // have needed a scroll synchroniser that drifts.
+    let editor = CodeEditorView(text: "old text  new text", language: "swift")
+    editor.frame = Rect(x: 0, y: 0, width: 40, height: 3)
+
+    let red = TerminalColor.rgb(red: 80, green: 30, blue: 40)
+    let green = TerminalColor.rgb(red: 25, green: 70, blue: 45)
+    editor.columnTints = [0: [
+        CodeEditorView.ColumnTint(columns: 0..<9, color: red),
+        CodeEditorView.ColumnTint(columns: 10..<19, color: green),
+    ]]
+
+    let buffer = SceneRenderer(root: editor).render(size: Size(width: 40, height: 3))
+    let divider = (0..<40).first { buffer[Point(x: $0, y: 0)].character == "│" } ?? 0
+
+    func ground(atColumn column: Int) -> TerminalColor {
+        buffer[Point(x: divider + 1 + column, y: 0)].style.background
+    }
+
+    #expect(ground(atColumn: 0) == red)
+    #expect(ground(atColumn: 8) == red)
+    #expect(ground(atColumn: 9) != red, "the gap between the columns is neither")
+    #expect(ground(atColumn: 10) == green)
+    #expect(ground(atColumn: 18) == green)
+}

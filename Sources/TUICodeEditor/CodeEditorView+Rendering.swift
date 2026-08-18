@@ -42,16 +42,42 @@ extension CodeEditorView {
             )
         }
 
+        // Column tints paint their own stretch of ground; the per-character
+        // grounds below are then taken from whichever tint covers the column,
+        // so syntax colours survive inside a side-by-side block too.
+        let stretches = columnTints[line] ?? []
+
+        for stretch in stretches {
+            var style = base
+            style.background = stretch.color
+
+            let start = max(0, stretch.columns.lowerBound - leftColumn)
+            let end = max(start, min(width, stretch.columns.upperBound - leftColumn))
+
+            painter.fill(
+                Rect(x: gutter + start, y: row, width: end - start, height: 1),
+                with: TerminalCell(character: " ", style: style)
+            )
+        }
+
+        func ground(atColumn column: Int) -> CellStyle {
+            guard let stretch = stretches.first(where: { $0.columns.contains(column) }) else {
+                return base
+            }
+
+            var style = base
+            style.background = stretch.color
+            return style
+        }
+
         // One resolved style per character. Building the row this way stops
         // syntax, selection, and diagnostics fighting over the same cell —
         // they layer in a defined order instead.
-        var styles = [CellStyle](repeating: base, count: characters.count)
+        var styles = (0..<characters.count).map { ground(atColumn: $0) }
 
         for token in tokenStore.tokens(forLine: line) {
-            let style = syntaxTheme.style(for: token.scope).cellStyle(over: base)
-
             for index in token.range.lowerBound..<min(token.range.upperBound, characters.count) {
-                styles[index] = style
+                styles[index] = syntaxTheme.style(for: token.scope).cellStyle(over: ground(atColumn: index))
             }
         }
 

@@ -68,6 +68,39 @@ public final class CodeEditorView: TUIView, BorderScrollable {
         }
     }
 
+    /// A stretch of one line on its own ground.
+    public struct ColumnTint: Equatable, Sendable {
+        /// Columns covered, in document columns.
+        public var columns: Range<Int>
+
+        /// The ground under them.
+        public var color: TerminalColor
+
+        /// Creates a tint.
+        public init(columns: Range<Int>, color: TerminalColor) {
+            self.columns = columns
+            self.color = color
+        }
+    }
+
+    /// Tints for PARTS of a line, keyed by document line.
+    ///
+    /// What makes a side-by-side diff possible in a text editor: a changed
+    /// row holds both versions — old text, a gap, new text — and the halves
+    /// need different grounds. Whole-line ``lineTints`` cannot say that, and
+    /// two editors side by side cannot scroll as one without a synchroniser
+    /// that drifts.
+    ///
+    /// Applied over ``lineTints``, so a line can have a ground and then have
+    /// parts of it overruled.
+    public var columnTints: [Int: [ColumnTint]] = [:] {
+        didSet {
+            if columnTints != oldValue {
+                setNeedsDisplay()
+            }
+        }
+    }
+
     /// Background tint per document line — the inline diff's colouring.
     ///
     /// The editor keeps drawing everything it always draws (syntax, the
@@ -453,6 +486,15 @@ public final class CodeEditorView: TUIView, BorderScrollable {
     private func refreshGutterState() {
         lineNumbers.lineCount = engine.document.lineCount
         lineNumbers.caretLine = engine.selection.head.line
+    }
+
+    /// Total gutter width including the separator column.
+    ///
+    /// Public because anything composing text to FIT the editor — a
+    /// side-by-side diff working out its column width — has to know how much
+    /// of the width the gutter already took.
+    public var gutterWidth: Int {
+        gutterColumns
     }
 
     /// Total gutter width including the separator column.
