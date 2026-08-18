@@ -366,6 +366,23 @@ public final class Toolbar: TUIView {
         Size(width: naturalWidth, height: rowCount)
     }
 
+    /// Overrides the bar's resting colours.
+    ///
+    /// A toolbar defaults to the theme's header style, which inside a window
+    /// is the window's TITLE colour — and a bar wearing the title bar's paint
+    /// reads as part of the frame rather than as a strip of commands. Setting
+    /// this lets a host dress the bar as chrome instead: in OmegaCLIDE's Turbo
+    /// themes it takes the menu bar's grey, so menu strip, toolbar and status
+    /// strip are visibly one family and the document is the only blue.
+    ///
+    /// Disabled items keep their dimmed foreground but borrow this
+    /// background, so a greyed-out Save still sits ON the bar.
+    public var chromeStyle: CellStyle? {
+        didSet {
+            setNeedsDisplay()
+        }
+    }
+
     /// Rows the bar needs.
     ///
     /// One, except in `.both` — where the label sits on its own row under the
@@ -449,7 +466,7 @@ public final class Toolbar: TUIView {
     /// Draws the header-styled strip, its items, and the overflow button.
     public override func draw(_ painter: Painter) {
         let theme = effectiveTheme
-        painter.fill(bounds, with: TerminalCell(character: " ", style: theme.header))
+        painter.fill(bounds, with: TerminalCell(character: " ", style: barStyle(theme)))
 
         let plan = layout()
 
@@ -678,18 +695,25 @@ public final class Toolbar: TUIView {
 
     // MARK: - Drawing helpers
 
+    // The bar's own paint: whatever the host asked for, else the theme's.
+    private func barStyle(_ theme: ResolvedTheme) -> CellStyle {
+        chromeStyle ?? theme.header
+    }
+
     private func slotStyle(forSlot slot: Int, item: ToolbarItem?, theme: ResolvedTheme) -> CellStyle {
         if let item, !item.isEnabled {
-            return theme.placeholder
+            var dimmed = theme.placeholder
+            dimmed.background = barStyle(theme).background
+            return dimmed
         }
 
         if isFirstResponder, slot == focusedSlot {
             return theme.selection
         }
 
-        // Resting: the header slot, tinted with the accent (or underlined on
+        // Resting: the bar's slot, tinted with the accent (or underlined on
         // a colorless theme) when the tinted style is active.
-        var resting = theme.header
+        var resting = barStyle(theme)
 
         if style == .tinted {
             if theme.accent != .standard {

@@ -137,6 +137,24 @@ struct WindowToolbarTests {
         #expect(fired == 0)
     }
 
+    @Test("A chrome style repaints the bar, disabled items included")
+    func chromeStyleDressesTheWholeBar() {
+        let toolbar = Toolbar()
+        toolbar.frame = Rect(x: 0, y: 0, width: 24, height: 1)
+        let stop = toolbar.addItem("Stop")
+        stop.isEnabled = false
+
+        let grey = CellStyle(foreground: .rgb(red: 0, green: 0, blue: 0), background: .rgb(red: 170, green: 170, blue: 170))
+        toolbar.chromeStyle = grey
+
+        let buffer = SceneRenderer(root: toolbar).render(size: Size(width: 24, height: 1))
+
+        // Every cell of the bar wears it — the gap after the last item as
+        // much as the dimmed item itself.
+        #expect(buffer[Point(x: 23, y: 0)].style.background == grey.background)
+        #expect(buffer[Point(x: 1, y: 0)].style.background == grey.background)
+    }
+
     // Clicks the middle of an item's span.
     private func press(_ toolbar: Toolbar, item index: Int) {
         guard let span = toolbar.span(ofItems: index..<(index + 1)), span.width > 0 else {
