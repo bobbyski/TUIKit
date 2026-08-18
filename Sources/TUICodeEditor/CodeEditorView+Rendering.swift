@@ -25,7 +25,8 @@ extension CodeEditorView {
     func paintLine(_ painter: Painter, line: Int, row: Int, theme: ResolvedTheme) {
         let characters = Array(engineDocument.line(at: line))
         let gutter = gutterColumns
-        let width = max(0, bounds.size.width - gutter - (drawsVerticalBar ? 1 : 0))
+        let trailing = trailingColumns
+        let width = max(0, bounds.size.width - gutter - trailing - (drawsVerticalBar ? 1 : 0))
         let selection = engineSelection
 
         // A tinted line is the same line on a different ground: everything
@@ -94,7 +95,30 @@ extension CodeEditorView {
             }
         }
 
+        paintTrailingNumber(painter, line: line, row: row, theme: theme)
         paintCaret(painter, line: line, row: row, characters: characters, theme: theme)
+    }
+
+    // The new file's number, down the right-hand edge. Right-aligned against
+    // the text so the column reads as a column, with a space before the
+    // scrollbar so the two never touch.
+    private func paintTrailingNumber(_ painter: Painter, line: Int, row: Int, theme: ResolvedTheme) {
+        let trailing = trailingColumns
+
+        guard trailing > 0 else {
+            return
+        }
+
+        var style = theme.base
+        style.flags.insert(line == engineSelection.head.line ? .bold : .dim)
+
+        let start = bounds.size.width - trailing - (drawsVerticalBar ? 1 : 0)
+        let text = (trailingNumbers[line].map(String.init) ?? "")
+            .padded(to: trailing - 1, alignedRight: true) + " "
+
+        for (offset, character) in text.enumerated() where start + offset < bounds.size.width {
+            painter.set(TerminalCell(character: character, style: style), at: Point(x: start + offset, y: row))
+        }
     }
 
     // The caret is an inverse cell (matching the old editor): TUIKit views

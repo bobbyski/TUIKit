@@ -400,3 +400,44 @@ private func styles(_ editor: CodeEditorView, row: Int, width: Int = 44, height:
     #expect(keyword != nil)
     #expect(keyword?.0.style.foreground == keyword?.1.style.foreground)
 }
+
+@Test @MainActor func aNumberProviderReplacesPositionsWithRealLineNumbers() {
+    // A diff's rows come from two files; numbering them 1…n numbers a
+    // document that exists nowhere.
+    let editor = CodeEditorView(text: "removed\nadded\ncontext")
+    editor.frame = Rect(x: 0, y: 0, width: 40, height: 4)
+    editor.lineNumbers.widestProvidedNumber = 412
+    editor.lineNumbers.numberProvider = { line in
+        [410, nil, 412][line]   // the middle row belongs to neither file
+    }
+
+    let buffer = SceneRenderer(root: editor).render(size: Size(width: 40, height: 4))
+
+    // Everything left of the separator — the number band sits after the
+    // breakpoint, ribbon, diagnostic and fold bands.
+    func gutter(_ row: Int) -> String {
+        let divider = (0..<40).first { buffer[Point(x: $0, y: row)].character == "│" } ?? 0
+        return String((0..<divider).map { buffer[Point(x: $0, y: row)].character })
+            .trimmingCharacters(in: .whitespaces)
+    }
+
+    #expect(gutter(0) == "410")
+    #expect(gutter(1).isEmpty, "a row belonging to neither file numbers nothing")
+    #expect(gutter(2) == "412")
+}
+
+@Test @MainActor func trailingNumbersReserveTheirColumnOnlyWhenUsed() {
+    // For the side-by-side diff still to come; an ordinary editor must be
+    // exactly as wide as it was.
+    let editor = CodeEditorView(text: "let a = 1")
+    editor.frame = Rect(x: 0, y: 0, width: 30, height: 3)
+
+    let plain = SceneRenderer(root: editor).render(size: Size(width: 30, height: 3))
+    let lastColumn = (0..<3).map { plain[Point(x: 29, y: $0)].character }
+    #expect(lastColumn.allSatisfy { $0 == " " })
+
+    editor.trailingNumbers = [0: 412]
+    let withNumbers = SceneRenderer(root: editor).render(size: Size(width: 30, height: 3))
+    let right = String((25..<30).map { withNumbers[Point(x: $0, y: 0)].character })
+    #expect(right.contains("412"), "the new file's number sits down the right edge")
+}

@@ -50,6 +50,24 @@ public final class CodeEditorView: TUIView, BorderScrollable {
     /// Whether typing is allowed.
     public var isEditable = true
 
+    /// Numbers down the RIGHT edge, keyed by document line.
+    ///
+    /// For a SIDE-BY-SIDE diff, where the two halves each need their own
+    /// numbering and putting them on opposite edges is what makes the pair
+    /// readable. A unified diff needs only the gutter: each row comes from
+    /// one file, and the gutter shows that file's number
+    /// (``LineNumberBand/numberProvider``).
+    ///
+    /// Empty by default and then it costs nothing: no column is reserved, and
+    /// an ordinary editor is exactly as wide as it was.
+    public var trailingNumbers: [Int: Int] = [:] {
+        didSet {
+            if trailingNumbers != oldValue {
+                setNeedsDisplay()
+            }
+        }
+    }
+
     /// Background tint per document line — the inline diff's colouring.
     ///
     /// The editor keeps drawing everything it always draws (syntax, the
@@ -442,12 +460,21 @@ public final class CodeEditorView: TUIView, BorderScrollable {
         gutterBands.reduce(0) { $0 + $1.width } + 1   // +1 for the separator
     }
 
+    /// Columns reserved on the right for ``trailingNumbers`` (0 when unused).
+    var trailingColumns: Int {
+        guard let widest = trailingNumbers.values.max() else {
+            return 0
+        }
+
+        return String(widest).count + 2   // a space either side of the number
+    }
+
     private var visibleLineCount: Int {
         max(1, bounds.size.height - (showsOwnScrollbars && drawsHorizontalBar ? 1 : 0))
     }
 
     private var textWidth: Int {
-        max(1, bounds.size.width - gutterColumns - (showsOwnScrollbars && drawsVerticalBar ? 1 : 0))
+        max(1, bounds.size.width - gutterColumns - trailingColumns - (showsOwnScrollbars && drawsVerticalBar ? 1 : 0))
     }
 
     /// Whether the view paints its own vertical bar.

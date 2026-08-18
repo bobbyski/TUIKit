@@ -48,25 +48,57 @@ public final class LineNumberBand: GutterBand {
     /// The line the caret is on, drawn brighter.
     public var caretLine: Int = 0
 
+    /// What number a row shows, when the row's own position is not the answer.
+    ///
+    /// A diff shown inside the editor is the case: its rows come from two
+    /// files, and numbering them 1…n numbers a document that exists nowhere.
+    /// A removed line has to show where it was in the OLD file, an added line
+    /// where it is in the new one, and a row belonging to neither shows
+    /// nothing — which is what `nil` means here.
+    public var numberProvider: ((Int) -> Int?)?
+
+    /// Widest number the provider will produce, for sizing.
+    ///
+    /// Not derivable from `lineCount` once numbers stop being positions: a
+    /// twelve-row diff can show line 4,201.
+    public var widestProvidedNumber: Int = 0
+
     /// Creates the band.
     public init() {}
 
     public var width: Int {
         // Digits plus a trailing space; never narrower than 3 so the gutter
         // does not jitter as a file crosses 9 or 99 lines.
-        max(3, String(max(1, lineCount)).count + 1)
+        let digits = numberProvider == nil
+            ? String(max(1, lineCount)).count
+            : String(max(1, widestProvidedNumber)).count
+
+        return max(3, digits + 1)
     }
 
     public func cells(forLine line: Int, theme: ResolvedTheme) -> [TerminalCell] {
-        guard line < lineCount else {
-            return Array(repeating: TerminalCell(character: " ", style: theme.base), count: width)
-        }
-
         var style = theme.base
         style.flags.insert(line == caretLine ? .bold : .dim)
 
-        let text = String(line + 1).padded(to: width - 1, alignedRight: true) + " "
-        return text.map { TerminalCell(character: $0, style: style) }
+        func blank() -> [TerminalCell] {
+            Array(repeating: TerminalCell(character: " ", style: style), count: width)
+        }
+
+        if let numberProvider {
+            guard let number = numberProvider(line) else {
+                return blank()   // a row belonging to neither file numbers nothing
+            }
+
+            return (String(number).padded(to: width - 1, alignedRight: true) + " ")
+                .map { TerminalCell(character: $0, style: style) }
+        }
+
+        guard line < lineCount else {
+            return blank()
+        }
+
+        return (String(line + 1).padded(to: width - 1, alignedRight: true) + " ")
+            .map { TerminalCell(character: $0, style: style) }
     }
 }
 
@@ -183,7 +215,7 @@ public final class BreakpointBand: GutterBand {
     }
 }
 
-private extension String {
+extension String {
     func padded(to width: Int, alignedRight: Bool) -> String {
         guard count < width else {
             return String(suffix(width))
