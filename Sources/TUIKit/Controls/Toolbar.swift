@@ -99,12 +99,32 @@ public final class ToolbarItem {
     /// What this entry is.
     public let kind: Kind
 
+    /// The bar this item belongs to, so a change to the item repaints it.
+    ///
+    /// Without it, `item.isEnabled = false` left the bar showing the old
+    /// state until something else happened to force a repaint — which worked
+    /// for whoever held the toolbar and called `setNeedsDisplay` themselves,
+    /// and silently did not for anyone holding only the item.
+    weak var owner: Toolbar?
+
     /// Text shown for a button. Empty for an icon-only button, and unused by
     /// the other kinds.
-    public var title: String
+    public var title: String {
+        didSet {
+            if title != oldValue {
+                owner?.itemChanged(resized: true)
+            }
+        }
+    }
 
     /// Disabled items render dim and cannot be activated.
-    public var isEnabled: Bool
+    public var isEnabled: Bool {
+        didSet {
+            if isEnabled != oldValue {
+                owner?.itemChanged(resized: false)
+            }
+        }
+    }
 
     /// Hidden items take no width and cannot be reached.
     ///
@@ -114,7 +134,13 @@ public final class ToolbarItem {
     /// sideways the moment a build starts. Hidden says *"this command does
     /// not apply to this window at all"* — a git button in a folder that is
     /// not a repository — and there a permanently dim button is just clutter.
-    public var isVisible = true
+    public var isVisible = true {
+        didSet {
+            if isVisible != oldValue {
+                owner?.itemChanged(resized: true)
+            }
+        }
+    }
 
     /// Called when a button activates.
     ///
@@ -343,7 +369,26 @@ public final class Toolbar: TUIView {
     /// ```
     @discardableResult
     public func add(_ item: ToolbarItem) -> ToolbarItem {
-        items.append(item)
+        insert(item, at: items.count)
+    }
+
+    /// Inserts an item at a position.
+    ///
+    /// With `remove(at:)` and `move(from:to:)` this is the whole of what a
+    /// customisable toolbar needs: adding, removing and reordering ARE
+    /// customisation. A bar that could only be built once left
+    /// `insertItem(withItemIdentifier:at:)`, `removeItem(at:)` and
+    /// `allowsUserCustomization` unimplementable by anything sitting on top
+    /// of it.
+    ///
+    /// - Parameters:
+    ///   - item: The item.
+    ///   - index: Where it goes; clamped to the ends.
+    /// - Returns: The item, for chaining.
+    @discardableResult
+    public func insert(_ item: ToolbarItem, at index: Int) -> ToolbarItem {
+        item.owner = self
+        items.insert(item, at: min(max(0, index), items.count))
 
         // A hosted control is a real subview: it draws itself, takes its own
         // focus, and handles its own mouse. The toolbar only places it.
@@ -351,9 +396,84 @@ public final class Toolbar: TUIView {
             addSubview(view)
         }
 
-        superview?.setNeedsLayout()
-        setNeedsDisplay()
+        itemsChanged()
         return item
+    }
+
+    /// Removes the item at a position.
+    ///
+    /// - Parameter index: Which one. Out of range is a no-op, not a crash: a
+    ///   customisation palette works from a list that may be one edit behind.
+    /// - Returns: The removed item, or nil.
+    @discardableResult
+    public func remove(at index: Int) -> ToolbarItem? {
+        guard items.indices.contains(index) else {
+            return nil
+        }
+
+        let item = items.remove(at: index)
+        item.owner = nil
+
+        // A hosted control belongs to the bar only while the bar holds it;
+        // left as a subview it would keep drawing where nothing places it.
+        if case .view(let view) = item.kind {
+            view.removeFromSuperview()
+        }
+
+        if focusedSlot >= items.count {
+            focusedSlot = max(0, items.count - 1)
+        }
+
+        itemsChanged()
+        return item
+    }
+
+    /// Removes every item.
+    public func removeAllItems() {
+        while !items.isEmpty {
+            _ = remove(at: items.count - 1)
+        }
+    }
+
+    /// Moves an item, which is the third of the three things customising a
+    /// toolbar means.
+    ///
+    /// - Parameters:
+    ///   - source: Where it is.
+    ///   - destination: Where it should go, in the list AFTER the removal —
+    ///     the same convention as `Array.move`.
+    public func move(from source: Int, to destination: Int) {
+        guard items.indices.contains(source) else {
+            return
+        }
+
+        let item = items.remove(at: source)
+        items.insert(item, at: min(max(0, destination), items.count))
+        itemsChanged()
+    }
+
+    /// The item at a position, or nil.
+    ///
+    /// - Parameter index: Which one.
+    public func item(at index: Int) -> ToolbarItem? {
+        items.indices.contains(index) ? items[index] : nil
+    }
+
+    // One item changed in place: repaint, and re-measure when its width could
+    // have moved (a title, or an item appearing).
+    func itemChanged(resized: Bool) {
+        if resized {
+            superview?.setNeedsLayout()
+            setNeedsLayout()
+        }
+
+        setNeedsDisplay()
+    }
+
+    private func itemsChanged() {
+        superview?.setNeedsLayout()
+        setNeedsLayout()
+        setNeedsDisplay()
     }
 
     /// Toolbars take keyboard focus when they have any item.

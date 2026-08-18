@@ -403,3 +403,18 @@ private func doubleClickField(_ field: TextField, atColumn column: Int) {
 
     #expect(selected.allSatisfy { $0 != unselected }, "a selection you cannot see is not a selection")
 }
+
+@Test func aBorderStyleWillTellYouItsGlyphs() {
+    // Public so a control outside this package can draw a frame that MATCHES
+    // a themed one; restating the table is a second copy that goes stale the
+    // first time a style is added.
+    #expect(BorderStyle.double.characters?.topLeft == "╔")
+    #expect(BorderStyle.rounded.characters?.topLeft == "╭")
+    #expect(BorderStyle.heavy.characters?.vertical == "┃")
+    #expect(BorderStyle.none.characters == nil)
+
+    #expect(BorderStyle.single.junctions?.cross == "┼")
+    #expect(BorderStyle.rounded.junctions?.cross == "┼", "rounded borders use the single-line tees")
+    #expect(BorderStyle.double.junctions?.teeLeft == "╠")
+    #expect(BorderStyle.none.junctions == nil)
+}

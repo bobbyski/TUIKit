@@ -15,8 +15,13 @@ public enum BorderStyle: String, Hashable, Sendable, CaseIterable {
     /// `┏━┓` heavy lines.
     case heavy
 
-    // Box-drawing characters, or nil for .none.
-    var characters: (
+    /// Box-drawing characters, or nil for `.none`.
+    ///
+    /// Public because anything drawing a frame that has to MATCH a themed
+    /// one needs the same glyphs — a control outside this package restating
+    /// the table is a second copy that goes stale the first time a style is
+    /// added here.
+    public var characters: (
         topLeft: Character, topRight: Character,
         bottomLeft: Character, bottomRight: Character,
         horizontal: Character, vertical: Character
@@ -39,9 +44,9 @@ public enum BorderStyle: String, Hashable, Sendable, CaseIterable {
         }
     }
 
-    // Junction glyphs for connected dividers: tees against each edge and
-    // the four-way crossing. Rounded borders use the single-line tees.
-    var junctions: (
+    /// Junction glyphs for connected dividers: tees against each edge and
+    /// the four-way crossing. Rounded borders use the single-line tees.
+    public var junctions: (
         teeLeft: Character, teeRight: Character,
         teeTop: Character, teeBottom: Character,
         cross: Character

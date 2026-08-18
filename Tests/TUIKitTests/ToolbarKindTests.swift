@@ -162,3 +162,79 @@ private final class TallStub: TUIView {
     ribbon.showsGroupTitles = false
     #expect(ribbon.rowCount == ribbon.toolbar.rowCount)
 }
+
+// MARK: - Mutation (what customising a toolbar actually is)
+
+@Test @MainActor func itemsCanBeInsertedRemovedAndReordered() {
+    let bar = Toolbar()
+    bar.addItem("Run")
+    bar.addItem("Stop")
+
+    bar.insert(ToolbarItem("Build"), at: 0)
+    #expect(bar.items.map(\.title) == ["Build", "Run", "Stop"])
+
+    // Out of range clamps rather than crashing: a customisation palette works
+    // from a list that may be one edit behind.
+    bar.insert(ToolbarItem("Last"), at: 99)
+    bar.insert(ToolbarItem("First"), at: -5)
+    #expect(bar.items.map(\.title) == ["First", "Build", "Run", "Stop", "Last"])
+
+    #expect(bar.remove(at: 0)?.title == "First")
+    #expect(bar.remove(at: 99) == nil, "and removing what is not there is a no-op")
+
+    bar.move(from: 0, to: 2)
+    #expect(bar.items.map(\.title) == ["Run", "Stop", "Build", "Last"])
+
+    bar.removeAllItems()
+    #expect(bar.items.isEmpty)
+}
+
+@Test @MainActor func removingAHostedControlTakesItOffTheBar() {
+    // Left as a subview it would keep drawing where nothing places it.
+    let bar = Toolbar()
+    let field = TextField(text: "search")
+    bar.add(.view(field, title: "Search"))
+    #expect(field.superview === bar)
+
+    _ = bar.remove(at: 0)
+    #expect(field.superview == nil)
+}
+
+@Test @MainActor func changingAnItemRepaintsTheBarThatHoldsIt() {
+    // THE BUG: isEnabled, isVisible and title were plain vars, so anyone
+    // holding only the item saw a stale bar until something else forced a
+    // repaint.
+    let bar = Toolbar()
+    bar.frame = Rect(x: 0, y: 0, width: 30, height: 1)
+    let stop = bar.addItem("Stop")
+
+    _ = SceneRenderer(root: bar).render(size: Size(width: 30, height: 1))
+    #expect(!bar.needsDisplay)
+
+    stop.isEnabled = false
+    #expect(bar.needsDisplay)
+
+    _ = SceneRenderer(root: bar).render(size: Size(width: 30, height: 1))
+    stop.title = "Halt"
+    #expect(bar.needsDisplay)
+
+    _ = SceneRenderer(root: bar).render(size: Size(width: 30, height: 1))
+    stop.isVisible = false
+    #expect(bar.needsDisplay)
+
+    // Setting a value to what it already was is not a change.
+    _ = SceneRenderer(root: bar).render(size: Size(width: 30, height: 1))
+    stop.isVisible = false
+    #expect(!bar.needsDisplay)
+}
+
+@Test @MainActor func anItemRemovedFromABarNoLongerRepaintsIt() {
+    let bar = Toolbar()
+    bar.frame = Rect(x: 0, y: 0, width: 30, height: 1)
+    let item = bar.addItem("Run")
+    _ = bar.remove(at: 0)
+
+    _ = SceneRenderer(root: bar).render(size: Size(width: 30, height: 1))
+    item.isEnabled = false
+    #expect(!bar.needsDisplay)
+}
