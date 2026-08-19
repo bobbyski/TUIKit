@@ -467,6 +467,15 @@ public final class CodeEditorView: TUIView, BorderScrollable {
         return start..<(end + 1)
     }
 
+    /// Selects a range of text.
+    ///
+    /// - Parameters:
+    ///   - anchor: Where the selection started.
+    ///   - head: Where it ended.
+    public func select(from anchor: TextPosition, to head: TextPosition) {
+        perform(.select(TextSelection(anchor: anchor, head: head)))
+    }
+
     /// Replaces whole lines, as one undoable edit.
     ///
     /// One edit rather than a loop of them, so a single undo puts the file
@@ -485,7 +494,6 @@ public final class CodeEditorView: TUIView, BorderScrollable {
         }
 
         let last = clamped.upperBound - 1
-        let column = engine.selection.head.column
 
         perform(.select(TextSelection(
             anchor: TextPosition(line: clamped.lowerBound, column: 0),
@@ -493,12 +501,15 @@ public final class CodeEditorView: TUIView, BorderScrollable {
         )))
         perform(.insertText(lines.joined(separator: "\n")))
 
-        // Back over the same lines: the next thing anybody does after
-        // commenting a block is comment it back.
+        // Back over the same lines, END TO END rather than at the column the
+        // caret happened to be in. A selection dragged to the start of a line
+        // excludes that line — correctly — and restoring a column-0 head
+        // would make the NEXT whole-line command exclude one more, so a
+        // repeated command ate a line each time.
         let newLast = clamped.lowerBound + lines.count - 1
         perform(.select(TextSelection(
             anchor: TextPosition(line: clamped.lowerBound, column: 0),
-            head: TextPosition(line: newLast, column: min(column, engineDocument.line(at: newLast).count))
+            head: TextPosition(line: newLast, column: engineDocument.line(at: newLast).count)
         )))
     }
 
