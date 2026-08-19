@@ -450,6 +450,58 @@ public final class CodeEditorView: TUIView, BorderScrollable {
         return operations.count
     }
 
+    /// The lines the selection touches, whole.
+    ///
+    /// A selection that ends at column 0 does NOT include that last line: a
+    /// drag from one line to the start of the next has selected one line, and
+    /// treating it as two would comment out a line nobody highlighted.
+    public var selectedLineRange: Range<Int> {
+        let selection = engine.selection
+        let start = min(selection.start.line, selection.end.line)
+        var end = max(selection.start.line, selection.end.line)
+
+        if end > start, selection.end.column == 0, selection.end.line == end {
+            end -= 1
+        }
+
+        return start..<(end + 1)
+    }
+
+    /// Replaces whole lines, as one undoable edit.
+    ///
+    /// One edit rather than a loop of them, so a single undo puts the file
+    /// back — and so the caret does not travel while it happens. The
+    /// selection is restored over the same lines afterwards, because the next
+    /// thing anybody does after commenting a block is comment it back.
+    ///
+    /// - Parameters:
+    ///   - range: Lines to replace.
+    ///   - lines: What to put there.
+    public func replaceLines(_ range: Range<Int>, with lines: [String]) {
+        let clamped = range.clamped(to: 0..<engine.document.lineCount)
+
+        guard !clamped.isEmpty, !lines.isEmpty else {
+            return
+        }
+
+        let last = clamped.upperBound - 1
+        let column = engine.selection.head.column
+
+        perform(.select(TextSelection(
+            anchor: TextPosition(line: clamped.lowerBound, column: 0),
+            head: TextPosition(line: last, column: engineDocument.line(at: last).count)
+        )))
+        perform(.insertText(lines.joined(separator: "\n")))
+
+        // Back over the same lines: the next thing anybody does after
+        // commenting a block is comment it back.
+        let newLast = clamped.lowerBound + lines.count - 1
+        perform(.select(TextSelection(
+            anchor: TextPosition(line: clamped.lowerBound, column: 0),
+            head: TextPosition(line: newLast, column: min(column, engineDocument.line(at: newLast).count))
+        )))
+    }
+
     /// Scrolls a line into view and puts the caret on it.
     public func scrollTo(line: Int, column: Int = 0) {
         perform(.select(TextSelection(caret: TextPosition(line: line, column: column))))

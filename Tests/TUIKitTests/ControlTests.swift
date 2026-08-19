@@ -587,3 +587,31 @@ private func doubleClickView(_ view: TextView, at point: Point) {
     #expect(buffer[Point(x: 0, y: 1)].style.foreground == .named(.brightRed))
     #expect(buffer[Point(x: 0, y: 2)].style.foreground == .named(.brightRed), "a wrapped row keeps its line's colour")
 }
+
+@Test func controlSlashArrivesAsAKeyRatherThanBeingDropped() {
+    // 0x1F is what a terminal sends for Ctrl+/ — the chord every GUI editor
+    // uses for "comment this out". It used to fall through to the default
+    // case and be dropped, which made the most familiar shortcut in any code
+    // editor the one chord a TUI could not offer.
+    var decoder = ANSIInputDecoder()
+    let events = decoder.feed([0x1F])
+
+    #expect(events.count == 1)
+
+    guard case .key(let key) = events.first else {
+        Issue.record("Ctrl+/ produced no key")
+        return
+    }
+
+    #expect(key.key == Key.character("/"))
+    #expect(key.modifiers == .control)
+
+    // The letters it sits beside still decode as themselves.
+    guard case .key(let control) = decoder.feed([0x03]).first else {
+        Issue.record("Ctrl+C produced no key")
+        return
+    }
+
+    #expect(control.key == Key.character("c"))
+    #expect(control.modifiers == .control)
+}

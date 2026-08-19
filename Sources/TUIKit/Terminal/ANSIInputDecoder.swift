@@ -28,6 +28,17 @@ public struct ANSIInputDecoder: Sendable {
 
         /// Inside a UTF-8 multibyte character.
         case utf8(remaining: Int, bytes: [UInt8])
+
+        /// Inside a control string — APC, DCS, OSC, PM or SOS.
+        ///
+        /// The payload is arbitrary text addressed to the *terminal*, not to
+        /// the application, and is swallowed whole. `acceptsBEL` is set for
+        /// OSC, the one form xterm also lets BEL terminate.
+        case controlString(acceptsBEL: Bool)
+
+        /// Saw ESC inside a control string; `\` ends it, anything else is
+        /// still payload.
+        case controlStringEscape(acceptsBEL: Bool)
     }
 
     private var state: State = .idle
@@ -91,6 +102,12 @@ public struct ANSIInputDecoder: Sendable {
             state = .idle
             return ss3Key(byte).map { [.key(KeyInput(key: $0))] } ?? []
 
+        case .controlString(let acceptsBEL):
+            return consumeControlString(byte, acceptsBEL: acceptsBEL)
+
+        case .controlStringEscape(let acceptsBEL):
+            return consumeControlStringEscape(byte, acceptsBEL: acceptsBEL)
+
         case .utf8(let remaining, let bytes):
             return consumeUTF8(byte, remaining: remaining, collected: bytes)
         }
@@ -100,6 +117,12 @@ public struct ANSIInputDecoder: Sendable {
 
     private mutating func consumeIdle(_ byte: UInt8) -> [TerminalInput] {
         switch byte {
+        // The C1 single-byte introducers (0x90, 0x98, 0x9D—0x9F) are deliberately
+        // NOT recognised here. They are also UTF-8 continuation bytes, and a
+        // terminal in UTF-8 mode — which is every terminal TUIKit targets —
+        // sends the two-byte ESC forms instead. Treating a stray continuation
+        // byte as "start swallowing until ST" would turn one corrupt byte into
+        // a dead keyboard; dropping it costs nothing.
         case 0x1B:
             state = .escape
             return []
@@ -117,6 +140,17 @@ public struct ANSIInputDecoder: Sendable {
             // Remaining control characters are Control+letter.
             let letter = Character(UnicodeScalar(byte + 0x60))
             return [.key(KeyInput(key: .character(letter), modifiers: .control))]
+
+        case 0x1F:
+            // US, and what a terminal sends for Ctrl+/ — the chord every GUI
+            // editor uses for "comment this out". It arrives from Ctrl+_ and
+            // Ctrl+7 as well on some terminals, since all three collapse to
+            // the same byte; reported as Ctrl+/ because that is the one
+            // anybody is actually pressing.
+            //
+            // Dropped before this, which made the most familiar shortcut in
+            // any code editor the one chord a TUI could not offer.
+            return [.key(KeyInput(key: .character("/"), modifiers: .control))]
 
         case 0x20...0x7E:
             return [.key(KeyInput(key: .character(Character(UnicodeScalar(byte)))))]
@@ -141,6 +175,42 @@ public struct ANSIInputDecoder: Sendable {
 
     // MARK: - Escape
 
+    /// Swallows a control-string payload, watching for its terminator.
+    private mutating func consumeControlString(
+        _ byte: UInt8,
+        acceptsBEL: Bool
+    ) -> [TerminalInput] {
+        switch byte {
+        case 0x1B:
+            state = .controlStringEscape(acceptsBEL: acceptsBEL)
+
+        case 0x9C:
+            // ST in its single-byte C1 form.
+            state = .idle
+
+        case 0x07 where acceptsBEL:
+            state = .idle
+
+        default:
+            break
+        }
+
+        return []
+    }
+
+    /// Resolves ESC inside a control string: `ESC \` is ST, anything else is
+    /// payload that happened to contain an ESC.
+    private mutating func consumeControlStringEscape(
+        _ byte: UInt8,
+        acceptsBEL: Bool
+    ) -> [TerminalInput] {
+        state = byte == UInt8(ascii: "\\")
+            ? .idle
+            : .controlString(acceptsBEL: acceptsBEL)
+
+        return []
+    }
+
     private mutating func consumeEscape(_ byte: UInt8) -> [TerminalInput] {
         switch byte {
         case UInt8(ascii: "["):
@@ -154,6 +224,21 @@ public struct ANSIInputDecoder: Sendable {
         case 0x1B:
             // ESC ESC: report the first, hold the second.
             return [.key(KeyInput(key: .escape))]
+
+        // Control-string introducers. Their payload is a conversation between
+        // the terminal and whatever is driving it — a VTG frame acknowledgement,
+        // an OSC colour reply — and it is *printable text*. Without a state to
+        // swallow it, every byte falls through to "Alt+printable" below and
+        // then to plain characters, so the reply gets typed into whatever holds
+        // focus: `VTG;frameStarted,id=tuikit-chrome,timeout=250` appearing in a
+        // text field is this bug, not the terminal misbehaving.
+        case UInt8(ascii: "_"), UInt8(ascii: "P"), UInt8(ascii: "^"), UInt8(ascii: "X"):
+            state = .controlString(acceptsBEL: false)
+            return []
+
+        case UInt8(ascii: "]"):
+            state = .controlString(acceptsBEL: true)
+            return []
 
         case 0x20...0x7E:
             // Alt+printable.

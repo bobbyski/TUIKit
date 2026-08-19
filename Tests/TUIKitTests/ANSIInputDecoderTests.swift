@@ -268,3 +268,76 @@ private let esc: UInt8 = 0x1B
     // end() after failed begin() is safe (unconditional cleanup contract).
     await driver.end()
 }
+
+// MARK: - Control strings
+
+/// A terminal's replies to the *application driving it* must never reach the
+/// application's key handling.
+@Suite struct ControlStringDecodingTests {
+
+    /// Feeds a string as bytes and returns what the decoder made of it.
+    private func decode(_ text: String) -> [TerminalInput] {
+        var decoder = ANSIInputDecoder()
+        return decoder.feed(Array(text.utf8))
+    }
+
+    @Test("a VTG frame acknowledgement produces no input at all")
+    func apcRepliesAreSwallowed() {
+        // Exactly the reply that was being typed into the focused text field.
+        let events = decode("\u{1b}_VTG;frameStarted,id=tuikit-chrome,timeout=250\u{1b}\\")
+
+        #expect(events.isEmpty)
+    }
+
+    @Test("typing after a control string still works")
+    func inputResumesAfterAControlString() {
+        let events = decode("\u{1b}_VTG;ok\u{1b}\\hi")
+
+        #expect(events.count == 2)
+        #expect(events.first == .key(KeyInput(key: .character("h"))))
+        #expect(events.last == .key(KeyInput(key: .character("i"))))
+    }
+
+    @Test("OSC may be terminated by BEL, as xterm allows")
+    func oscAcceptsBEL() {
+        let events = decode("\u{1b}]0;a window title\u{07}x")
+
+        #expect(events == [.key(KeyInput(key: .character("x")))])
+    }
+
+    @Test("an ESC inside the payload is payload, not a terminator")
+    func anEscapeInsideThePayloadDoesNotEndIt() {
+        let events = decode("\u{1b}_a\u{1b}b\u{1b}\\z")
+
+        #expect(events == [.key(KeyInput(key: .character("z")))])
+    }
+
+    @Test("DCS, PM and SOS are swallowed the same way")
+    func theOtherIntroducersAreSwallowedToo() {
+        for introducer in ["P", "^", "X"] {
+            let events = decode("\u{1b}\(introducer)payload;here\u{1b}\\q")
+
+            #expect(events == [.key(KeyInput(key: .character("q")))],
+                    "ESC \(introducer) leaked its payload")
+        }
+    }
+
+    @Test("a control string split across reads is still swallowed")
+    func aSplitControlStringIsSwallowed() {
+        var decoder = ANSIInputDecoder()
+        var events = decoder.feed(Array("\u{1b}_VTG;frame".utf8))
+        events += decoder.feed(Array("Started\u{1b}".utf8))
+        events += decoder.feed(Array("\\k".utf8))
+
+        #expect(events == [.key(KeyInput(key: .character("k")))])
+    }
+
+    @Test("a stray continuation byte is dropped, not treated as a C1 control")
+    func strayContinuationBytesDoNotStartAControlString() {
+        var decoder = ANSIInputDecoder()
+        let events = decoder.feed([0x9F, UInt8(ascii: "a")])
+
+        // If 0x9F started a control string, the "a" would vanish too.
+        #expect(events == [.key(KeyInput(key: .character("a")))])
+    }
+}
