@@ -282,6 +282,10 @@ final class PopUpList: TUIView {
         self.items = items
         self.highlightedIndex = min(max(0, highlightedIndex), max(0, items.count - 1))
         super.init(frame: .zero)
+
+        // Floating chrome, like MenuDropdown: the menu surface, not the
+        // surface being covered.
+        themeContext = .menus
     }
 
     override var acceptsFirstResponder: Bool {

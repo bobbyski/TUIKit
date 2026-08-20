@@ -66,6 +66,7 @@ child sets its own (e.g. an accessory panel).
 | `secondaryWindows` | Secondary windows — typically **non-modal** dialogs/panels. | Gray (inherits `base`). |
 | `modalWindows` | **Modal** dialogs (alerts, sheets). | Gray (inherits `base`); modal chrome adds a drop shadow later. |
 | `accessoryView` | Views **attached to** the content window (inspectors, tool strips, breadcrumb/tab bars). | Echoes `contentWindow` (blue) so it belongs to the editor it's attached to. |
+| `menus` | Menu dropdowns, pop-up lists, context menus — floating chrome that pins ITSELF here (`MenuDropdown`/`PopUpList` set it; apps never need to). | Falls back to `base`, so a menu popped over the blue document still wears the opaque gray menu surface with single border lines instead of dissolving into whatever it covers. |
 
 **Resolution rule:** `resolve(slot, context) = context[slot] ?? fallback(context)[slot]`.
 Every context has a **fallback parent**, which is `base` for all of them *except*

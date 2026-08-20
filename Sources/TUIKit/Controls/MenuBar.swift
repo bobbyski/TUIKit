@@ -546,6 +546,11 @@ final class MenuDropdown: TUIView {
         self.menu = menu
         self.highlightedIndex = menu.items.firstIndex { $0.isEnabled && !$0.isSeparator } ?? 0
         super.init(frame: .zero)
+
+        // Floating chrome: a dropdown popped over a blue content window
+        // must wear the MENU surface (opaque, single border), not dissolve
+        // into whatever it covers.
+        themeContext = .menus
     }
 
     override var acceptsFirstResponder: Bool {

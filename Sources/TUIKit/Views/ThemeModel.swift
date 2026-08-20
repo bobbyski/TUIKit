@@ -124,6 +124,13 @@ public enum ThemeContext: String, Codable, Sendable, CaseIterable {
     case secondaryWindows
     case modalWindows
     case accessoryView
+
+    /// Menu dropdowns, pop-up lists, context menus. Floating chrome pins
+    /// ITSELF here (`MenuDropdown`, `PopUpList` set it in their inits), so
+    /// a menu popped over a blue content window still wears the menu look —
+    /// opaque chrome, single border — rather than dissolving into whatever
+    /// surface it happens to cover. Resolves `menus` → `base`.
+    case menus
 }
 
 /// Whether dividers/separators visually connect (weld) into borders and each
@@ -697,6 +704,10 @@ public struct Theme: Codable, Hashable, Sendable {
     public var modalWindows: ThemePalette?
     /// Overlay for accessory views.
     public var accessoryView: ThemePalette?
+    /// Overlay for menu dropdowns and pop-up lists (see
+    /// ``ThemeContext/menus``). `nil` — the common case — means menus
+    /// simply wear `base`, the chrome surface.
+    public var menus: ThemePalette?
 
     /// Creates a theme from a base palette and optional per-context overlays.
     public init(
@@ -706,7 +717,8 @@ public struct Theme: Codable, Hashable, Sendable {
         contentWindow: ThemePalette? = nil,
         secondaryWindows: ThemePalette? = nil,
         modalWindows: ThemePalette? = nil,
-        accessoryView: ThemePalette? = nil
+        accessoryView: ThemePalette? = nil,
+        menus: ThemePalette? = nil
     ) {
         self.name = name
         self.base = base
@@ -715,6 +727,7 @@ public struct Theme: Codable, Hashable, Sendable {
         self.secondaryWindows = secondaryWindows
         self.modalWindows = modalWindows
         self.accessoryView = accessoryView
+        self.menus = menus
     }
 
     /// Resolves every slot for a context. `nil` context resolves against `base`.
@@ -857,6 +870,10 @@ public struct Theme: Codable, Hashable, Sendable {
         case .accessoryView:
             // Accessories echo the content window before falling back to base.
             return [accessoryView, contentWindow, base].compactMap { $0 }
+
+        case .menus:
+            // Floating chrome: never the surface being covered.
+            return [menus, base].compactMap { $0 }
         }
     }
 }

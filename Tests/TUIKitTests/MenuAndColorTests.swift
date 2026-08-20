@@ -391,3 +391,39 @@ private func screenRows(_ window: Window) -> [String] {
 
     #expect(field.text.isEmpty, "a background field must not receive typing")
 }
+
+@Test @MainActor func dropdownsWearTheMenuSurfaceNotTheWindowTheyCover() {
+    // A context menu popped over Turbo's blue content window used to
+    // inherit that surface — blue-on-blue (read as transparent) with the
+    // content's double frame. Menus are floating chrome: they pin
+    // themselves to the `menus` context, which resolves menus → base —
+    // opaque gray, single border, wherever they pop.
+    let window = Window(frame: Rect(x: 0, y: 0, width: 30, height: 10))
+    window.theme = .turbo
+    window.themeContext = .contentWindow
+
+    let menu = Menu("")
+    menu.addItem("History") {}   // highlighted (selection) — not asserted on
+    menu.addItem("Copy") {}
+    window.presentContextMenu(menu, at: Point(x: 2, y: 1))
+
+    let buffer = SceneRenderer(root: window).render(size: Size(width: 30, height: 10))
+    let lines = buffer.textLines()
+
+    guard let row = lines.firstIndex(where: { $0.contains("Copy") }) else {
+        Issue.record("no dropdown rendered")
+        return
+    }
+
+    let base = Theme.turbo.resolved()
+    let itemColumn = lines[row].distance(from: lines[row].startIndex, to: lines[row].range(of: "Copy")!.lowerBound)
+    #expect(
+        buffer[Point(x: itemColumn, y: row)].style.background == base.background,
+        "opaque menu surface (chrome gray), not the window's blue"
+    )
+
+    // Single border lines — the menu look — even though the content
+    // window's own frames are double.
+    let borderRow = lines[row - 2]
+    #expect(borderRow.contains("┌") && !borderRow.contains("╔"), "single-line menu frame: \(borderRow)")
+}
