@@ -257,11 +257,23 @@ open class TUIView {
         needsDisplay = true
 
         var ancestor = superview
+        var window = self as? Window
 
         while let view = ancestor {
             view.subtreeNeedsDisplay = true
+
+            if let found = view as? Window {
+                window = found
+            }
+
             ancestor = view.superview
         }
+
+        // The walk already passes the window, so reaching the app costs
+        // nothing extra. Without this a change made outside the event loop —
+        // a page that finished loading, a task that completed — marks itself
+        // dirty and then sits there until the reader happens to press a key.
+        window?.app?.requestFrame()
     }
 
     /// Forces this view and its whole subtree to redraw on the next frame.

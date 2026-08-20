@@ -382,6 +382,9 @@ public final class App {
                         timer.cancel()
                     }
                 }
+
+            case .wake:
+                wakePending = false
             }
 
             await presentFrameIfNeeded()
@@ -407,6 +410,36 @@ public final class App {
     private enum LoopEvent {
         case input(TerminalInput)
         case tick(AppTimer)
+
+        /// Nothing happened *to* the app — something changed inside it. Carries
+        /// no payload; its only job is to wake the loop so the frame after it
+        /// gets presented.
+        case wake
+    }
+
+    // Whether a wake is already queued. Without this every `setNeedsDisplay`
+    // in a busy layout pass would push its own event, and a page finishing
+    // would queue thousands of them to present one frame.
+    private var wakePending = false
+
+    /// Asks for a frame to be presented, from outside the event loop.
+    ///
+    /// The loop presents after each event it handles, so work that finishes on
+    /// its own — a page load, a subprocess, a task — marks its views dirty and
+    /// then waits for a keystroke that may never come. Views call this through
+    /// `setNeedsDisplay`; call it directly after changing something the loop
+    /// cannot see.
+    public func requestFrame() {
+        // The continuation is required, not optional-chained: it does not exist
+        // until `run` builds the event stream, and a request before then would
+        // otherwise set the flag and yield into nothing — latching it true for
+        // the life of the app and swallowing every wake that mattered.
+        guard isRunning, !wakePending, let continuation = eventContinuation else {
+            return
+        }
+
+        wakePending = true
+        continuation.yield(.wake)
     }
 
     // Routes one event.
