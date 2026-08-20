@@ -331,3 +331,63 @@ private func screenRows(_ window: Window) -> [String] {
     #expect(applied == "Turbo")
     #expect(!bar.isMenuOpen, "a leaf activation exits menu mode entirely")
 }
+
+// MARK: - Accelerators across windows
+
+/// A menu bar lives on the chrome window; the focused window is a document.
+/// Its accelerators must still fire — that is the whole point of a menu bar.
+@Test @MainActor func acceleratorsReachAMenuBarOnAnotherWindow() async throws {
+    let driver = HeadlessDriver(size: Size(width: 40, height: 10))
+    let app = App(driver: driver)
+
+    let chrome = Window()
+    chrome.fillsScreen = true
+    let bar = MenuBar()
+    bar.anchors = AnchorSet(leading: 0, trailing: 0, top: 0, height: 1)
+
+    var fired = 0
+    let file = Menu("&File")
+    file.addItem("&New", keyEquivalent: KeyInput(key: .character("t"), modifiers: .control)) { fired += 1 }
+    bar.addMenu(file)
+    chrome.addSubview(bar)
+
+    let session = Task { try await app.run(chrome) }
+    while await driver.presentCount == 0 { await Task.yield() }
+
+    // A document window on top takes focus, exactly as a real app's does.
+    let document = FloatingWindow(title: "Doc", frame: Rect(x: 2, y: 2, width: 20, height: 6))
+    app.present(document)
+    #expect(app.keyWindow === document)
+
+    await driver.send(.key(KeyInput(key: .character("t"), modifiers: .control)))
+    await driver.send(.key(KeyInput(key: .character("c"), modifiers: .control)))
+    try await session.value
+
+    #expect(fired == 1, "the accelerator must survive another window having focus")
+}
+
+/// The fallback is accelerators only: a plain keystroke must not leak into a
+/// window that does not have focus.
+@Test @MainActor func plainKeysDoNotLeakToBackgroundWindows() async throws {
+    let driver = HeadlessDriver(size: Size(width: 40, height: 10))
+    let app = App(driver: driver)
+
+    let background = Window()
+    background.fillsScreen = true
+    let field = TextField()
+    field.frame = Rect(x: 0, y: 2, width: 20, height: 1)
+    background.addSubview(field)
+
+    let session = Task { try await app.run(background) }
+    while await driver.presentCount == 0 { await Task.yield() }
+    background.makeFirstResponder(field)
+
+    let document = FloatingWindow(title: "Doc", frame: Rect(x: 2, y: 2, width: 20, height: 6))
+    app.present(document)
+
+    await driver.send(.key(KeyInput(key: .character("z"))))
+    await driver.send(.key(KeyInput(key: .character("c"), modifiers: .control)))
+    try await session.value
+
+    #expect(field.text.isEmpty, "a background field must not receive typing")
+}

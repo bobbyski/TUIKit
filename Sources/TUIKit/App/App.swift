@@ -423,7 +423,25 @@ public final class App {
                 return
             }
 
-            keyWindow?.route(input)
+            if keyWindow?.route(input) == true {
+                return
+            }
+
+            // Unconsumed by the focused window. Keyboard input routes only to
+            // the key window, but a menu bar usually lives somewhere else — on
+            // the chrome window under the floating ones — so its accelerators
+            // would stop working the moment any window took focus. Offer the
+            // key to the other windows' accelerators, nearest first, so the
+            // bar that declares a command still fires it.
+            //
+            // Accelerators only (`routeHotKey`), never the full chain: a
+            // background window must not receive keystrokes meant for the
+            // focused one.
+            for window in windows.reversed() where window !== keyWindow {
+                if window.routeHotKey(key) {
+                    return
+                }
+            }
 
         case .mouse(var mouse):
             guard let key = keyWindow else {

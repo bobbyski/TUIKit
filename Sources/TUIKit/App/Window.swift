@@ -233,6 +233,21 @@ open class Window: TUIView {
         }
     }
 
+    /// Offers a key to this window's accelerators only — stage 1 of
+    /// `route(_:)`, without the focused chain, focus traversal, or cold keys.
+    ///
+    /// This is how a key the *focused* window declined still reaches a menu bar
+    /// living on another window. Deliberately hot keys only: running the whole
+    /// chain would deliver the keystroke to a background window's focused
+    /// control, so typing in one window would also type in another.
+    ///
+    /// - Parameter key: The key to offer.
+    /// - Returns: `true` when an accelerator consumed it.
+    @discardableResult
+    public func routeHotKey(_ key: KeyInput) -> Bool {
+        traverseVisible { $0.handleHotKey(key) }
+    }
+
     private func routeKey(_ key: KeyInput) -> Bool {
         // 1. Hot keys.
         if traverseVisible({ $0.handleHotKey(key) }) {
