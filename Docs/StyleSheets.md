@@ -59,6 +59,7 @@ having heard of it. CSS is not restricted to the built-in vocabulary.
 | `bold`, `dim`, `italic`, `underline`      | `theme.base.flags`         |
 | `accent`                                  | `theme.accent`             |
 | `secondary-accent`                        | `theme.secondaryAccent` (toolbar tint) |
+| `toolbar-color`, `toolbar-background`     | `theme.toolbar` (the strip itself; falls back to `header`) |
 | `chart-axis`                              | `theme.chartAxisColor`     |
 | `chart-data-1` … `chart-data-10`          | the chart series palette (one entry each; unset entries keep their theme-derived colors) |
 | *anything else*                           | `theme.custom[name]`       |

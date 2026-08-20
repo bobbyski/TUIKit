@@ -238,6 +238,8 @@ public struct StyleDeclaration: Hashable, Sendable {
         case selectionBackground = "selection-background"
         case headerColor = "header-color"
         case headerBackground = "header-background"
+        case toolbarColor = "toolbar-color"
+        case toolbarBackground = "toolbar-background"
         case borderColor = "border-color"
         case borderBackground = "border-background"
         case placeholderColor = "placeholder-color"
@@ -361,6 +363,12 @@ public struct StyleDeclaration: Hashable, Sendable {
 
         case (.headerBackground, .color(let color)):
             theme.headerBackground = color
+
+        case (.toolbarColor, .color(let color)):
+            theme.toolbarForeground = color
+
+        case (.toolbarBackground, .color(let color)):
+            theme.toolbarBackground = color
 
         case (.borderColor, .color(let color)):
             theme.borderForeground = color

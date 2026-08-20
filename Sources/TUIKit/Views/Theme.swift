@@ -353,12 +353,17 @@ extension Theme {
         var content = ThemePalette()
         content.foreground = .rgb(red: 255, green: 255, blue: 85)    // yellow
         content.background = .rgb(red: 0, green: 0, blue: 170)       // blue
-        // The `header` slot is the toolbar's (and a menu bar's) paint. In a
-        // Borland IDE those bars are gray chrome sitting on the blue document,
-        // not more blue — white-on-blue made a toolbar disappear into the page
-        // behind it. Gray ground, and the document's own blue for the text.
-        content.headerForeground = .rgb(red: 0, green: 0, blue: 170)    // the content blue
-        content.headerBackground = .rgb(red: 170, green: 170, blue: 170)  // the chrome gray
+        // Titles, folder tabs, and table headers: white on the document
+        // blue, the classic Borland look. The TOOLBAR is deliberately not
+        // this — in a Borland IDE the button bar is gray chrome sitting on
+        // the blue document, not more blue (white-on-blue made a toolbar
+        // disappear into the page behind it) — which is exactly why it has
+        // its own slot below instead of borrowing `header` and dragging
+        // every window title with it.
+        content.headerForeground = .rgb(red: 255, green: 255, blue: 255)
+        content.headerBackground = .rgb(red: 0, green: 0, blue: 170)
+        content.toolbarForeground = .rgb(red: 0, green: 0, blue: 170)     // the content blue
+        content.toolbarBackground = .rgb(red: 170, green: 170, blue: 170) // the chrome gray
         content.borderForeground = .rgb(red: 255, green: 255, blue: 255)
         content.borderBackground = .rgb(red: 0, green: 0, blue: 170)
         content.borderStyle = .double   // floating window frame → double border
@@ -372,11 +377,15 @@ extension Theme {
         // the window draws with (charts, focus cues, selections).
         content.secondaryAccent = .rgb(red: 0, green: 0, blue: 170)
 
-        // Disabled toolbar items, which sit on that same gray: a darker gray
-        // shade, matching what `base` already does on the chrome surface — so
-        // a greyed-out button reads the same wherever it is.
-        content.placeholderForeground = .rgb(red: 85, green: 85, blue: 85)
-        content.placeholderBackground = .rgb(red: 170, green: 170, blue: 170)
+        // De-emphasis stays on the document surface: cyan on the blue, the
+        // classic look — unselected folder tabs and placeholder text wear
+        // this, so it must NOT be tuned for the gray toolbar (that mistake
+        // put every unselected tab in a gray box). Disabled toolbar items
+        // keep their gray ground anyway: the bar substitutes its own
+        // background under them, and a host wanting Borland's exact darker
+        // gray sets `Toolbar.disabledStyle` (OmegaCLIDE does).
+        content.placeholderForeground = .rgb(red: 0, green: 170, blue: 170)
+        content.placeholderBackground = .rgb(red: 0, green: 0, blue: 170)
 
         var desktop = ThemePalette()
         desktop.background = .rgb(red: 85, green: 85, blue: 255)     // light blue backdrop

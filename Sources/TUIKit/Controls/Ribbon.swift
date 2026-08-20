@@ -110,14 +110,14 @@ public final class Ribbon: TUIView {
     /// Draws the group captions under the bar.
     public override func draw(_ painter: Painter) {
         let theme = effectiveTheme
-        painter.fill(bounds, with: TerminalCell(character: " ", style: theme.header))
+        painter.fill(bounds, with: TerminalCell(character: " ", style: theme.toolbar))
 
         guard showsGroupTitles, !groups.isEmpty else {
             return
         }
 
         let row = bounds.size.height - 1
-        var caption = theme.header
+        var caption = theme.toolbar
         caption.flags.insert(.dim)
 
         for group in groups {

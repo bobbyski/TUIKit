@@ -923,7 +923,7 @@ public final class Toolbar: TUIView {
 
     // The bar's own paint: whatever the host asked for, else the theme's.
     private func barStyle(_ theme: ResolvedTheme) -> CellStyle {
-        chromeStyle ?? theme.header
+        chromeStyle ?? theme.toolbar
     }
 
     private func slotStyle(forSlot slot: Int, item: ToolbarItem?, theme: ResolvedTheme) -> CellStyle {

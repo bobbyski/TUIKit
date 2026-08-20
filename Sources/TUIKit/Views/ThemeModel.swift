@@ -356,6 +356,14 @@ public struct ThemePalette: Codable, Hashable, Sendable {
     /// Header attributes.
     public var headerAttributes: CellFlags?
 
+    /// Toolbar/ribbon strip text color. `nil` falls back to the header —
+    /// the slot exists so a theme can dress the toolbar as chrome (Turbo's
+    /// gray bar on the blue document) WITHOUT dragging window titles and
+    /// folder tabs, which also wear `header`, along with it.
+    public var toolbarForeground: TerminalColor?
+    /// Toolbar/ribbon strip background. `nil` falls back to the header.
+    public var toolbarBackground: TerminalColor?
+
     /// Border line color.
     public var borderForeground: TerminalColor?
     /// Border background.
@@ -462,6 +470,13 @@ public struct ResolvedTheme: Hashable, Sendable {
     /// Header attributes.
     public var headerAttributes: CellFlags
 
+    /// Toolbar/ribbon strip text color (resolved to the header's when
+    /// unset — see the palette slot's rationale).
+    public var toolbarForeground: TerminalColor
+    /// Toolbar/ribbon strip background (resolved to the header's when
+    /// unset).
+    public var toolbarBackground: TerminalColor
+
     /// Border line color.
     public var borderForeground: TerminalColor
     /// Border background.
@@ -550,6 +565,12 @@ public struct ResolvedTheme: Hashable, Sendable {
     /// Menu bar, status bar, panel titles, table headers.
     public var header: CellStyle {
         CellStyle(foreground: headerForeground, background: headerBackground, flags: headerAttributes)
+    }
+
+    /// Toolbar and ribbon strips (falls back to `header` when the theme
+    /// doesn't split them).
+    public var toolbar: CellStyle {
+        CellStyle(foreground: toolbarForeground, background: toolbarBackground, flags: headerAttributes)
     }
 
     /// Boxes, dividers, scroll indicators.
@@ -752,6 +773,18 @@ public struct Theme: Codable, Hashable, Sendable {
             break
         }
 
+        var toolbarForeground = color(\.headerForeground)
+        for palette in chain where palette.toolbarForeground != nil {
+            toolbarForeground = palette.toolbarForeground!
+            break
+        }
+
+        var toolbarBackground = color(\.headerBackground)
+        for palette in chain where palette.toolbarBackground != nil {
+            toolbarBackground = palette.toolbarBackground!
+            break
+        }
+
         var chartDataColors: [TerminalColor] = []
         for palette in chain where palette.chartData != nil {
             chartDataColors = palette.chartData!
@@ -776,6 +809,8 @@ public struct Theme: Codable, Hashable, Sendable {
             headerForeground: color(\.headerForeground),
             headerBackground: color(\.headerBackground),
             headerAttributes: flags(\.headerAttributes),
+            toolbarForeground: toolbarForeground,
+            toolbarBackground: toolbarBackground,
             borderForeground: color(\.borderForeground),
             borderBackground: color(\.borderBackground),
             borderStyle: borderStyle(\.borderStyle, default: .single),
