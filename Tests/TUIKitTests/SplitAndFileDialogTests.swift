@@ -381,3 +381,28 @@ private func embeddedButton(titled title: String, in view: TUIView) -> Button? {
     dialog.route(.key(KeyInput(key: .enter)))
     #expect(dialog.currentDirectory == "/root/sub")
 }
+
+@Test @MainActor func splitViewAxisFlipsInPlace() {
+    // R7: DevTools docks beside the page or below it — the same SplitView
+    // must flip between the two without rebuilding.
+    let (split, window) = makeSplit()
+    split.setDividerPosition(5)
+    window.layoutIfNeeded()
+    #expect(split.first.frame == Rect(x: 0, y: 0, width: 5, height: 4))
+
+    split.axis = .vertical
+    window.layoutIfNeeded()
+
+    // The panes are the same views, now stacked; the position — a length
+    // along the current axis — carried over, re-clamped to the height.
+    #expect(split.first.frame == Rect(x: 0, y: 0, width: 20, height: 3))
+    #expect(split.second.frame == Rect(x: 0, y: 4, width: 20, height: 0))
+
+    let lines = SceneRenderer(root: window).render(size: window.frame.size).textLines()
+    #expect(lines[3].hasPrefix("────"), "the divider renders as a row now")
+
+    // Keys follow the axis: ↑/↓ move a vertical divider.
+    window.makeFirstResponder(split)
+    _ = split.keyDown(KeyInput(key: .up))
+    #expect(split.currentDividerPosition == 2)
+}

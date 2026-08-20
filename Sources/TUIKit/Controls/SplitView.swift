@@ -22,7 +22,19 @@
 @MainActor
 public final class SplitView: TUIView {
     /// Direction panes flow (`.horizontal` = side by side).
-    public let axis: StackView.Axis
+    ///
+    /// Settable after init (R7): DevTools docks beside the page or below it,
+    /// and which one is the reader's preference. The panes stay put and the
+    /// divider position — a length along the *current* axis — carries over,
+    /// re-clamped against the new axis's extent by the layout pass.
+    public var axis: StackView.Axis {
+        didSet {
+            if axis != oldValue {
+                setNeedsLayout()
+                setNeedsDisplay()
+            }
+        }
+    }
 
     /// Leading/top pane.
     public let first: TUIView
