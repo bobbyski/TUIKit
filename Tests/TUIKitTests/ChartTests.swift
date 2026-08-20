@@ -521,7 +521,8 @@ private func chromeRendered(_ view: TUIView, width: Int, height: Int, theme: The
     let (commands, _) = chromeRendered(chart, width: 30, height: 7, theme: .turbo)
 
     let sectors = commands.compactMap { command -> (start: Double, end: Double)? in
-        guard case .sector(_, _, _, let start, let end, _) = command.shape else {
+        guard command.id.contains("_slice-"),
+              case .sector(_, _, _, let start, let end, _) = command.shape else {
             return nil
         }
 
@@ -543,15 +544,18 @@ private func chromeRendered(_ view: TUIView, width: Int, height: Int, theme: The
     #expect(sectors[1].start < sectors[0].end, "the next slice starts under the previous one's overdrawn edge")
     #expect(sectors[1].start == 1.5 * Double.pi, "and its exact start edge is the visible boundary")
 
-    // The hole is one surface-colored circle over full pie slices —
-    // winding-proof, unlike per-slice inner arcs.
+    // The hole is one surface-colored full-turn sector over full pie
+    // slices — winding-proof, unlike per-slice inner arcs, and a path
+    // rather than the circle primitive, whose fan tessellation has been
+    // seen to drop its closing wedge (a radial sliver of slice paint).
     guard let hole = commands.first(where: { $0.id.hasSuffix("_hole") }),
-          case .circle(_, let radius, let fill, _, _) = hole.shape else {
+          case .sector(_, let radius, _, let start, let end, let fill) = hole.shape else {
         Issue.record("no donut hole")
         return
     }
 
     #expect(radius > 0)
+    #expect(start == 0 && end == 2 * Double.pi, "the hole sweeps the full turn")
     #expect(fill == ChromeColor(Theme.turbo.resolved().background), "the hole wears the chart's surface")
 }
 

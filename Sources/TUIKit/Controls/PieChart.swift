@@ -187,11 +187,20 @@ public final class PieChart: TUIView {
                 )
             }
 
+            // The hole is a full-turn SECTOR path, not the circle primitive:
+            // renderers that fan-tessellate (VectorTerminal's Metal path)
+            // have been seen to drop the closing wedge of a filled circle,
+            // which lets slice paint show through as a radial sliver. A
+            // full-circle path's rim is a convex polygon, which every fan
+            // tessellates correctly — and it keeps the whole chart on one
+            // primitive kind.
             if inner > 0 {
-                chrome.circle(
+                chrome.sector(
                     "hole",
                     center: ChromePoint(x: centerX, y: centerY),
                     radius: radiusY * inner,
+                    start: 0,
+                    end: 2 * Double.pi,
                     fill: backing
                 )
             }

@@ -129,13 +129,19 @@ private func gallerySVG(buffer: CellBuffer, chrome: [ChromeCommand], size: Size)
                 (center.x * cw + r * ch * Foundation.sin(angle), center.y * ch - r * ch * Foundation.cos(angle))
             }
 
-            let large = (end - start) > Double.pi ? 1 : 0
-            let o0 = at(radius, start), o1 = at(radius, end)
-            var d = "M \(o0.0) \(o0.1) A \(radius * ch) \(radius * ch) 0 \(large) 1 \(o1.0) \(o1.1)"
+            // Two half-sweep arcs, not one: a single SVG A command cannot
+            // express a full turn (its endpoints coincide and the arc
+            // collapses), and a full-turn sector is exactly how PieChart
+            // draws the donut hole.
+            let mid = start + (end - start) / 2
+            let o0 = at(radius, start), oMid = at(radius, mid), o1 = at(radius, end)
+            let outer = "A \(radius * ch) \(radius * ch) 0 0 1"
+            var d = "M \(o0.0) \(o0.1) \(outer) \(oMid.0) \(oMid.1) \(outer) \(o1.0) \(o1.1)"
 
             if innerRadius > 0 {
-                let i1 = at(innerRadius, end), i0 = at(innerRadius, start)
-                d += " L \(i1.0) \(i1.1) A \(innerRadius * ch) \(innerRadius * ch) 0 \(large) 0 \(i0.0) \(i0.1)"
+                let i1 = at(innerRadius, end), iMid = at(innerRadius, mid), i0 = at(innerRadius, start)
+                let innerArc = "A \(innerRadius * ch) \(innerRadius * ch) 0 0 0"
+                d += " L \(i1.0) \(i1.1) \(innerArc) \(iMid.0) \(iMid.1) \(innerArc) \(i0.0) \(i0.1)"
             } else {
                 d += " L \(center.x * cw) \(center.y * ch)"
             }
