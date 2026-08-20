@@ -14,7 +14,17 @@ import TUIKit
 /// writing; the caller exits instead of running the app.
 @MainActor
 func writeGallerySnapshots(to directory: String) throws {
-    let size = Size(width: 110, height: 32)
+    // TUIKIT_GALLERY_SNAPSHOT_SIZE=WxH overrides the terminal size — a tall
+    // one lets scrolled-away content (the bottom of the Charts tab) render.
+    let size: Size
+    if let spec = ProcessInfo.processInfo.environment["TUIKIT_GALLERY_SNAPSHOT_SIZE"],
+       let separator = spec.firstIndex(where: { $0 == "x" || $0 == "X" }),
+       let width = Int(spec[..<separator]), width > 20,
+       let height = Int(spec[spec.index(after: separator)...]), height > 10 {
+        size = Size(width: width, height: height)
+    } else {
+        size = Size(width: 110, height: 32)
+    }
     let app = App(driver: HeadlessDriver(size: size))
     app.applyTheme(.modernTurbo)
     app.desktop.frame = Rect(origin: .zero, size: size)

@@ -530,13 +530,18 @@ private func chromeRendered(_ view: TUIView, width: Int, height: Int, theme: The
 
     #expect(sectors.count == 2)
 
-    // The sweep closes past a full turn by the seam overlap (never short of
-    // one — a hair under 2π reads as a dark sliver at 12 o'clock), and each
-    // slice overdraws its end so no abutting-edge hairline shows.
+    // The last slice ends at exactly 2π and the FIRST slice reaches
+    // backward under it, so the 12 o'clock edge antialiases over the first
+    // slice's paint — never over background (a hairline) and never with a
+    // wrong-colored wrap sliver on top. Interior boundaries are each
+    // slice's exact start edge, drawn over the previous slice's overdrawn
+    // end.
     let closing = sectors.last?.end ?? 0
-    #expect(closing >= 2 * Double.pi && closing < 2 * Double.pi + 0.05, "closes just past full: \(closing)")
-    #expect(sectors[0].end > 1.5 * Double.pi && sectors[0].end < 1.5 * Double.pi + 0.05, "3 of 4 ≈ three quarters, plus the overlap")
+    #expect(closing == 2 * Double.pi, "closes exactly at full: \(closing)")
+    #expect(sectors[0].start < 0, "the first slice reaches back under the closing edge")
+    #expect(sectors[0].end > 1.5 * Double.pi && sectors[0].end < 1.5 * Double.pi + 0.06, "3 of 4 ≈ three quarters, plus the overlap")
     #expect(sectors[1].start < sectors[0].end, "the next slice starts under the previous one's overdrawn edge")
+    #expect(sectors[1].start == 1.5 * Double.pi, "and its exact start edge is the visible boundary")
 
     // The hole is one surface-colored circle over full pie slices —
     // winding-proof, unlike per-slice inner arcs.

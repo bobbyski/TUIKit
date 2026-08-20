@@ -157,20 +157,32 @@ public final class PieChart: TUIView {
             // arc, reversed inner arc) leans on the renderer's winding
             // rules; slices-plus-hole is winding-proof and closes cleanly.
             //
-            // Each slice overdraws its end by a hair: two fills sharing an
-            // edge let a hairline of background through the antialiasing,
-            // so every boundary is COVERED by the next slice instead of
-            // abutted — and the last slice wraps just past 12 o'clock to
-            // cover the first boundary the same way.
-            let overlap = 0.012
+            // No boundary is ever two fills abutting: abutted antialiased
+            // edges leak a hairline of background (and drivers round path
+            // coordinates to whole pixels, which can collapse a small
+            // overdraw back into an abutment). So every slice extends its
+            // END under the next slice — the next slice draws on top, so
+            // the visible boundary is its exact start edge — and the FIRST
+            // slice extends its start backward instead of the last slice
+            // wrapping, so the 12 o'clock edge also antialiases over paint,
+            // never over background, with no wrong-colored sliver on top.
+            // 0.05 rad survives pixel rounding at any radius a cell grid
+            // can host, and stays entirely hidden under the neighbour.
+            let overlap = 0.05
+            let drawn = slices.indices.filter { magnitudes[$0] > 0 }
 
-            for (index, _) in slices.enumerated() where magnitudes[index] > 0 {
+            for index in drawn {
+                let start = boundaries[index] * 2 * Double.pi
+                    - (index == drawn.first && drawn.count > 1 ? overlap : 0)
+                let end = boundaries[index + 1] * 2 * Double.pi
+                    + (index == drawn.last ? 0 : overlap)
+
                 chrome.sector(
                     "slice-\(index)",
                     center: ChromePoint(x: centerX, y: centerY),
                     radius: radiusY,
-                    start: boundaries[index] * 2 * Double.pi,
-                    end: boundaries[index + 1] * 2 * Double.pi + overlap,
+                    start: start,
+                    end: end,
                     fill: ChromeColor(inks[index].foreground)!
                 )
             }
