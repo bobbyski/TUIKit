@@ -79,6 +79,24 @@ public final class App {
         }
     }
 
+    /// How long a left press must hold still before it becomes a
+    /// `.longPress`. 600 ms — long enough that a slow click (which the
+    /// 420 ms multi-click window already accommodates) does not trip it,
+    /// short enough to feel like a gesture rather than a wait.
+    public var longPressInterval: Duration = .milliseconds(600)
+
+    /// ``longPressInterval`` in milliseconds, for hosts that would rather
+    /// think in numbers than in `Duration`s.
+    public var longPressIntervalMilliseconds: Int {
+        get {
+            let components = longPressInterval.components
+            return Int(components.seconds * 1_000 + components.attoseconds / 1_000_000_000_000_000)
+        }
+        set {
+            longPressInterval = .milliseconds(max(0, newValue))
+        }
+    }
+
     /// The application clipboard. Cut/copy/paste in editing controls flow
     /// through here; copies are forwarded to the terminal's system clipboard
     /// when the driver supports it (OSC 52 on `ANSIDriver`).
@@ -140,6 +158,15 @@ public final class App {
     // Nobody double-clicks past three (Apple's counter is unbounded, but real
     // UIs stop here: double = open, triple = select-all).
     private let maxClickCount = 3
+
+    // MARK: - Long-press tracking
+
+    // The one-shot timer armed by a left press; firing delivers `.longPress`.
+    private var longPressTimer: AppTimer?
+
+    // Whether the current press already became a long-press, so its release
+    // must not also become a click.
+    private var longPressDelivered = false
 
     /// Registers a repeating timer that fires on the main thread inside the
     /// run loop, driving a frame present each tick.
@@ -555,11 +582,54 @@ public final class App {
             clickGuardTimer?.cancel()
             clickGuardTimer = nil
 
+            // Arm the long-press clock: a press that holds still past the
+            // interval becomes a `.longPress` while the button is down.
+            //
+            // FRESH presses only. A press continuing a same-spot click
+            // sequence (a slow double- or triple-click) must never become a
+            // long-press mid-sequence — the guard's whole promise is that a
+            // click still under the finger is not a gesture yet
+            // (`aSlowClickCannotEscapeTheGuardMidSequence`). So a hold reads
+            // as a long-press only once the previous click has settled.
+            longPressDelivered = false
+            longPressTimer?.cancel()
+            longPressTimer = nil
+
+            if pendingClick == nil || manhattan(pendingClick!.screen, screen) > clickSlop {
+                longPressTimer = schedule(after: longPressInterval) { [weak self, weak window] in
+                    guard let window else {
+                        return
+                    }
+
+                    self?.deliverLongPress(screen: screen, window: window)
+                }
+            }
+
+        case .drag:
+            // Movement past the slop is a drag, and a drag is not a hold.
+            if longPressTimer != nil, let pressed = leftPressScreen,
+               manhattan(pressed, screen) > clickSlop {
+                longPressTimer?.cancel()
+                longPressTimer = nil
+            }
+
         case .release:
+            // Whatever else the release means, the hold is over.
+            longPressTimer?.cancel()
+            longPressTimer = nil
+
             guard let pressed = leftPressScreen else {
                 return
             }
             leftPressScreen = nil
+
+            // A long-press already consumed this gesture: its release must
+            // not also become a click (that would run the tap action right
+            // after the long-press one).
+            if longPressDelivered {
+                longPressDelivered = false
+                return
+            }
 
             guard manhattan(pressed, screen) <= clickSlop else {
                 // A drag, not a click — abandon any pending sequence.
@@ -582,6 +652,31 @@ public final class App {
 
         default:
             break
+        }
+    }
+
+    // The press held still past the interval: deliver `.longPress` to the
+    // window it landed on. The window gives the pressed view first refusal,
+    // then falls back to the nearest context menu — and cancels the mouse
+    // grab either way, so the eventual release cannot activate anything.
+    private func deliverLongPress(screen: Point, window: Window) {
+        longPressTimer = nil
+
+        // The window may have been dismissed while the press was held.
+        guard windows.contains(where: { $0 === window }) else {
+            return
+        }
+
+        let local = screen - window.frame.origin
+        let consumed = window.route(.mouse(MouseInput(position: local, action: .longPress, button: .left)))
+
+        // Only a CONSUMED long-press ends the gesture (and breaks any
+        // multi-click sequence — nobody click-click-HOLDS for a double).
+        // Unconsumed, nothing anywhere reacted, and the hold must stay what
+        // it always was: a slow click, delivered in full on release.
+        if consumed {
+            longPressDelivered = true
+            pendingClick = nil
         }
     }
 

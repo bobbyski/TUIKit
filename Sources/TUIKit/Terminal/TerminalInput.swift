@@ -95,6 +95,18 @@ public struct MouseInput: Hashable, Sendable {
         /// this is the debounced semantic event that tells single from double.
         case click
 
+        /// A left press held in place past the long-press interval, delivered
+        /// while the button is still down. The view holding the press gets
+        /// first refusal; unconsumed, the window falls back to the nearest
+        /// context menu in the hit chain, exactly like a right-click. After a
+        /// CONSUMED long-press the gesture is over: the eventual release
+        /// neither activates the pressed control nor produces a `.click` —
+        /// while a hold nothing reacted to stays what it always was, a slow
+        /// click. Fresh presses only: a press continuing a same-spot
+        /// multi-click sequence never becomes a long-press (the guard's
+        /// promise that a click under the finger is not a gesture yet).
+        case longPress
+
         /// The pointer moved with no button held.
         case move
 

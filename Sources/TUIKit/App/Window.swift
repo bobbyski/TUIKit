@@ -287,17 +287,35 @@ open class Window: TUIView {
     private func routeMouse(_ mouse: MouseInput) -> Bool {
         // Right-click: walk the hit chain for a context menu.
         if mouse.action == .press, mouse.button == .right,
-           let hit = hitTest(mouse.position) {
-            var current: TUIView? = hit.view
+           presentNearestContextMenu(at: mouse.position) {
+            return true
+        }
 
-            while let view = current {
-                if let menu = view.contextMenu {
-                    presentContextMenu(menu, at: mouse.position)
-                    return true
-                }
+        // Long-press: the view holding the press gets first refusal (an
+        // explicit handler — a toolbar's alternate action, a button's
+        // onLongPress); unconsumed, it falls back to the nearest context
+        // menu in the hit chain, exactly like a right-click. Either way the
+        // gesture is finished: the grab is cancelled so the eventual release
+        // cannot ALSO activate the control that was being held.
+        if mouse.action == .longPress {
+            let grabbed = mouseGrabView
 
-                current = view === self ? nil : view.superview
+            let consumed: Bool
+            if let grabbed {
+                var localMouse = mouse
+                localMouse.position = mouse.position - windowOrigin(of: grabbed)
+                consumed = grabbed.mouseEvent(localMouse)
+            } else {
+                consumed = false
             }
+
+            if consumed || presentNearestContextMenu(at: mouse.position) {
+                grabbed?.mouseGestureCancelled()
+                mouseGrabView = nil
+                return true
+            }
+
+            return false
         }
 
         // A captured drag or release bypasses hit testing entirely.
@@ -361,6 +379,27 @@ open class Window: TUIView {
     }
 
     // MARK: - Context Menus
+
+    // Walks the hit chain at a window-local point for the nearest view with
+    // a context menu and presents it. Shared by right-click and long-press.
+    private func presentNearestContextMenu(at position: Point) -> Bool {
+        guard let hit = hitTest(position) else {
+            return false
+        }
+
+        var current: TUIView? = hit.view
+
+        while let view = current {
+            if let menu = view.contextMenu {
+                presentContextMenu(menu, at: position)
+                return true
+            }
+
+            current = view === self ? nil : view.superview
+        }
+
+        return false
+    }
 
     // The open context menu, when any (also a subview, which retains it).
     private weak var contextDropdown: MenuDropdown?

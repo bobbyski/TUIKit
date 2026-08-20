@@ -473,6 +473,16 @@ open class TUIView {
         false
     }
 
+    /// Tells a view holding a mouse press that the gesture was taken away.
+    ///
+    /// A long-press hands the gesture to something else — a handler, a
+    /// context menu — and the eventual release must not activate the control
+    /// that was being held. The window calls this on the grab view when that
+    /// happens; controls with pressed-state (a button's held face, a
+    /// toolbar's held slot) clear it here *without* firing their action.
+    /// Default: nothing, which is right for views without press state.
+    open func mouseGestureCancelled() {}
+
     // MARK: - Hit Testing and Traversal
 
     /// Finds the deepest visible view containing a point.

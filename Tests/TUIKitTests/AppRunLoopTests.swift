@@ -248,8 +248,12 @@ private final class ClickRecorder: TUIView {
 
     // One click: press/release land immediately, but the `.click` is held back
     // for the guard — so nothing fires ahead of a possible double.
+    //
+    // Stream bookkeeping: a FRESH press also arms the long-press clock, so
+    // one click registers two tick streams (long-press + guard); waiting for
+    // both keeps `fire()` from racing the guard's registration.
     await click(at: Point(x: 3, y: 1))
-    while await clock.streamCount < 1 {
+    while await clock.streamCount < 2 {
         await Task.yield()
     }
     #expect(recorder.presses == 1, "the low-level press is immediate")
@@ -263,10 +267,12 @@ private final class ClickRecorder: TUIView {
     #expect(recorder.clicks == [1])
 
     // Two clicks inside one guard window coalesce into a double (count 2) —
-    // and the single is never delivered on its own.
+    // and the single is never delivered on its own. Streams: the first
+    // click of the pair is fresh (long-press + guard), the second continues
+    // the sequence (guard only) — so five in total now.
     await click(at: Point(x: 3, y: 1))
     await click(at: Point(x: 3, y: 1))
-    while await clock.streamCount < 3 {
+    while await clock.streamCount < 5 {
         await Task.yield()
     }
     #expect(recorder.clicks == [1], "the double is still pending, not yet delivered")

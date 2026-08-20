@@ -58,6 +58,16 @@ public final class Button: TUIView {
     /// Called when the button activates.
     public var onActivate: () -> Void
 
+    /// Called when a press is held in place past the app's
+    /// ``App/longPressInterval`` — the browser back button showing its
+    /// history, a tool button offering variants.
+    ///
+    /// `nil` (the default) declines the long-press, and the window falls
+    /// back to the nearest ``TUIView/contextMenu`` in the hit chain. Either
+    /// way the gesture is consumed: the eventual release does not run
+    /// ``onActivate``.
+    public var onLongPress: (() -> Void)?
+
     /// Whether a mouse press is currently held on the button.
     public private(set) var isPressed = false {
         didSet {
@@ -305,6 +315,16 @@ public final class Button: TUIView {
             isPressed = true
             return true
 
+        case .longPress:
+            // Consuming hands the gesture over; the window then calls
+            // `mouseGestureCancelled()`, so the release cannot activate.
+            guard let onLongPress else {
+                return false   // fall back to the context-menu walk
+            }
+
+            onLongPress()
+            return true
+
         case .release:
             let wasPressed = isPressed
             isPressed = false
@@ -318,5 +338,11 @@ public final class Button: TUIView {
         default:
             return false
         }
+    }
+
+    /// A long-press took the gesture: drop the pressed face without
+    /// activating.
+    public override func mouseGestureCancelled() {
+        isPressed = false
     }
 }

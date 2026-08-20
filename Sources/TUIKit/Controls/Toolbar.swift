@@ -148,6 +148,17 @@ public final class ToolbarItem {
     /// the thing it acts on changes.
     public var action: () -> Void
 
+    /// Called when a press on this item is held past the app's
+    /// ``App/longPressInterval`` — the browser back button showing its
+    /// history menu is the motivating case.
+    ///
+    /// An item with a long-press action activates on *release* rather than
+    /// on press (it cannot know which gesture it is until one of them
+    /// happens); items without one keep activating the moment they are
+    /// pressed, exactly as before. Buttons only — a hosted control owns its
+    /// own mouse handling.
+    public var longPressAction: (() -> Void)?
+
     /// Whether a hosted control absorbs leftover width (R6).
     ///
     /// A browser's address field has no natural width — it wants whatever
@@ -737,33 +748,95 @@ public final class Toolbar: TUIView {
         }
     }
 
-    /// Click activates the item (or opens the overflow menu) under the pointer.
+    // The slot a press is holding, waiting to learn whether it is a click or
+    // a long-press. Only items with a `longPressAction` ever wait.
+    private var heldSlot: Int?
+
+    /// Click activates the item (or opens the overflow menu) under the
+    /// pointer. An item carrying a long-press action activates on release
+    /// instead, so holding it can fire the alternate action.
     public override func mouseEvent(_ mouse: MouseInput) -> Bool {
-        guard mouse.action == .press, mouse.button == .left,
-              mouse.position.y >= 0, mouse.position.y < max(1, bounds.size.height) else {
+        guard mouse.position.y >= 0, mouse.position.y < max(1, bounds.size.height) else {
             return false
         }
 
         let plan = layout()
 
+        switch mouse.action {
+        case .press where mouse.button == .left:
+            guard let slot = slot(at: mouse.position, in: plan) else {
+                return false
+            }
+
+            focusedSlot = slot
+            setNeedsDisplay()
+
+            // An item that can long-press cannot activate yet — which
+            // gesture this is only becomes known at the release (or when the
+            // hold outlasts the interval).
+            if slot < plan.visibleCount, items[slot].longPressAction != nil, items[slot].isInteractive {
+                heldSlot = slot
+                return true
+            }
+
+            activate(slot: slot, plan: plan)
+            return true
+
+        case .longPress:
+            guard let slot = heldSlot ?? slot(at: mouse.position, in: plan),
+                  slot < plan.visibleCount,
+                  items[slot].isInteractive,
+                  let longPress = items[slot].longPressAction else {
+                return false   // fall back to the context-menu walk
+            }
+
+            heldSlot = nil
+            longPress()
+            return true
+
+        case .release:
+            guard let held = heldSlot else {
+                return false
+            }
+
+            heldSlot = nil
+
+            // Release inside the held segment is the click; outside cancels,
+            // the same contract as Button.
+            if slot(at: mouse.position, in: plan) == held {
+                activate(slot: held, plan: plan)
+            }
+
+            return true
+
+        default:
+            return false
+        }
+    }
+
+    /// A long-press took the gesture: forget the held slot without
+    /// activating.
+    public override func mouseGestureCancelled() {
+        heldSlot = nil
+    }
+
+    // The focus slot under a bar-local point: a visible item, or the
+    // overflow slot (`visibleCount`) when the pointer is on the `»`.
+    private func slot(at position: Point, in plan: Layout) -> Int? {
         for slot in 0..<plan.visibleCount {
             let segment = plan.segments[slot]
 
-            if mouse.position.x >= segment.x, mouse.position.x < segment.x + segment.width {
-                focusedSlot = slot
-                activate(slot: slot, plan: plan)
-                return true
+            if position.x >= segment.x, position.x < segment.x + segment.width {
+                return slot
             }
         }
 
         if plan.hasOverflow, let overflowX = plan.overflowX,
-           mouse.position.x >= overflowX, mouse.position.x < overflowX + overflowWidth {
-            focusedSlot = plan.visibleCount
-            activate(slot: plan.visibleCount, plan: plan)
-            return true
+           position.x >= overflowX, position.x < overflowX + overflowWidth {
+            return plan.visibleCount
         }
 
-        return false
+        return nil
     }
 
     // MARK: - Activation
