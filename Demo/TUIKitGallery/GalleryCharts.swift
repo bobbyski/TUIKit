@@ -69,17 +69,6 @@ func makeChartsTab() -> TUIView {
         return chart
     }, 9)
 
-    addRow(sideBySide("PieChart (donut 0.55)", height: 8) {
-        let chart = PieChart(slices: [
-            .init(label: "rent", value: 42),
-            .init(label: "food", value: 33),
-            .init(label: "transit", value: 17),
-            .init(label: "misc", value: 8),
-        ])
-        chart.innerRadiusFraction = 0.55
-        return chart
-    }, 8)
-
     addRow(sideBySide("TimelineChart", height: 7) {
         let chart = TimelineChart(rows: [
             TimelineRow(label: "index.html", segments: [.init(start: 0, duration: 210, kind: .active)]),
@@ -124,6 +113,19 @@ func makeChartsTab() -> TUIView {
         chart.xFormatter = { "\(Int($0))s" }
         return chart
     }, 10)
+
+    // The pie sits last: its cell disc is the coarsest thing on the tab,
+    // and the charts above it deserve the first screenful.
+    addRow(sideBySide("PieChart (donut 0.55)", height: 8) {
+        let chart = PieChart(slices: [
+            .init(label: "rent", value: 42),
+            .init(label: "food", value: 33),
+            .init(label: "transit", value: 17),
+            .init(label: "misc", value: 8),
+        ])
+        chart.innerRadiusFraction = 0.55
+        return chart
+    }, 8)
 
     let note = Label("If the two columns look the same, this terminal has no VTG graphics.")
     note.alignment = .center

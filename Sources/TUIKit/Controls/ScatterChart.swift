@@ -208,7 +208,7 @@ public final class ScatterChart: TUIView {
         }
 
         // Vector: sub-cell-precise dots — all-or-nothing, like every chart.
-        if let chrome = painter.chrome,
+        if let chrome = painter.chrome, chrome.covers(bounds),
            let backing = ChromeColor(theme.background),
            inks.allSatisfy({ ChromeColor($0.foreground) != nil }) {
             let plotArea = Rect(x: plotLeft, y: plotTop, width: plotWidth, height: plotRows)

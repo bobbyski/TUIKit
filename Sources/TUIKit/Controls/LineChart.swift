@@ -257,7 +257,7 @@ public final class LineChart: TUIView {
         // and labels stay native text. Only when every colour involved has
         // real RGB; `suppressesVectorChrome` (or a colourless theme) keeps
         // the glyph rendering below.
-        if let chrome = painter.chrome,
+        if let chrome = painter.chrome, chrome.covers(bounds),
            let backing = ChromeColor(theme.background),
            let inks = vectorInks(theme: theme) {
             let plotArea = Rect(x: axisColumn + 1, y: plotTop, width: plotWidth, height: plotRows)

@@ -234,7 +234,7 @@ public final class TimelineChart: TUIView {
         // colours have real RGB; `suppressesVectorChrome` pins glyphs.
         let chrome: ChromeSurface?
 
-        if let surface = painter.chrome, ChromeColor(theme.background) != nil {
+        if let surface = painter.chrome, surface.covers(bounds), ChromeColor(theme.background) != nil {
             chrome = surface
             surface.rect(
                 "backing",

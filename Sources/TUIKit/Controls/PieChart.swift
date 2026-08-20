@@ -111,6 +111,9 @@ public final class PieChart: TUIView {
         }
 
         // Cumulative fractions → each slice's [start, end) angle share.
+        // The last boundary is FORCED to exactly 1: summed floating-point
+        // fractions land a hair under, and that hair is a visible dark
+        // sliver at 12 o'clock once angles round to pixels.
         var boundaries: [Double] = [0]
         var running = 0.0
 
@@ -118,6 +121,8 @@ public final class PieChart: TUIView {
             running += magnitude / total
             boundaries.append(running)
         }
+
+        boundaries[boundaries.count - 1] = 1
 
         // Disc geometry: the largest circle the left region allows. Cells
         // are ~half as wide as tall, so the x radius doubles.
@@ -135,7 +140,7 @@ public final class PieChart: TUIView {
         }
 
         // Vector mode: real sectors, all-or-nothing like every chart here.
-        if let chrome = painter.chrome,
+        if let chrome = painter.chrome, chrome.covers(bounds),
            let backing = ChromeColor(theme.background),
            inks.allSatisfy({ ChromeColor($0.foreground) != nil }) {
             chrome.rect(
@@ -147,15 +152,27 @@ public final class PieChart: TUIView {
             let transparent = painter.withBase(CellStyle())
             transparent.fill(Rect(x: 0, y: 0, width: discWidth + 1, height: height), with: .blank)
 
+            // Full pie slices, with the donut hole as ONE surface-colored
+            // circle on top — not per-slice inner arcs. A ring path (outer
+            // arc, reversed inner arc) leans on the renderer's winding
+            // rules; slices-plus-hole is winding-proof and closes cleanly.
             for (index, _) in slices.enumerated() where magnitudes[index] > 0 {
                 chrome.sector(
                     "slice-\(index)",
                     center: ChromePoint(x: centerX, y: centerY),
                     radius: radiusY,
-                    innerRadius: radiusY * inner,
                     start: boundaries[index] * 2 * Double.pi,
                     end: boundaries[index + 1] * 2 * Double.pi,
                     fill: ChromeColor(inks[index].foreground)!
+                )
+            }
+
+            if inner > 0 {
+                chrome.circle(
+                    "hole",
+                    center: ChromePoint(x: centerX, y: centerY),
+                    radius: radiusY * inner,
+                    fill: backing
                 )
             }
 

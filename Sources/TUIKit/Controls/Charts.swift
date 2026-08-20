@@ -124,7 +124,7 @@ public final class Sparkline: TUIView {
         // The vector rendering: a backing in the surface colour, then one
         // sub-cell-precise bar per column. Only when every colour has real
         // RGB — a colourless theme keeps glyphs.
-        if let chrome = painter.chrome,
+        if let chrome = painter.chrome, chrome.covers(bounds),
            let ink = ChromeColor(cellStyle.foreground),
            let backing = ChromeColor(theme.background) {
             chrome.rect("backing", ChromeRect(bounds), fill: backing)

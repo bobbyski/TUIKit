@@ -520,18 +520,59 @@ private func chromeRendered(_ view: TUIView, width: Int, height: Int, theme: The
     chart.innerRadiusFraction = 0.5
     let (commands, _) = chromeRendered(chart, width: 30, height: 7, theme: .turbo)
 
-    let sectors = commands.compactMap { command -> (start: Double, end: Double, inner: Double)? in
-        guard case .sector(_, _, let inner, let start, let end, _) = command.shape else {
+    let sectors = commands.compactMap { command -> (start: Double, end: Double)? in
+        guard case .sector(_, _, _, let start, let end, _) = command.shape else {
             return nil
         }
 
-        return (start, end, inner)
+        return (start, end)
     }
 
     #expect(sectors.count == 2)
-    #expect(abs((sectors.last?.end ?? 0) - 2 * Double.pi) < 0.001, "the sweep closes the full circle")
+    #expect(
+        sectors.last?.end == 2 * Double.pi,
+        "the sweep closes EXACTLY — summed fractions are forced to 1, or rounding leaves a dark sliver at 12 o'clock"
+    )
     #expect(abs((sectors[0].end) - 1.5 * Double.pi) < 0.001, "3 of 4 = three quarters of the sweep")
-    #expect(sectors.allSatisfy { $0.inner > 0 }, "the donut keeps its hole")
+
+    // The hole is one surface-colored circle over full pie slices —
+    // winding-proof, unlike per-slice inner arcs.
+    guard let hole = commands.first(where: { $0.id.hasSuffix("_hole") }),
+          case .circle(_, let radius, let fill, _, _) = hole.shape else {
+        Issue.record("no donut hole")
+        return
+    }
+
+    #expect(radius > 0)
+    #expect(fill == ChromeColor(Theme.turbo.resolved().background), "the hole wears the chart's surface")
+}
+
+@Test @MainActor func aPartiallyVisibleChartKeepsItsCellsInsideTheClip() {
+    // Round vector shapes cannot be cropped by the terminal, so a chart
+    // scrolled half out of view must NOT draw them — its sectors would
+    // spill past the region cells are clipped to (the escaped-donut bug).
+    // Partially visible → the cell rendering, which clips perfectly.
+    let parent = TUIView(frame: Rect(x: 0, y: 0, width: 40, height: 4))
+    parent.theme = .ambiance
+
+    let pie = PieChart(slices: [.init(label: "a", value: 1), .init(label: "b", value: 1)])
+    pie.frame = Rect(x: 0, y: 2, width: 40, height: 7)   // hangs 5 rows past the parent
+    parent.addSubview(pie)
+
+    let renderer = SceneRenderer(root: parent)
+    renderer.chromeEnabled = true
+    let buffer = renderer.render(size: Size(width: 40, height: 4))
+
+    #expect(
+        !renderer.chromeCommands.contains { $0.id.contains("_slice-") || $0.id.contains("_backing") },
+        "no vector shapes from a partially clipped chart"
+    )
+    #expect(buffer.textLines().joined().contains("█"), "the visible strip still draws — as cells, clipped")
+
+    // Fully visible again → vector shapes return.
+    pie.frame = Rect(x: 0, y: 0, width: 40, height: 4)
+    _ = renderer.render(size: Size(width: 40, height: 4))
+    #expect(renderer.chromeCommands.contains { $0.id.contains("_slice-") })
 }
 
 @Test @MainActor func scatterPlotsEachSeriesInItsOwnMarkerAndVectorDots() {

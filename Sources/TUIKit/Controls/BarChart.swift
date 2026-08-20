@@ -166,7 +166,7 @@ public final class BarChart: TUIView {
 
         let vector: (chrome: ChromeSurface, backing: ChromeColor, fills: [ChromeColor])?
 
-        if let chrome = painter.chrome,
+        if let chrome = painter.chrome, chrome.covers(bounds),
            let backing = ChromeColor(theme.background),
            inks.allSatisfy({ ChromeColor($0.foreground) != nil }) {
             vector = (chrome, backing, inks.map { ChromeColor($0.foreground)! })

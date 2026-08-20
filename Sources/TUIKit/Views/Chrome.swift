@@ -480,6 +480,20 @@ public struct ChromeSurface {
         ChromeRect(clip)
     }
 
+    /// Whether a view-local rectangle is FULLY visible through every
+    /// ancestor clip.
+    ///
+    /// The gate for round and polygonal chrome: rectangles clamp to the
+    /// clip, but VTG cannot crop a sector or a polyline, so a view that is
+    /// only partly visible (scrolled half out of a `ScrollView`, say) must
+    /// not draw them — its shapes would spill past the region cells are
+    /// clipped to. Charts check this and fall back to their cell rendering,
+    /// which clips perfectly, whenever it is false.
+    public func covers(_ rect: Rect) -> Bool {
+        let translated = Rect(origin: origin + rect.origin, size: rect.size)
+        return clip.intersection(translated) == translated
+    }
+
     // Appends a command after translation and clipping. Rectangles clamp to
     // the clip; circles and lines are kept whole when their bounds touch it.
     //
