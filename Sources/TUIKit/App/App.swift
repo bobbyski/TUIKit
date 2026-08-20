@@ -1,3 +1,5 @@
+import Foundation
+
 /// The TUIKit application: window stack, input loop, and frame presentation.
 ///
 /// `App` connects a `TerminalDriver` to a stack of `Window`s:
@@ -309,6 +311,7 @@ public final class App {
     /// The loop exits when the current event finishes processing; `run(_:)`
     /// then restores the terminal and returns to its caller.
     public func stop() {
+        StopTrace.log("App.stop() — isRunning was \(isRunning)")
         isRunning = false
 
         // Wake the loop. It checks `isRunning` only after handling an event,
@@ -421,6 +424,7 @@ public final class App {
             }
         }
 
+        StopTrace.log("run loop exited")
         inputTask.cancel()
 
         for timer in timers {
@@ -430,7 +434,9 @@ public final class App {
 
         eventContinuation = nil
         isRunning = false
+        StopTrace.log("teardown: awaiting driver.end()")
         await driver.end()
+        StopTrace.log("teardown: driver.end() returned — run(_:) returning")
     }
 
     // One thing the run loop can wake on.
@@ -476,6 +482,11 @@ public final class App {
             applyScreenSize(size)
 
         case .key(let key):
+            // With tracing on, every decoded key is a breadcrumb: a quit
+            // report whose trace shows the key arriving is a stop/teardown
+            // problem; one whose trace shows nothing is a deaf-input one.
+            StopTrace.log("key decoded: \(key.key) modifiers \(key.modifiers.rawValue)")
+
             if stopsOnControlC,
                key.key == .character("c"),
                key.modifiers == .control {
@@ -729,6 +740,33 @@ public final class App {
         // Chrome rides every cell frame; the driver skips identical frames.
         if isVectorChromeActive {
             await driver.presentChrome(renderer.chromeCommands)
+        }
+    }
+}
+
+/// Shutdown breadcrumbs for diagnosing "quit didn't quit" reports from
+/// terminals we cannot reproduce locally (set `TUIKIT_STOP_TRACE=/path`).
+///
+/// The first question such a report needs answered is WHICH half failed:
+/// no lines at all when the quit key was pressed means the key never
+/// decoded (the app is deaf — an input/decoder problem); `App.stop()`
+/// logged but `driver.end() returned` missing means the teardown hung
+/// (a driver problem). A no-op — not even a getenv per call is avoided,
+/// but zero I/O — unless the variable is set.
+enum StopTrace {
+    nonisolated static func log(_ message: String) {
+        guard let path = ProcessInfo.processInfo.environment["TUIKIT_STOP_TRACE"] else {
+            return
+        }
+
+        let line = "[\(Date())] \(message)\n"
+
+        if let handle = FileHandle(forWritingAtPath: path) {
+            handle.seekToEndOfFile()
+            handle.write(Data(line.utf8))
+            try? handle.close()
+        } else {
+            try? line.write(toFile: path, atomically: false, encoding: .utf8)
         }
     }
 }

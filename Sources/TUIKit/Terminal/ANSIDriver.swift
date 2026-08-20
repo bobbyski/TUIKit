@@ -219,6 +219,7 @@ public actor ANSIDriver: TerminalDriver {
     ///
     /// Safe to call unconditionally, including after a failed `begin()`.
     public func end() async {
+        StopTrace.log("ANSIDriver.end(): sources cancelling")
         readSource?.cancel()
         readSource = nil
         resizeSource?.cancel()
@@ -239,11 +240,13 @@ public actor ANSIDriver: TerminalDriver {
             }
 
             graphicsDetected = false
+            StopTrace.log("ANSIDriver.end(): VTG scene cleared")
         }
 
         if isActive {
             // Disable mouse, show cursor, leave the alternate screen.
             await write("\u{1B}[?1006l\u{1B}[?1002l\u{1B}[?25h\u{1B}[?1049l")
+            StopTrace.log("ANSIDriver.end(): restore sequence written")
         }
 
         if var original = originalTermios {
