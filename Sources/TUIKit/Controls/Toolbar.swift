@@ -148,6 +148,22 @@ public final class ToolbarItem {
     /// the thing it acts on changes.
     public var action: () -> Void
 
+    /// Whether a hosted control absorbs leftover width (R6).
+    ///
+    /// A browser's address field has no natural width — it wants whatever
+    /// the icons leave. A flexible `.view` joins the same second pass that
+    /// grows flexible spaces: it starts at its natural width and the
+    /// leftover is split evenly among every flexible space *and* flexible
+    /// view. Meaningless on the other kinds (a button stays its label's
+    /// size); only `.view` items consult it.
+    public var isFlexible: Bool {
+        didSet {
+            if isFlexible != oldValue {
+                owner?.itemChanged(resized: true)
+            }
+        }
+    }
+
     /// Creates an item.
     ///
     /// - Parameters:
@@ -161,12 +177,14 @@ public final class ToolbarItem {
         title: String = "",
         isEnabled: Bool = true,
         isVisible: Bool = true,
+        isFlexible: Bool = false,
         action: @escaping () -> Void = {}
     ) {
         self.kind = kind
         self.title = title
         self.isEnabled = isEnabled
         self.isVisible = isVisible
+        self.isFlexible = isFlexible
         self.action = action
     }
 
@@ -217,8 +235,10 @@ public final class ToolbarItem {
     /// - Parameters:
     ///   - view: The control.
     ///   - title: A name, for the overflow menu and for tests.
-    public static func view(_ view: TUIView, title: String = "") -> ToolbarItem {
-        ToolbarItem(kind: .view(view), title: title)
+    ///   - flexible: Whether the control absorbs leftover width — the
+    ///     browser-address-field case. See ``isFlexible``.
+    public static func view(_ view: TUIView, title: String = "", flexible: Bool = false) -> ToolbarItem {
+        ToolbarItem(kind: .view(view), title: title, isFlexible: flexible)
     }
 
     /// Whether this entry can take focus or be clicked.
@@ -1011,8 +1031,19 @@ public final class Toolbar: TUIView {
     // share, and growing a gap while items are being hidden behind a `»`
     // would be actively perverse.
     private func distributeFlexibleSpace(in segments: inout [(x: Int, width: Int)], visibleCount: Int, within width: Int) {
-        let flexible = (0..<visibleCount).filter {
-            if case .flexibleSpace = items[$0].kind { return true } else { return false }
+        let flexible = (0..<visibleCount).filter { index in
+            switch items[index].kind {
+            case .flexibleSpace:
+                return true
+
+            case .view:
+                // R6: a flexible hosted control (an address field) grows
+                // from its natural width exactly like a flexible space.
+                return items[index].isFlexible && items[index].isVisible
+
+            case .button, .divider, .space:
+                return false
+            }
         }
 
         guard !flexible.isEmpty, let last = segments.last else {

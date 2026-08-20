@@ -238,3 +238,63 @@ private final class TallStub: TUIView {
     item.isEnabled = false
     #expect(!bar.needsDisplay)
 }
+
+// MARK: - Flexible hosted views (R6)
+
+@Test @MainActor func aFlexibleViewTakesTheRemainingWidth() {
+    // The browser toolbar: back button, address field, settings — and the
+    // field wants whatever the icons leave.
+    let field = TextField()
+    let bar = Toolbar()
+    bar.addItem("◀")
+    bar.add(.view(field, title: "Address", flexible: true))
+    bar.addItem("⚙")
+
+    _ = rendered(bar, width: 40, height: 1)
+    bar.layoutIfNeeded()
+
+    // The field grew from its natural width to fill the row: everything the
+    // two one-glyph buttons and separators left over.
+    #expect(field.frame.size.width > 25, "the field absorbed the leftover, got \(field.frame.size.width)")
+    #expect(field.frame.maxX + 4 >= 40 - 4, "the row ends near the last button")
+
+    // And the trailing button was pushed to the right-hand end.
+    let row = rendered(bar, width: 40, height: 1)[0]
+    let gear = row.firstIndex(of: "⚙")!
+    #expect(row.distance(from: row.startIndex, to: gear) >= 36)
+}
+
+@Test @MainActor func aFlexibleViewAndAFlexibleSpaceSplitTheLeftoverEvenly() {
+    let field = TextField()
+    let bar = Toolbar()
+    bar.add(.view(field, title: "Search", flexible: true))
+    bar.add(.flexibleSpace())
+    bar.addItem("X")
+
+    _ = rendered(bar, width: 41, height: 1)
+    bar.layoutIfNeeded()
+
+    // Natural widths: field 8, space 0. Leftover splits evenly between them,
+    // so the field ends up at 8 + leftover/2 — the same rule as two spaces.
+    let row = rendered(bar, width: 41, height: 1)[0]
+    let x = row.firstIndex(of: "X")!
+    let xColumn = row.distance(from: row.startIndex, to: x)
+    let gap = xColumn - field.frame.maxX
+    #expect(abs((field.frame.size.width - 8) - gap) <= 1, "field growth \(field.frame.size.width - 8) vs space \(gap)")
+}
+
+@Test @MainActor func anOverflowingBarDoesNotGrowItsFlexibleView() {
+    let field = TextField()
+    let bar = Toolbar()
+    bar.addItem("Backward")
+    bar.add(.view(field, title: "Address", flexible: true))
+    bar.addItem("Forward")
+    bar.addItem("Reload")
+
+    // Too narrow for everything: the trailing items collapse into `»`, and
+    // there is no leftover for the field to absorb.
+    _ = rendered(bar, width: 24, height: 1)
+    bar.layoutIfNeeded()
+
+    #expect(field.frame.size.width == 8, "natural width under overflow, got \(field.frame.size.width)")
+}
