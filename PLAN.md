@@ -508,3 +508,10 @@ Full plan and parity matrix: **`Docs/CodeEditorPlan.md`**.
   `NEEDS_HUMAN.md` with an alert to Bobby.
 - Every public symbol gets a documentation comment; classes get use-case
   summaries with ASCII diagrams where they help.
+- **Every new control gets a gallery spot, in the same commit.**
+  `swift run TUIKitGallery` (Demo/TUIKitGallery) is the control showroom:
+  folder tabs group the controls, the Theme menu proves them under every
+  theme, and anything with a VTG rendering shows its VTG and ANSI forms
+  side by side (via `suppressesVectorChrome`), the way the Charts tab
+  does. A control that isn't in the gallery is invisible to the person
+  deciding whether it already exists.

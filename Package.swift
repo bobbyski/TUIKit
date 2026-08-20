@@ -85,6 +85,17 @@ let package = Package(
             name: "TUIKitTests",
             dependencies: ["TUIKit"]
         ),
+        // `swift run TUIKitGallery` — every control, grouped into folder
+        // tabs, in the OmegaCLIDE shell form (menu bar, resizable window on
+        // the desktop, status strip). The Charts tab renders each chart
+        // twice — VTG beside ANSI (via `suppressesVectorChrome`) — so a
+        // VectorTerminal shows both at once. Maintenance rule (PLAN.md):
+        // every new control gets a gallery spot in the same commit.
+        .executableTarget(
+            name: "TUIKitGallery",
+            dependencies: ["TUIKit"],
+            path: "Demo/TUIKitGallery"
+        ),
         // The tutorial's runnable milestones (Docs/Tutorial/): a library so
         // the anti-rot tests can render every chapter headlessly. Uses ONLY
         // public TUIKit API (no @testable) — the tutorial can't quietly rely
