@@ -39,13 +39,31 @@ import RichSwift
 /// ```
 @MainActor
 public final class SyntaxTextView: TUIView {
-    /// Language identifier passed to RichSwift (`"swift"`, `"python"`, …).
+    /// Language identifier (`"swift"`, `"python"`, `"html"`, `"js"`, …).
+    ///
+    /// Languages with a built-in lexer (HTML, JavaScript, CSS — see
+    /// ``SyntaxHighlighters``) highlight through the stateful line lexers;
+    /// everything else falls through to the RichSwift keyword path.
     public var language: String {
         didSet {
             if language != oldValue {
                 highlightCache.removeAll()
+                lineEndStates.removeAll()
                 setNeedsDisplay()
             }
+        }
+    }
+
+    /// A custom highlighter for this view (R8b).
+    ///
+    /// `nil` (the default) chooses by ``language``. Set it when the caller
+    /// has better tokens than any generic lexer — a browser handing its
+    /// view-source the engine's exact ranges, say.
+    public var highlighter: (any SyntaxHighlighting)? {
+        didSet {
+            highlightCache.removeAll()
+            lineEndStates.removeAll()
+            setNeedsDisplay()
         }
     }
 
@@ -100,6 +118,12 @@ public final class SyntaxTextView: TUIView {
     // Highlighted runs by line index.
     private var highlightCache: [Int: [StyledRun]] = [:]
 
+    // The lexing state each line ENDS in (stateful providers only) — what
+    // makes line-at-a-time highlighting correct across multi-line comments,
+    // template literals, and <script> bodies. Cached beside the runs; a
+    // recompute whose end state changed drops everything after it.
+    private var lineEndStates: [Int: HighlightState] = [:]
+
     // Active find state (nil query = find inactive).
     private var findQuery: String?
     private var findCaseSensitive = false
@@ -141,6 +165,7 @@ public final class SyntaxTextView: TUIView {
         buffer.setText(newText)
         offset = .zero
         highlightCache.removeAll()
+        lineEndStates.removeAll()
         clearFind()
         setNeedsDisplay()
     }
@@ -309,6 +334,7 @@ public final class SyntaxTextView: TUIView {
 
         let count = buffer.replaceAll(of: query, with: replacement, caseSensitive: findCaseSensitive)
         highlightCache.removeAll()
+        lineEndStates.removeAll()
         recomputeMatches()
         ensureCursorVisible()
         setNeedsDisplay()
@@ -862,10 +888,13 @@ public final class SyntaxTextView: TUIView {
             return
 
         case .line(let line):
+            // The line's end state stays for now: its recompute compares
+            // against it and drops the following lines only when it moved.
             highlightCache[line] = nil
 
         case .from(let line):
             highlightCache = highlightCache.filter { $0.key < line }
+            lineEndStates = lineEndStates.filter { $0.key < line }
         }
 
         recomputeMatches()
@@ -904,7 +933,8 @@ public final class SyntaxTextView: TUIView {
         showsLineNumbers ? String(lines.count).count + 2 : 0
     }
 
-    // Cached per-line highlighting through RichSwift Syntax.
+    // Cached per-line highlighting: a stateful provider (custom, or built in
+    // for HTML/JS/CSS) when one applies, else RichSwift Syntax.
     private func highlightedRuns(for index: Int) -> [StyledRun] {
         if let cached = highlightCache[index] {
             return cached
@@ -913,7 +943,9 @@ public final class SyntaxTextView: TUIView {
         let line = lines[index]
         let runs: [StyledRun]
 
-        if line.isEmpty {
+        if let provider = highlighter ?? SyntaxHighlighters.builtIn(for: language) {
+            runs = providerRuns(for: index, line: line, provider: provider)
+        } else if line.isEmpty {
             runs = []
         } else {
             let rendered = Syntax(line, language: language)
@@ -922,6 +954,86 @@ public final class SyntaxTextView: TUIView {
         }
 
         highlightCache[index] = runs
+        return runs
+    }
+
+    // One line through the stateful provider, threading the previous line's
+    // end state in and recording the new end state — and when that end
+    // state MOVED (an opened comment, a closed template literal), dropping
+    // every cached line after this one, because they all lex differently
+    // now.
+    private func providerRuns(for index: Int, line: String, provider: any SyntaxHighlighting) -> [StyledRun] {
+        var state = stateBefore(index, provider: provider)
+        let spans = provider.highlight(line: line, state: &state)
+
+        if lineEndStates[index] != state {
+            lineEndStates[index] = state
+            highlightCache = highlightCache.filter { $0.key <= index }
+            lineEndStates = lineEndStates.filter { $0.key <= index }
+        }
+
+        return styledRuns(from: spans, line: line)
+    }
+
+    // The state line `index` STARTS in: the previous line's end state,
+    // filling any gap forward from the nearest known state (or the top of
+    // the file). Rendering walks top-down, so after the first pass this is
+    // a dictionary hit.
+    private func stateBefore(_ index: Int, provider: any SyntaxHighlighting) -> HighlightState {
+        guard index > 0 else {
+            return .initial
+        }
+
+        if let known = lineEndStates[index - 1] {
+            return known
+        }
+
+        var start = index - 1
+
+        while start > 0, lineEndStates[start - 1] == nil {
+            start -= 1
+        }
+
+        var state = start == 0 ? .initial : lineEndStates[start - 1]!
+
+        for line in start..<index {
+            _ = provider.highlight(line: lines[line], state: &state)
+            lineEndStates[line] = state
+        }
+
+        return state
+    }
+
+    // Sparse semantic spans into the contiguous styled runs the draw loop
+    // paints; gaps are plain.
+    private func styledRuns(from spans: [HighlightSpan], line: String) -> [StyledRun] {
+        guard !line.isEmpty else {
+            return []
+        }
+
+        let characters = Array(line)
+        var runs: [StyledRun] = []
+        var position = 0
+
+        for span in spans {
+            let start = max(position, min(span.start, characters.count))
+            let end = max(start, min(span.start + span.length, characters.count))
+
+            if start > position {
+                runs.append(StyledRun(text: String(characters[position..<start]), style: CellStyle()))
+            }
+
+            if end > start {
+                runs.append(StyledRun(text: String(characters[start..<end]), style: span.kind.cellStyle))
+            }
+
+            position = end
+        }
+
+        if position < characters.count {
+            runs.append(StyledRun(text: String(characters[position...]), style: CellStyle()))
+        }
+
         return runs
     }
 }
