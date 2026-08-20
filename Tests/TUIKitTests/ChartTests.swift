@@ -414,21 +414,27 @@ private func chromeRendered(_ view: TUIView, width: Int, height: Int, theme: The
 }
 
 @Test @MainActor func chartsFallBackToForegroundInkWhenTheAccentIsTheSurface() {
-    // Turbo's content window sets accent = the document blue (for toolbar
-    // tinting): data drawn in it would vanish into its own surface. Charts
-    // fall back to the body foreground there — and keep the accent
-    // everywhere the accent is actually visible.
-    let spark = Sparkline(values: [1])
-    spark.theme = .turbo
-    spark.themeContext = .contentWindow
+    // A theme may point `accent` at a surface (Turbo's content window did,
+    // before secondaryAccent took the toolbar-tinting job): derived chart
+    // ink would vanish into it, so the derivation falls back to the body
+    // foreground there.
+    let blue = TerminalColor.rgb(red: 0, green: 0, blue: 170)
+    let yellow = TerminalColor.rgb(red: 255, green: 255, blue: 85)
+    let collided = Theme.surface("Collided", background: blue, foreground: yellow, accent: blue)
 
-    let content = Theme.turbo.resolved(for: .contentWindow)
-    #expect(content.accent == content.background, "the premise: Turbo's content accent IS the surface")
+    let spark = Sparkline(values: [1])
+    spark.theme = collided
 
     let buffer = renderedBuffer(spark, width: 1, height: 1)
-    #expect(buffer[Point(x: 0, y: 0)].style.foreground == content.foreground, "ink falls back to the foreground")
+    #expect(buffer[Point(x: 0, y: 0)].style.foreground == yellow, "derived ink falls back to the foreground")
 
-    // And chart de-emphasis never drags the placeholder's own background
-    // (Turbo tunes it for gray toolbars) onto the chart surface.
-    #expect(content.chartDeemphasis.background == .standard)
+    // And chart de-emphasis never drags the placeholder slot's own
+    // background (tuned for other surfaces) onto the chart surface.
+    #expect(collided.resolved().chartDeemphasis.background == .standard)
+
+    // An explicit series palette is used as given — the derivation guard is
+    // only for themes that never thought about charts.
+    let turboContent = Theme.turbo.resolved(for: .contentWindow)
+    #expect(turboContent.chartData(0) == .rgb(red: 0, green: 170, blue: 0), "Turbo's EGA palette: series 1 is green")
+    #expect(turboContent.chartData(10) == turboContent.chartData(0), "the palette cycles")
 }

@@ -157,8 +157,10 @@ public final class Slider: TUIView {
 
         var handleStyle = theme.border
 
-        if isFirstResponder, theme.accent != .standard {
-            handleStyle.foreground = theme.accent
+        // Same surface guard as the dividers: a full-block handle recolored
+        // to an accent that IS the surface reads as a hole in the track.
+        if isFirstResponder, let cue = theme.cueAccent(over: handleStyle.background) {
+            handleStyle.foreground = cue
         }
 
         painter.set(TerminalCell(character: "█", style: handleStyle), at: point(along: handleOffset))

@@ -84,8 +84,8 @@ public final class Divider: TUIView {
         // (mono) show no cue.
         var style = theme.border
 
-        if isDraggable, isFirstResponder || isDragging, theme.accent != .standard {
-            style.foreground = theme.accent
+        if isDraggable, isFirstResponder || isDragging, let cue = theme.cueAccent(over: style.background) {
+            style.foreground = cue
         }
 
         switch axis {

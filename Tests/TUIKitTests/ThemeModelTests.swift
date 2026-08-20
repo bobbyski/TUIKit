@@ -15,6 +15,9 @@ private func rgb(_ v: UInt8) -> TerminalColor { .rgb(red: v, green: v, blue: v) 
     base.foreground = .rgb(red: 255, green: 255, blue: 85)
     base.background = .rgb(red: 0, green: 0, blue: 170)
     base.accent = .named(.brightCyan)
+    base.secondaryAccent = .named(.brightYellow)
+    base.chartAxisColor = .named(.brightBlack)
+    base.chartData = [.named(.green), .rgb(red: 255, green: 170, blue: 0)]
     base.selectionForeground = .standard
     base.selectionAttributes = [.inverse]
     base.headerAttributes = [.bold]

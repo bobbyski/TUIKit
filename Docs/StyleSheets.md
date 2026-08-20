@@ -45,13 +45,23 @@ Dialog            { border: rounded; }
 - Commas separate alternative selectors for one rule.
 - Parsing is tolerant: malformed rules and unknown properties are skipped.
 
-## Properties (logical only)
+## Properties (logical only — and open-ended)
+
+Every `name: value;` parses. Names TUIKit knows write theme slots (the
+table); **any other name is kept**, typed by its value's shape, in
+`theme.custom` — an application can invent `glow-color: #ff8800;` and read
+it back with `effectiveTheme.customColor("glow-color")` without TUIKit
+having heard of it. CSS is not restricted to the built-in vocabulary.
 
 | Property                                  | Writes to                  |
 |-------------------------------------------|----------------------------|
 | `color`, `background`                     | `theme.base` colors        |
 | `bold`, `dim`, `italic`, `underline`      | `theme.base.flags`         |
 | `accent`                                  | `theme.accent`             |
+| `secondary-accent`                        | `theme.secondaryAccent` (toolbar tint) |
+| `chart-axis`                              | `theme.chartAxisColor`     |
+| `chart-data-1` … `chart-data-10`          | the chart series palette (one entry each; unset entries keep their theme-derived colors) |
+| *anything else*                           | `theme.custom[name]`       |
 | `selection-color`, `selection-background` | `theme.selection`          |
 | `header-color`, `header-background`       | `theme.header`             |
 | `border-color`, `border-background`       | `theme.border`             |

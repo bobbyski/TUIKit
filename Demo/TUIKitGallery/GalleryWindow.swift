@@ -33,8 +33,14 @@ func makeGalleryWindow(index: Int, app: App) -> FloatingWindow {
     tabs.addTab("Text", content: makeTextTab())
     tabs.addTab("Layout", content: makeLayoutTab())
     tabs.addTab("Charts", content: makeChartsTab())
-    tabs.anchors = .fill()
-    window.content.addSubview(tabs)
+
+    // A rule between the toolbar and the folder tabs; connected, so the
+    // window welds it into its frame (╟─╢).
+    let content = VStack(spacing: 0)
+    content.addSubview(pinnedHeight(Divider(axis: .horizontal), 1))
+    content.addSubview(tabs)
+    content.anchors = .fill()
+    window.content.addSubview(content)
 
     return window
 }

@@ -150,7 +150,8 @@ Slots become **flat, self-describing keys** so a palette is a plain dictionary
 | Old (today) | New flat slot keys |
 |-------------|--------------------|
 | `base` | `foreground`, `background` |
-| `accent` | `accent`, `warningAccent`, `errorAccent` |
+| `accent` | `accent`, `warningAccent`, `errorAccent` · `secondaryAccent` (chrome tinting — toolbar items — distinct from the content accent; unset ⇒ falls back to `accent`, so it only matters to themes that want the split, like Turbo's blue-on-gray toolbar over a green-accented document) |
+| *(new — charts)* | `chartAxisColor` (axis rules + tick labels; unset ⇒ `placeholderForeground`, never the placeholder background) · `chartData` (the series palette charts cycle — `chart-data-1`…`10` in stylesheets; unset ⇒ derived from the accents, so every theme charts legibly) |
 | *(new — see 8.6)* | `acceleratorColor`, `acceleratorAttributes` — the mnemonic (Alt+letter) letter on menus/buttons; overlaid on the surrounding surface's background |
 | `selection` | `selectionForeground`, `selectionBackground` |
 | `header` | `headerForeground`, `headerBackground` |

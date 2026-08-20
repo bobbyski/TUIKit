@@ -322,10 +322,20 @@ public struct ThemePalette: Codable, Hashable, Sendable {
 
     /// Accent color.
     public var accent: TerminalColor?
+    /// Secondary accent — chrome tinting (toolbar items) distinct from the
+    /// content accent. `nil` inherits, ultimately falling back to `accent`.
+    public var secondaryAccent: TerminalColor?
     /// Warning accent color.
     public var warningAccent: TerminalColor?
     /// Error accent color.
     public var errorAccent: TerminalColor?
+
+    /// Chart axis and tick-label color. `nil` falls back to
+    /// `placeholderForeground`.
+    public var chartAxisColor: TerminalColor?
+    /// The data-series palette charts cycle through (`chartData1`…`10` in
+    /// stylesheets). `nil` derives from the accents at draw time.
+    public var chartData: [TerminalColor]?
 
     /// Mnemonic (accelerator) letter color.
     public var acceleratorColor: TerminalColor?
@@ -416,10 +426,21 @@ public struct ResolvedTheme: Hashable, Sendable {
 
     /// Accent color.
     public var accent: TerminalColor
+    /// Secondary accent: chrome tinting (toolbar items), resolved to
+    /// `accent` when no palette in the chain sets one — so themes that
+    /// predate the slot keep their look.
+    public var secondaryAccent: TerminalColor
     /// Warning accent color.
     public var warningAccent: TerminalColor
     /// Error accent color.
     public var errorAccent: TerminalColor
+
+    /// Chart axis and tick-label color (resolved to `placeholderForeground`
+    /// when unset).
+    public var chartAxisColor: TerminalColor
+    /// The explicit data-series palette, or empty to derive from the
+    /// accents — read through ``chartData(_:)``, never directly.
+    public var chartDataColors: [TerminalColor]
 
     /// The mnemonic (accelerator) letter's color — red in Turbo. Overlaid on
     /// the surrounding cell's background, keeping menus/buttons intact.
@@ -499,6 +520,23 @@ public struct ResolvedTheme: Hashable, Sendable {
     /// inert on plain terminals.
     public var vector: VectorChrome?
 
+    /// Stylesheet properties TUIKit does not know, kept as declared —
+    /// CSS is open-ended, and this is where the open end arrives. An app
+    /// that styles `glow-color: #ff8800;` reads it here (see
+    /// ``customColor(_:)``); themes themselves never populate it.
+    public var custom: [String: StyleDeclaration.Value] = [:]
+
+    /// A custom stylesheet property's color value, when it is one.
+    ///
+    /// - Parameter name: The property name as written in the sheet.
+    public func customColor(_ name: String) -> TerminalColor? {
+        if case .color(let color) = custom[name] {
+            return color
+        }
+
+        return nil
+    }
+
     // MARK: CellStyle conveniences (derived, read-only)
 
     /// Ordinary cells (the `.standard`-substitution base).
@@ -567,6 +605,55 @@ public struct ResolvedTheme: Hashable, Sendable {
 
         style.flags.formUnion(acceleratorAttributes)
         return style
+    }
+
+    /// The data-series ink for chart series `index` (0-based), cycling.
+    ///
+    /// An explicit palette (`chartData` in the theme, `chart-data-1`…`10`
+    /// in a stylesheet) is used as given; without one the palette derives
+    /// from the slots every theme already has — `chartAccent`,
+    /// `warningAccent`, `errorAccent`, `foreground` — so charts are legible
+    /// under any theme, colorless ones included.
+    public func chartData(_ index: Int) -> TerminalColor {
+        let palette = chartDataColors.isEmpty
+            ? [chartAccent, warningAccent, errorAccent, foreground]
+            : chartDataColors
+        let count = palette.count
+        return palette[((index % count) + count) % count]
+    }
+
+    /// The accent charts derive their first series from: the accent — unless
+    /// the accent IS the surface (a theme may point it at a surface on
+    /// purpose), where invisible data would be worse than un-tinted data.
+    /// Then the body foreground.
+    var chartAccent: TerminalColor {
+        accent != background ? accent : foreground
+    }
+
+    /// De-emphasized chart text (axes, ticks, waiting time): the chart-axis
+    /// slot on the chart's own surface. Deliberately no background — the
+    /// placeholder slot this falls back to carries one tuned for other
+    /// surfaces (Turbo: gray toolbars), and a chart must not import it.
+    var chartDeemphasis: CellStyle {
+        CellStyle(foreground: chartAxisColor, flags: placeholderAttributes)
+    }
+
+    /// The accent for a focus/drag cue drawn over `background`, or nil when
+    /// it would vanish into it.
+    ///
+    /// A theme may point `accent` AT a surface on purpose — Turbo's content
+    /// window makes it the document blue so toolbar tinting sits right on
+    /// the gray chrome — and a divider recoloring its line to that accent
+    /// while focused disappeared into its own window, taking the grab
+    /// handle's visibility with it. No cue beats an invisible control: the
+    /// same rule colorless themes already follow (`.standard` accent → no
+    /// recolor), extended to accents that merely match this surface.
+    public func cueAccent(over background: TerminalColor) -> TerminalColor? {
+        guard accent != .standard, accent != background else {
+            return nil
+        }
+
+        return accent
     }
 }
 
@@ -650,13 +737,37 @@ public struct Theme: Codable, Hashable, Sendable {
             break
         }
 
+        // Slots with a sibling-slot fallback rather than a `.standard` one.
+        let resolvedAccent = color(\.accent)
+
+        var secondaryAccent = resolvedAccent
+        for palette in chain where palette.secondaryAccent != nil {
+            secondaryAccent = palette.secondaryAccent!
+            break
+        }
+
+        var chartAxisColor = color(\.placeholderForeground)
+        for palette in chain where palette.chartAxisColor != nil {
+            chartAxisColor = palette.chartAxisColor!
+            break
+        }
+
+        var chartDataColors: [TerminalColor] = []
+        for palette in chain where palette.chartData != nil {
+            chartDataColors = palette.chartData!
+            break
+        }
+
         return ResolvedTheme(
             foreground: color(\.foreground),
             background: color(\.background),
             baseAttributes: flags(\.baseAttributes),
-            accent: color(\.accent),
+            accent: resolvedAccent,
+            secondaryAccent: secondaryAccent,
             warningAccent: color(\.warningAccent),
             errorAccent: color(\.errorAccent),
+            chartAxisColor: chartAxisColor,
+            chartDataColors: chartDataColors,
             acceleratorColor: color(\.acceleratorColor),
             acceleratorAttributes: flags(\.acceleratorAttributes),
             selectionForeground: color(\.selectionForeground),

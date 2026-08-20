@@ -14,7 +14,12 @@ import Testing
     #expect(sheet.rules.count == 3)
     #expect(sheet.rules[0].declarations.count == 2)
     #expect(sheet.rules[1].selectors.count == 2)
-    #expect(sheet.rules[2].declarations.count == 1, "unknown properties and bad values are skipped")
+
+    // CSS is open-ended: the unknown property is KEPT (typed by its value's
+    // shape, headed for `theme.custom`); a KNOWN property with a value that
+    // cannot be what the slot needs is still skipped.
+    #expect(sheet.rules[2].declarations.count == 2, "unknown properties parse; they are the app's")
+    #expect(sheet.rules[2].declarations[0] == StyleDeclaration(name: "mystery-property", value: .text("12")))
 }
 
 @Test @MainActor func selectorsMatchTypeIdClassFocusAndDescendants() {
@@ -187,4 +192,74 @@ import Testing
     #expect(label.identifier == nil)
     #expect(label.styleClasses.isEmpty)
     #expect(label.styleSheet == nil)
+}
+
+// MARK: - Open-ended CSS + the chrome/chart vocabulary
+
+@Test @MainActor func stylesheetsAreOpenEndedNotRestrictedToKnownProperties() {
+    // An application invents its own properties; TUIKit keeps them, typed
+    // by shape, on the resolved theme it hands back.
+    let view = TUIView()
+    view.styleSheet = StyleSheet("""
+    TUIView {
+        glow-color: #ff8800;
+        panel-mode: compact;
+        pulse: true;
+        accent: brightCyan;
+    }
+    """)
+
+    let theme = view.effectiveTheme
+    #expect(theme.customColor("glow-color") == .rgb(red: 255, green: 136, blue: 0))
+    #expect(theme.custom["panel-mode"] == .text("compact"))
+    #expect(theme.custom["pulse"] == .flag(true))
+    #expect(theme.accent == .named(.brightCyan), "known names still write their slots")
+}
+
+@Test @MainActor func secondaryAccentTintsToolbarsAndFallsBackToAccent() {
+    // Unset anywhere: the secondary accent IS the accent, so themes that
+    // predate the slot keep their look.
+    #expect(Theme.dark.resolved().secondaryAccent == Theme.dark.resolved().accent)
+
+    // Turbo's content window: toolbar tint blue, while the accent stays the
+    // content green every other control draws with.
+    let content = Theme.turbo.resolved(for: .contentWindow)
+    #expect(content.secondaryAccent == .rgb(red: 0, green: 0, blue: 170))
+    #expect(content.accent == .rgb(red: 0, green: 170, blue: 0))
+
+    // A tinted toolbar item rests on the secondary accent.
+    let bar = Toolbar()
+    bar.theme = .turbo
+    bar.themeContext = .contentWindow
+    bar.addItem("Run") {}
+    bar.frame = Rect(x: 0, y: 0, width: 20, height: 1)
+    let buffer = SceneRenderer(root: bar).render(size: Size(width: 20, height: 1))
+    #expect(buffer[Point(x: 1, y: 0)].style.foreground == content.secondaryAccent)
+
+    // And the sheet layer can restyle it: `secondary-accent` is a known name.
+    bar.styleSheet = StyleSheet("Toolbar { secondary-accent: brightYellow; }")
+    let restyled = SceneRenderer(root: bar).render(size: Size(width: 20, height: 1))
+    #expect(restyled[Point(x: 1, y: 0)].style.foreground == .named(.brightYellow))
+}
+
+@Test @MainActor func chartDataPropertiesRetintTheSeriesPalette() {
+    let chart = LineChart(series: [
+        .init(label: "a", values: [1, 2]),
+        .init(label: "b", values: [2, 1]),
+    ])
+    chart.showsLegend = true
+    chart.theme = .dark
+    chart.styleSheet = StyleSheet("""
+    LineChart { chart-data-1: brightMagenta; chart-axis: brightBlack; }
+    """)
+    chart.frame = Rect(x: 0, y: 0, width: 30, height: 8)
+
+    let buffer = SceneRenderer(root: chart).render(size: Size(width: 30, height: 8))
+
+    // Legend series 1 wears the sheet's color; series 2 keeps the derived
+    // palette (warning accent) — one entry set does not drop the rest.
+    // (Legend layout: entry 2's marker lands at x = label width + 4.)
+    #expect(buffer[Point(x: 0, y: 0)].style.foreground == .named(.brightMagenta))
+    let derived = Theme.dark.resolved()
+    #expect(buffer[Point(x: 5, y: 0)].style.foreground == derived.warningAccent)
 }

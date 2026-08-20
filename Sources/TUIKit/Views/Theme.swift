@@ -334,6 +334,22 @@ extension Theme {
         base.destructiveButtonForeground = .rgb(red: 255, green: 255, blue: 255)
         base.destructiveButtonBackground = .rgb(red: 170, green: 0, blue: 0)   // red
 
+        // The chart series palette, in EGA: charts cycle these ten instead
+        // of deriving from the accents (the showcase for `chartData` /
+        // `chart-data-N`; themes without one still derive).
+        base.chartData = [
+            .rgb(red: 0, green: 170, blue: 0),      // green
+            .rgb(red: 0, green: 170, blue: 170),    // cyan
+            .rgb(red: 255, green: 85, blue: 85),    // bright red
+            .rgb(red: 255, green: 255, blue: 85),   // yellow
+            .rgb(red: 170, green: 0, blue: 170),    // magenta
+            .rgb(red: 85, green: 255, blue: 85),    // bright green
+            .rgb(red: 85, green: 255, blue: 255),   // bright cyan
+            .rgb(red: 255, green: 255, blue: 255),  // white
+            .rgb(red: 255, green: 85, blue: 255),   // bright magenta
+            .rgb(red: 255, green: 170, blue: 0),    // amber
+        ]
+
         var content = ThemePalette()
         content.foreground = .rgb(red: 255, green: 255, blue: 85)    // yellow
         content.background = .rgb(red: 0, green: 0, blue: 170)       // blue
@@ -348,13 +364,13 @@ extension Theme {
         content.borderStyle = .double   // floating window frame → double border
         content.scrollbarThumb = .rgb(red: 85, green: 255, blue: 255)    // light cyan
         content.scrollbarTrack = .rgb(red: 0, green: 0, blue: 110)       // navy
-        // A toolbar's resting items are `.tinted` by default, which paints them
-        // in `accent` rather than in `header`'s foreground. `base.accent` is
-        // Borland green, chosen against the gray chrome — on the content
-        // window's own toolbar that read as green-on-gray next to a blue
-        // document. The content surface takes its own accent: the document's
-        // blue, so the buttons match the window they belong to.
-        content.accent = .rgb(red: 0, green: 0, blue: 170)
+        // A toolbar's resting items are `.tinted` by default, painted in the
+        // SECONDARY accent — the slot that exists so chrome tinting can be
+        // tuned against the gray bar without bending `accent` itself. The
+        // document's blue, so the buttons match the window they belong to;
+        // `accent` stays Borland green for the content everything else in
+        // the window draws with (charts, focus cues, selections).
+        content.secondaryAccent = .rgb(red: 0, green: 0, blue: 170)
 
         // Disabled toolbar items, which sit on that same gray: a darker gray
         // shade, matching what `base` already does on the chrome surface — so

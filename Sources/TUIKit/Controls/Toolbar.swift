@@ -943,13 +943,17 @@ public final class Toolbar: TUIView {
             return barStyle(theme)
         }
 
-        // Resting: the bar's slot, tinted with the accent (or underlined on
-        // a colorless theme) when the tinted style is active.
+        // Resting: the bar's slot, tinted with the SECONDARY accent (or
+        // underlined on a colorless theme) when the tinted style is active.
+        // The secondary accent exists exactly for this: chrome tinting gets
+        // its own slot, so a theme can tune the toolbar against its bar
+        // (Turbo: the document blue on the gray chrome) without bending the
+        // content accent every control in the window inherits.
         var resting = barStyle(theme)
 
         if style == .tinted {
-            if theme.accent != .standard {
-                resting.foreground = theme.accent
+            if theme.secondaryAccent != .standard {
+                resting.foreground = theme.secondaryAccent
                 resting.flags.insert(.bold)
             } else {
                 resting.flags.insert(.underline)

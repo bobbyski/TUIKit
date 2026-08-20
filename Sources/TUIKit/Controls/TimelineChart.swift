@@ -500,7 +500,7 @@ public final class TimelineChart: TUIView {
     private func style(for kind: TimelineRow.SegmentKind, theme: ResolvedTheme) -> CellStyle {
         switch kind {
         case .active:
-            return CellStyle(foreground: theme.chartAccent)
+            return CellStyle(foreground: theme.chartData(0))
 
         case .waiting:
             return theme.chartDeemphasis

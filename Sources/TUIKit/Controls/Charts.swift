@@ -23,25 +23,6 @@ public enum ChartFidelity: Hashable, Sendable {
     case braille
 }
 
-extension ResolvedTheme {
-    /// The ink charts draw data with: the accent — unless the accent IS the
-    /// surface (Turbo's content window sets `accent` to the document blue so
-    /// toolbar tinting sits right on the gray chrome), where invisible data
-    /// would be worse than un-tinted data. Then the body foreground.
-    var chartAccent: TerminalColor {
-        accent != background ? accent : foreground
-    }
-
-    /// De-emphasized chart text (axes, ticks, waiting time): the placeholder
-    /// FOREGROUND on the chart's own surface. Deliberately not the whole
-    /// `placeholder` style — its background belongs to the surface that slot
-    /// was tuned for (Turbo: gray toolbars), and a chart must not carry a
-    /// foreign surface into its plot.
-    var chartDeemphasis: CellStyle {
-        CellStyle(foreground: placeholderForeground, flags: placeholderAttributes)
-    }
-}
-
 /// A series in one row: shape and direction at a glance, no axes, no labels.
 ///
 /// ```text
@@ -132,7 +113,7 @@ public final class Sparkline: TUIView {
         let span = high - low
 
         let theme = effectiveTheme
-        let cellStyle = style ?? CellStyle(foreground: theme.chartAccent)
+        let cellStyle = style ?? CellStyle(foreground: theme.chartData(0))
 
         // Height fraction for one value; flat (or floor-clamped) stays a
         // visible baseline — flat is an answer.

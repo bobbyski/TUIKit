@@ -406,3 +406,34 @@ private func embeddedButton(titled title: String, in view: TUIView) -> Button? {
     _ = split.keyDown(KeyInput(key: .up))
     #expect(split.currentDividerPosition == 2)
 }
+
+@Test @MainActor func splitViewDividerStaysVisibleWhenTheAccentIsTheSurface() {
+    // A theme may point `accent` at the very surface a divider draws on
+    // (Turbo's content window did, before secondaryAccent). The focus/drag
+    // cue used to recolor the divider to that accent — surface on surface —
+    // so the moment you grabbed it, it vanished, and you could not see it
+    // to grab it again. The cue now skips accents that match the surface.
+    let blue = TerminalColor.rgb(red: 0, green: 0, blue: 170)
+    var collided = Theme.surface("Collided", background: blue, foreground: .rgb(red: 255, green: 255, blue: 85), accent: blue)
+    collided.base.borderBackground = blue
+
+    let (split, window) = makeSplit()
+    split.theme = collided
+    window.makeFirstResponder(split)
+    _ = window.route(.mouse(MouseInput(position: Point(x: 9, y: 1), action: .press, button: .left)))
+
+    let buffer = SceneRenderer(root: window).render(size: window.frame.size)
+    let dividerCell = buffer[Point(x: 9, y: 1)]
+    #expect(dividerCell.character == "│")
+    #expect(
+        dividerCell.style.foreground == collided.resolved().borderForeground,
+        "mid-drag the line keeps its visible border color, not accent-on-accent"
+    )
+
+    // Where the accent is distinct (Turbo's base context), the cue remains.
+    let (cued, cuedWindow) = makeSplit()
+    cued.theme = .turbo
+    cuedWindow.makeFirstResponder(cued)
+    let cuedBuffer = SceneRenderer(root: cuedWindow).render(size: cuedWindow.frame.size)
+    #expect(cuedBuffer[Point(x: 9, y: 1)].style.foreground == Theme.turbo.resolved().accent)
+}

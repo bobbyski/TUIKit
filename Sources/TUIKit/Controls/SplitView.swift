@@ -156,9 +156,11 @@ public final class SplitView: TUIView {
 
         // Focus/drag cue: recolor the line to the accent only — never bold or
         // inverse. Bold box-drawing glyphs render unevenly and read as a dashed
-        // line, so this matches the Divider control (no cue on colorless themes).
-        if isFirstResponder || isDraggingDivider, theme.accent != .standard {
-            style.foreground = theme.accent
+        // line, so this matches the Divider control. No cue on colorless themes
+        // — or when the accent IS this surface (Turbo's content window), where
+        // the recolored divider vanished mid-drag and could not be grabbed back.
+        if isFirstResponder || isDraggingDivider, let cue = theme.cueAccent(over: style.background) {
+            style.foreground = cue
         }
 
         switch axis {

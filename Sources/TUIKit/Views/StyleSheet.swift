@@ -22,15 +22,21 @@
 /// descendant. Comma separates alternatives. Type names are the Swift
 /// class names (`Button`, `ListView`, `FloatingWindow`).
 ///
-/// **Properties** (all optional-valued; unknown ones are ignored):
+/// **Properties** — open-ended: every `name: value;` parses. The names
+/// TUIKit knows write theme slots; every other name is kept, typed by its
+/// value's shape, in `theme.custom` for the application to read:
 ///
 /// | Property                                     | Writes to              |
 /// |----------------------------------------------|------------------------|
 /// | `color`, `background`                        | `theme.base`           |
 /// | `bold`, `dim`, `italic`, `underline`         | `theme.base.flags`     |
 /// | `accent`                                     | `theme.accent`         |
+/// | `secondary-accent`                           | `theme.secondaryAccent` (toolbar tint) |
+/// | `chart-axis`                                 | `theme.chartAxisColor` |
+/// | `chart-data-1` … `chart-data-10`             | the chart series palette |
 /// | `selection-color`, `selection-background`    | `theme.selection`      |
 /// | `header-color`, `border-color`, `placeholder-color` | those slots' foregrounds |
+/// | *anything else*                              | `theme.custom[name]`   |
 ///
 /// Color values: the 16 ANSI names (`red`, `brightBlue`, …), `#rrggbb`,
 /// `palette(n)`, or `standard`. Flag values: `true` / `false`.
@@ -142,32 +148,53 @@ public struct StyleSheet: Hashable, Sendable {
             let name = parts[0].trimmed.lowercased()
             let value = parts[1].trimmed
 
-            guard let property = StyleDeclaration.Property(rawValue: name) else {
+            guard !name.isEmpty, !value.isEmpty else {
                 return nil
             }
 
-            switch property.kind {
-            case .color:
-                guard let color = TerminalColor(styleValue: value) else {
-                    return nil
+            // A KNOWN property's kind decides how its value must parse (a
+            // malformed value drops the declaration, tolerant as ever).
+            if let property = StyleDeclaration.Property(rawValue: name) {
+                switch property.kind {
+                case .color:
+                    guard let color = TerminalColor(styleValue: value) else {
+                        return nil
+                    }
+
+                    return StyleDeclaration(property: property, value: .color(color))
+
+                case .flag:
+                    guard let flag = Bool(value.lowercased()) else {
+                        return nil
+                    }
+
+                    return StyleDeclaration(property: property, value: .flag(flag))
+
+                case .border:
+                    guard let style = BorderStyle(rawValue: value.lowercased()) else {
+                        return nil
+                    }
+
+                    return StyleDeclaration(property: property, value: .border(style))
                 }
-
-                return StyleDeclaration(property: property, value: .color(color))
-
-            case .flag:
-                guard let flag = Bool(value.lowercased()) else {
-                    return nil
-                }
-
-                return StyleDeclaration(property: property, value: .flag(flag))
-
-            case .border:
-                guard let style = BorderStyle(rawValue: value.lowercased()) else {
-                    return nil
-                }
-
-                return StyleDeclaration(property: property, value: .border(style))
             }
+
+            // Everything else is open-ended: keep the declaration, typing
+            // the value by its shape (colors and flags stay usable as such;
+            // anything else survives verbatim as text).
+            if let color = TerminalColor(styleValue: value) {
+                return StyleDeclaration(name: name, value: .color(color))
+            }
+
+            if let flag = Bool(value.lowercased()) {
+                return StyleDeclaration(name: name, value: .flag(flag))
+            }
+
+            if let style = BorderStyle(rawValue: value.lowercased()) {
+                return StyleDeclaration(name: name, value: .border(style))
+            }
+
+            return StyleDeclaration(name: name, value: .text(value))
         }
     }
 }
@@ -189,12 +216,24 @@ public struct StyleRule: Hashable, Sendable {
 }
 
 /// One property assignment.
+///
+/// CSS here is **open-ended**: any `name: value;` parses. Names TUIKit
+/// knows (``Property``) route into the matching `ResolvedTheme` slot;
+/// `chart-data-1`…`chart-data-10` set the chart series palette by name; and
+/// every OTHER name is kept, typed by its value's shape, in
+/// ``ResolvedTheme/custom`` — so an application can invent
+/// `glow-color: #ff8800;` and read it off `effectiveTheme` without TUIKit
+/// ever having heard of it.
 public struct StyleDeclaration: Hashable, Sendable {
-    /// The logical properties the stylesheet layer understands.
+    /// The *known* properties — the vocabulary TUIKit itself routes into
+    /// theme slots. Deliberately not a restriction: unknown names still
+    /// parse and land in ``ResolvedTheme/custom``.
     public enum Property: String, Hashable, Sendable {
         case color
         case background
         case accent
+        case secondaryAccent = "secondary-accent"
+        case chartAxis = "chart-axis"
         case selectionColor = "selection-color"
         case selectionBackground = "selection-background"
         case headerColor = "header-color"
@@ -232,21 +271,69 @@ public struct StyleDeclaration: Hashable, Sendable {
         }
     }
 
-    /// A property's value.
+    /// A property's value, typed by shape.
     public enum Value: Hashable, Sendable {
         case color(TerminalColor)
         case flag(Bool)
         case border(BorderStyle)
+
+        /// Anything that parses as none of the above — kept verbatim for
+        /// custom properties.
+        case text(String)
     }
 
-    /// Property being assigned.
-    public var property: Property
+    /// The property name as written (lowercased kebab-case).
+    public var name: String
 
     /// Assigned value.
     public var value: Value
 
+    /// The known property this names, when TUIKit knows it.
+    public var property: Property? {
+        Property(rawValue: name)
+    }
+
+    /// Creates a declaration by name — the open-ended form.
+    public init(name: String, value: Value) {
+        self.name = name
+        self.value = value
+    }
+
+    /// Creates a declaration for a known property.
+    public init(property: Property, value: Value) {
+        self.init(name: property.rawValue, value: value)
+    }
+
+    // The 0-based series index of a `chart-data-N` property, or nil.
+    private var chartDataIndex: Int? {
+        guard name.hasPrefix("chart-data-"),
+              let number = Int(name.dropFirst("chart-data-".count)),
+              (1...10).contains(number) else {
+            return nil
+        }
+
+        return number - 1
+    }
+
     // Writes one assignment into the resolved theme (the on-top CSS layer).
     func apply(to theme: inout ResolvedTheme) {
+        // One series entry: materialize the derived palette first, so
+        // setting `chart-data-3` alone leaves 1–2 (and 4–10) at their
+        // theme-derived values instead of dropping them.
+        if let index = chartDataIndex, case .color(let color) = value {
+            var colors = (0..<10).map { theme.chartData($0) }
+            colors[index] = color
+            theme.chartDataColors = colors
+            return
+        }
+
+        // A name TUIKit doesn't know is the application's: keep it, typed,
+        // where `effectiveTheme` carries it to whoever asked for it.
+        guard let property else {
+            theme.custom[name] = value
+            return
+        }
+
         switch (property, value) {
         case (.color, .color(let color)):
             theme.foreground = color
@@ -256,6 +343,12 @@ public struct StyleDeclaration: Hashable, Sendable {
 
         case (.accent, .color(let color)):
             theme.accent = color
+
+        case (.secondaryAccent, .color(let color)):
+            theme.secondaryAccent = color
+
+        case (.chartAxis, .color(let color)):
+            theme.chartAxisColor = color
 
         case (.selectionColor, .color(let color)):
             theme.selectionForeground = color

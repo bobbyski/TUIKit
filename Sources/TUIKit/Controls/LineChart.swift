@@ -346,8 +346,7 @@ public final class LineChart: TUIView {
     }
 
     private func defaultStyle(at index: Int, theme: ResolvedTheme) -> CellStyle {
-        let cycle = [theme.chartAccent, theme.warningAccent, theme.errorAccent, theme.foreground]
-        return CellStyle(foreground: cycle[index % cycle.count])
+        CellStyle(foreground: theme.chartData(index))
     }
 
     private func drawLegend(_ painter: Painter, theme: ResolvedTheme) {
