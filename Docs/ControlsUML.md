@@ -635,3 +635,80 @@ classDiagram
 
 Rev 2 (PLAN Phase 11): SearchField, Sheets, ImageView, TokenField,
 Tooltips.
+
+## Charts (REQUESTS R9–R11) and the highlighting seam (R8)
+
+```mermaid
+classDiagram
+    direction TB
+
+    class TUIView
+
+    class ChartFidelity {
+        <<enumeration>>
+        blocks
+        ascii
+        braille
+    }
+
+    class Sparkline {
+        +values : [Double]
+        +fidelity : ChartFidelity
+        +range : ClosedRange~Double~?
+        +style : CellStyle?
+    }
+
+    class TimelineChart {
+        +rows : [TimelineRow]
+        +domain : ClosedRange~Double~?
+        +fidelity : ChartFidelity
+        +showsAxis : Bool
+        +selectedRow : Int?
+        +onSelectRow : (Int) -> Void
+    }
+
+    class TimelineRow {
+        +label : String
+        +segments : [Segment]
+    }
+
+    class LineChart {
+        +series : [Series]
+        +xDomain / yDomain : ClosedRange~Double~?
+        +fidelity : ChartFidelity
+        +yFormatter : (Double) -> String
+        +showsLegend : Bool
+    }
+
+    TUIView <|-- Sparkline
+    TUIView <|-- TimelineChart
+    TUIView <|-- LineChart
+    TimelineChart o-- TimelineRow : rows
+
+    class SyntaxHighlighting {
+        <<protocol>>
+        +highlight(line, inout HighlightState) [HighlightSpan]
+    }
+
+    class SyntaxTextView {
+        +language : String
+        +highlighter : SyntaxHighlighting?
+    }
+
+    class HTMLHighlighter
+    class JavaScriptHighlighter
+    class CSSHighlighter
+
+    SyntaxHighlighting <|.. HTMLHighlighter
+    SyntaxHighlighting <|.. JavaScriptHighlighter
+    SyntaxHighlighting <|.. CSSHighlighter
+    SyntaxTextView --> SyntaxHighlighting : lines + carried state
+    HTMLHighlighter --> JavaScriptHighlighter : script island
+    HTMLHighlighter --> CSSHighlighter : style island
+
+    note for Sparkline "Cells first, VTG optional:\nblocks default, ascii the floor,\nbraille opt-in (LineChart only).\nColours from theme slots."
+```
+
+Charts render on one rule — cells first, every glyph single-width, colours
+from theme slots. Long-press (no new class): `MouseInput.Action.longPress` +
+`Button.onLongPress` + `ToolbarItem.longPressAction`, context menu fallback.

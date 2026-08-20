@@ -62,6 +62,19 @@ Bobby whenever an entry is added.
 - [ ] Reviewed by human
 - [ ] Human accepted (as-is or with the noted remedy)
 
+### `Sources/TUIKit/Controls/Toolbar.swift` — ~694 code lines after R6 + long-press
+- Added: 2026-08-20 — grew past the threshold across several features:
+  `ToolbarItem`/`ToolbarIcon` model, layout with overflow + flexible
+  spaces/views (R6), keyboard/mouse activation with per-item long-press
+  (activate-on-release only for items that hold an alternate action), and
+  the overflow menu. Coherent but big.
+- Suggested remedy: the natural split is model vs view — `ToolbarItem` +
+  `ToolbarIcon` (~270 lines with docs) into their own file; the `Layout`
+  computation (~150) could follow if it keeps growing. Behavior-neutral,
+  file moves only.
+- [ ] Reviewed by human
+- [ ] Human accepted (as-is or with the noted remedy)
+
 ### `Sources/TUIKit/Controls/SyntaxTextView.swift` — 653 CODE lines after Editor v2 (comments excluded)
 - Added: 2026-07-04 — Phase 6C moved the document engine OUT (to
   `TextEditBuffer`, ~470 lines, pure and unit-tested) but added selection
@@ -72,6 +85,10 @@ Bobby whenever an entry is added.
   shape with `ScrollView`) is the natural next extraction — a reusable
   `ScrollbarGeometry` helper would also de-duplicate `ScrollView`; the find
   state could become a small `FindSession` type if it grows options.
+- Update 2026-08-20 (R8): now ~700 with the stateful-provider path
+  (`providerRuns`/`stateBefore`/`styledRuns`, ~90 lines). That block is
+  self-contained and would extract cleanly as `SyntaxTextView+Highlighting
+  .swift` if the file is split.
 - [ ] Reviewed by human
 - [ ] Human accepted (as-is or with the noted remedy)
 
