@@ -2,7 +2,7 @@
 /// below it.
 ///
 /// ```text
-///   ┌ Files ┐ Edit    TUIView            ← tab bar (row 0); "Files" selected
+///   ┌ Files ┐ Edit    TUIView        + ← tab bar (row 0); "Files" selected
 ///   ─────────────────────────         ← separator (row 1)
 ///   │ the selected tab's content      ← content area (rows 2+)
 ///   │ view fills this region          │
@@ -48,6 +48,23 @@ public final class TabView: TUIView {
 
     /// Called with a tab's index just after it is closed via its `✕`.
     public var onTabClosed: (Int) -> Void = { _ in }
+
+    /// When `true`, a `+` sits at the right end of the bar; clicking it fires
+    /// `onNewTab`.
+    public var showsNewTabButton = false {
+        didSet {
+            if showsNewTabButton != oldValue {
+                setNeedsDisplay()
+            }
+        }
+    }
+
+    /// Called when the `+` is clicked. The tab bar adds nothing itself: what a
+    /// new tab *contains* is the owner's to decide.
+    public var onNewTab: () -> Void = {}
+
+    /// Columns the `+` occupies: one space either side of the glyph.
+    private static let newTabWidth = 3
 
     /// Rows reserved for the tab bar (titles + separator).
     public let tabBarHeight = 2
@@ -221,6 +238,19 @@ public final class TabView: TUIView {
             painter.write(label, at: Point(x: x, y: 0), style: style)
             x += label.count + 1
         }
+
+        guard showsNewTabButton else {
+            return
+        }
+
+        // Pinned to the right end rather than trailing the last tab, so it
+        // stops moving as tabs open and close — a control that walks around
+        // under the pointer is a control you miss.
+        painter.write(
+            " + ",
+            at: Point(x: max(x, bounds.size.width - Self.newTabWidth), y: 0),
+            style: theme.placeholder
+        )
     }
 
     // A tab's bar label: ` title ` plus a `×` close affordance when closable.
@@ -255,6 +285,11 @@ public final class TabView: TUIView {
     public override func mouseEvent(_ mouse: MouseInput) -> Bool {
         guard mouse.action == .press, mouse.button == .left, mouse.position.y == 0 else {
             return false
+        }
+
+        if showsNewTabButton, mouse.position.x >= bounds.size.width - Self.newTabWidth {
+            onNewTab()
+            return true
         }
 
         var start = 0

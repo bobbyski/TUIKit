@@ -210,3 +210,50 @@ private func makeTabs() -> (TabView, Label, Label) {
     window.focusNext()
     #expect(window.firstResponder === tabs, "wraps past the hidden second field back to the tab view")
 }
+
+// MARK: - New-tab button
+
+@Test @MainActor func theNewTabButtonIsOffByDefault() {
+    let tabs = TabView()
+    tabs.frame = Rect(x: 0, y: 0, width: 30, height: 5)
+    tabs.addTab("One", content: TUIView())
+    tabs.layoutIfNeeded()
+
+    let line = SceneRenderer(root: tabs).render(size: tabs.frame.size).textLines()[0]
+    #expect(!line.contains("+"), "nothing asked for a new-tab button")
+}
+
+@Test @MainActor func theNewTabButtonSitsAtTheRightEndAndFires() {
+    let tabs = TabView()
+    tabs.frame = Rect(x: 0, y: 0, width: 30, height: 5)
+    tabs.addTab("One", content: TUIView())
+    tabs.showsNewTabButton = true
+
+    var added = 0
+    tabs.onNewTab = { added += 1 }
+    tabs.layoutIfNeeded()
+
+    let line = SceneRenderer(root: tabs).render(size: tabs.frame.size).textLines()[0]
+    #expect(line.hasSuffix(" + "), "the button is pinned to the right end")
+
+    // Clicking it adds nothing on its own — the owner decides what a tab holds.
+    _ = tabs.mouseEvent(MouseInput(position: Point(x: 28, y: 0), action: .press, button: .left))
+    #expect(added == 1)
+    #expect(tabs.tabCount == 1)
+}
+
+@Test @MainActor func clickingATabStillSelectsItWithTheButtonShown() {
+    let tabs = TabView()
+    tabs.frame = Rect(x: 0, y: 0, width: 30, height: 5)
+    tabs.addTab("One", content: TUIView())
+    tabs.addTab("Two", content: TUIView())
+    tabs.showsNewTabButton = true
+    tabs.layoutIfNeeded()
+
+    var added = 0
+    tabs.onNewTab = { added += 1 }
+
+    _ = tabs.mouseEvent(MouseInput(position: Point(x: 7, y: 0), action: .press, button: .left))
+    #expect(tabs.selectedIndex == 1, "the second tab, not the new-tab button")
+    #expect(added == 0)
+}
