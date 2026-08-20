@@ -83,11 +83,3 @@ func makeChartsTab() -> TUIView {
     return root
 }
 
-// Pins a stack row to an exact height (shared shape with GalleryWindow's
-// helper; small enough that duplicating beats exporting).
-@MainActor
-private func pinnedHeight(_ view: TUIView, _ height: Int) -> TUIView {
-    view.minimumSize = Size(width: 0, height: height)
-    view.maximumSize = Size(width: Int.max, height: height)
-    return view
-}

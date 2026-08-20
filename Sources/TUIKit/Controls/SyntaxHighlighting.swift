@@ -152,7 +152,9 @@ extension HighlightKind {
             return CellStyle(foreground: .named(.red))
 
         case .tag:
-            return CellStyle(foreground: .named(.blue), flags: [.bold])
+            // Bright, not plain blue: markup must survive blue surfaces
+            // (Turbo's content window) as well as light ones.
+            return CellStyle(foreground: .named(.brightBlue), flags: [.bold])
 
         case .attributeName:
             return CellStyle(foreground: .named(.cyan))

@@ -8,6 +8,14 @@
 // into Modern Turbo); the Charts tab shows each chart's VTG and ANSI
 // renderings side by side on a VectorTerminal.
 
+import Foundation
 import TUIKit
 
-try await GalleryApp().run()
+if let snapshotDirectory = ProcessInfo.processInfo.environment["TUIKIT_GALLERY_SNAPSHOT"] {
+    // Headless: render every tab to SVG and exit (see GallerySnapshot.swift).
+    try await MainActor.run {
+        try writeGallerySnapshots(to: snapshotDirectory)
+    }
+} else {
+    try await GalleryApp().run()
+}

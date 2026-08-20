@@ -412,3 +412,23 @@ private func chromeRendered(_ view: TUIView, width: Int, height: Int, theme: The
     #expect(commands.isEmpty)
     #expect(buffer[Point(x: 1, y: 0)].character == "█")
 }
+
+@Test @MainActor func chartsFallBackToForegroundInkWhenTheAccentIsTheSurface() {
+    // Turbo's content window sets accent = the document blue (for toolbar
+    // tinting): data drawn in it would vanish into its own surface. Charts
+    // fall back to the body foreground there — and keep the accent
+    // everywhere the accent is actually visible.
+    let spark = Sparkline(values: [1])
+    spark.theme = .turbo
+    spark.themeContext = .contentWindow
+
+    let content = Theme.turbo.resolved(for: .contentWindow)
+    #expect(content.accent == content.background, "the premise: Turbo's content accent IS the surface")
+
+    let buffer = renderedBuffer(spark, width: 1, height: 1)
+    #expect(buffer[Point(x: 0, y: 0)].style.foreground == content.foreground, "ink falls back to the foreground")
+
+    // And chart de-emphasis never drags the placeholder's own background
+    // (Turbo tunes it for gray toolbars) onto the chart surface.
+    #expect(content.chartDeemphasis.background == .standard)
+}

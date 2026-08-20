@@ -381,7 +381,7 @@ public final class TimelineChart: TUIView {
             }
         }
 
-        let style = theme.placeholder
+        let style = theme.chartDeemphasis
         var tick = (domain.lowerBound / step).rounded(.up) * step
         var lastLabelEnd = -1
 
@@ -500,10 +500,10 @@ public final class TimelineChart: TUIView {
     private func style(for kind: TimelineRow.SegmentKind, theme: ResolvedTheme) -> CellStyle {
         switch kind {
         case .active:
-            return CellStyle(foreground: theme.accent)
+            return CellStyle(foreground: theme.chartAccent)
 
         case .waiting:
-            return theme.placeholder
+            return theme.chartDeemphasis
 
         case .warning:
             return CellStyle(foreground: theme.warningAccent)

@@ -51,7 +51,7 @@ final class GalleryApp {
         let fileMenu = Menu("&File")
         fileMenu.addItem("&New Gallery Window", keyEquivalent: KeyInput(key: .character("n"), modifiers: .control)) {
             self.windowCount += 1
-            app.present(makeGalleryWindow(index: self.windowCount))
+            app.present(makeGalleryWindow(index: self.windowCount, app: app))
         }
         fileMenu.addSeparator()
         fileMenu.addItem("&Close Window", keyEquivalent: KeyInput(key: .character("w"), modifiers: .control)) {
@@ -98,7 +98,7 @@ final class GalleryApp {
         // Boot look: Modern Turbo, via the same path the menu takes.
         applyGalleryTheme(.modernTurbo)
 
-        app.present(makeGalleryWindow(index: 0))
+        app.present(makeGalleryWindow(index: 0, app: app))
 
         do {
             try await app.run(shell)

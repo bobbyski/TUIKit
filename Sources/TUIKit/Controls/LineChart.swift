@@ -223,7 +223,7 @@ public final class LineChart: TUIView {
         // The y axis: `│` down the rule, `┤` at labelled ticks, `┼` where it
         // meets the x axis.
         let axisStyle = theme.border
-        let labelStyle = theme.placeholder
+        let labelStyle = theme.chartDeemphasis
 
         for line in 0..<plotRows {
             painter.set(
@@ -346,7 +346,7 @@ public final class LineChart: TUIView {
     }
 
     private func defaultStyle(at index: Int, theme: ResolvedTheme) -> CellStyle {
-        let cycle = [theme.accent, theme.warningAccent, theme.errorAccent, theme.foreground]
+        let cycle = [theme.chartAccent, theme.warningAccent, theme.errorAccent, theme.foreground]
         return CellStyle(foreground: cycle[index % cycle.count])
     }
 
@@ -370,7 +370,7 @@ public final class LineChart: TUIView {
         theme: ResolvedTheme
     ) {
         let axisStyle = theme.border
-        let labelStyle = theme.placeholder
+        let labelStyle = theme.chartDeemphasis
         let domain = resolvedXDomain
         let span = domain.upperBound - domain.lowerBound
 
