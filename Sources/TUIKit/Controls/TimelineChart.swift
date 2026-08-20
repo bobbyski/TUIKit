@@ -34,11 +34,19 @@ public struct TimelineRow: Sendable {
         /// What the span was.
         public var kind: SegmentKind
 
+        /// Colour override. `nil` (the default) maps ``kind`` onto a theme
+        /// slot; set it when the app owns the colour story — a waterfall
+        /// colouring by MIME type, a build chart matching CI's palette. The
+        /// same override convention as ``Sparkline/style`` and
+        /// ``LineChart/Series/style``.
+        public var style: CellStyle?
+
         /// Creates a segment.
-        public init(start: Double, duration: Double, kind: SegmentKind = .active) {
+        public init(start: Double, duration: Double, kind: SegmentKind = .active, style: CellStyle? = nil) {
             self.start = start
             self.duration = duration
             self.kind = kind
+            self.style = style
         }
     }
 
@@ -351,7 +359,7 @@ public final class TimelineChart: TUIView {
             }
 
             let (body, cap) = glyphs(for: segment.kind)
-            let style = style(for: segment.kind, theme: theme)
+            let style = segment.style ?? style(for: segment.kind, theme: theme)
 
             for x in begin..<end {
                 let isCap = x == end - 1 && segment.kind != .waiting

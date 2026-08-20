@@ -194,6 +194,47 @@ private func waterfall() -> TimelineChart {
     #expect(!lines.contains { $0.hasPrefix("row0 ") }, "rows above the viewport are culled")
 }
 
+@Test @MainActor func everyChartTakesDirectColoursOverTheTheme() {
+    // Theme slots are the DEFAULT, not the ceiling: an app that owns its
+    // colour story (a waterfall coloured by MIME type) passes styles in and
+    // they win. Same convention on all three charts.
+    // Note: the assertions compare foregrounds — a passed-in style's
+    // `.standard` background still resolves through the painter to the
+    // window's surface, exactly like every other control's colours.
+    let orangeInk = TerminalColor.rgb(red: 233, green: 84, blue: 32)
+    let orange = CellStyle(foreground: orangeInk)
+
+    let spark = Sparkline(values: [1, 2, 3])
+    spark.style = orange
+    spark.theme = .turbo
+    let sparkBuffer = renderedBuffer(spark, width: 3, height: 1)
+    #expect(sparkBuffer[Point(x: 0, y: 0)].style.foreground == orangeInk)
+
+    let chart = TimelineChart(rows: [
+        TimelineRow(label: "css", segments: [
+            .init(start: 0, duration: 50, kind: .active, style: orange),
+            .init(start: 50, duration: 50, kind: .active),
+        ]),
+    ])
+    chart.theme = .turbo
+    chart.showsAxis = false
+    chart.domain = 0...100
+    let timelineBuffer = renderedBuffer(chart, width: 24, height: 1)
+    #expect(timelineBuffer[Point(x: 5, y: 0)].style.foreground == orangeInk, "the styled segment wears the app's colour")
+    #expect(
+        timelineBuffer[Point(x: 20, y: 0)].style.foreground == Theme.turbo.resolved().accent,
+        "an unstyled segment beside it still falls back to the theme slot"
+    )
+
+    let line = LineChart(series: [.init(label: "m", values: [5, 5], style: orange)])
+    line.theme = .turbo
+    let lineBuffer = renderedBuffer(line, width: 24, height: 8)
+    let plotted = (0..<24).contains { x in
+        (0..<8).contains { y in lineBuffer[Point(x: x, y: y)].style.foreground == orangeInk }
+    }
+    #expect(plotted, "the series draws in its own style")
+}
+
 // MARK: - LineChart (R11)
 
 @Test @MainActor func lineChartDrawsTheLineWithAxesAndRoundTicks() {
