@@ -313,6 +313,22 @@ public struct ChromeCommand: Hashable, Sendable {
         /// for a whole chart trace instead of a segment per column.
         case polyline(points: [ChromePoint], color: ChromeColor, width: Double)
 
+        /// A closed filled polygon (an area chart's fill, a custom shape).
+        case polygon(points: [ChromePoint], fill: ChromeColor?, stroke: ChromeColor?, width: Double)
+
+        /// A filled pie/donut sector. Angles are radians, 0 at 12 o'clock,
+        /// increasing clockwise; `innerRadius` 0 draws a pie slice, a
+        /// fraction of `radius` a donut ring. Radii in cell heights; the
+        /// shape is circular in pixel space regardless of the cell aspect.
+        case sector(
+            center: ChromePoint,
+            radius: Double,
+            innerRadius: Double,
+            start: Double,
+            end: Double,
+            fill: ChromeColor
+        )
+
         /// A raster image, placed and scaled into a rectangle.
         ///
         /// The one shape whose payload is not geometry. It exists because a
@@ -394,7 +410,7 @@ public struct ChromeCommand: Hashable, Sendable {
                 height: Swift.max(from.y, to.y) - minY
             )
 
-        case .polyline(let points, _, _):
+        case .polyline(let points, _, _), .polygon(let points, _, _, _):
             guard let first = points.first else {
                 return ChromeRect(x: 0, y: 0, width: 0, height: 0)
             }
@@ -409,6 +425,17 @@ public struct ChromeCommand: Hashable, Sendable {
             }
 
             return ChromeRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
+
+        case .sector(let center, let radius, _, _, _, _):
+            // Same conservative horizontal reach as circles: radius is in
+            // cell heights, and a cell is roughly half as wide as tall.
+            let horizontal = radius * 2.5
+            return ChromeRect(
+                x: center.x - horizontal,
+                y: center.y - radius,
+                width: horizontal * 2,
+                height: radius * 2
+            )
         }
     }
 }
@@ -547,6 +574,32 @@ public struct ChromeSurface {
             let command = ChromeCommand(id: id, layer: layer, shape: .polyline(points: translated, color: color, width: width))
 
             guard translated.count >= 2, command.boundingRect.intersects(chromeClip) else {
+                return
+            }
+
+            target.appendChrome(command)
+
+        case .polygon(let points, let fill, let stroke, let width):
+            let translated = points.map {
+                ChromePoint(x: $0.x + Double(origin.x), y: $0.y + Double(origin.y))
+            }
+            let command = ChromeCommand(id: id, layer: layer, shape: .polygon(points: translated, fill: fill, stroke: stroke, width: width))
+
+            guard translated.count >= 3, command.boundingRect.intersects(chromeClip) else {
+                return
+            }
+
+            target.appendChrome(command)
+
+        case .sector(let center, let radius, let innerRadius, let start, let end, let fill):
+            let translated = ChromePoint(x: center.x + Double(origin.x), y: center.y + Double(origin.y))
+            let command = ChromeCommand(
+                id: id,
+                layer: layer,
+                shape: .sector(center: translated, radius: radius, innerRadius: innerRadius, start: start, end: end, fill: fill)
+            )
+
+            guard end > start, command.boundingRect.intersects(chromeClip) else {
                 return
             }
 
@@ -810,5 +863,52 @@ public struct ChromeSurface {
         layer: ChromeLayer = .underText
     ) {
         append(key, layer: layer, shape: .polyline(points: points, color: color, width: width))
+    }
+
+    /// Draws a closed filled polygon.
+    ///
+    /// - Parameters:
+    ///   - key: Id unique within the drawing view.
+    ///   - points: TUIView-local vertices in fractional cells (at least three).
+    ///   - fill: Fill color, or `nil` for outline only.
+    ///   - stroke: Outline color, or `nil` for fill only.
+    ///   - width: Outline width in cell heights.
+    ///   - layer: Drawing plane.
+    public func polygon(
+        _ key: String,
+        points: [ChromePoint],
+        fill: ChromeColor?,
+        stroke: ChromeColor? = nil,
+        width: Double = 0.05,
+        layer: ChromeLayer = .underText
+    ) {
+        append(key, layer: layer, shape: .polygon(points: points, fill: fill, stroke: stroke, width: width))
+    }
+
+    /// Draws a filled pie/donut sector (angles in radians, 0 at 12 o'clock,
+    /// clockwise; circular in pixel space).
+    ///
+    /// - Parameters:
+    ///   - key: Id unique within the drawing view.
+    ///   - center: TUIView-local center in fractional cells.
+    ///   - radius: Outer radius in cell heights.
+    ///   - innerRadius: Ring hole radius in cell heights (0 = a pie slice).
+    ///   - start: Start angle.
+    ///   - end: End angle (greater than `start`).
+    ///   - fill: Fill color.
+    ///   - layer: Drawing plane.
+    public func sector(
+        _ key: String,
+        center: ChromePoint,
+        radius: Double,
+        innerRadius: Double = 0,
+        start: Double,
+        end: Double,
+        fill: ChromeColor,
+        layer: ChromeLayer = .underText
+    ) {
+        append(key, layer: layer, shape: .sector(
+            center: center, radius: radius, innerRadius: innerRadius, start: start, end: end, fill: fill
+        ))
     }
 }

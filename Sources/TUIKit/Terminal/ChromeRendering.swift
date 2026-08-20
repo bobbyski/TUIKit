@@ -1,3 +1,5 @@
+import Foundation
+
 // Phase 10 — the driver half of VTG chrome: converting the framework's
 // fractional-cell chrome commands into pixel geometry, and keeping the
 // terminal's retained vector scene in sync frame to frame. Both pieces are
@@ -107,5 +109,77 @@ public enum ChromeSceneReconciler {
         }
 
         return .update(draw: changed)
+    }
+}
+
+/// Builds VTG path payloads for pie/donut sectors — pure geometry, so the
+/// cubic arc approximation tests without a terminal.
+///
+/// Chart convention throughout: angles in radians, 0 at 12 o'clock,
+/// increasing clockwise. VTG paths have no arc command, so arcs become
+/// cubic Béziers, one segment per quarter turn (the standard k = 4/3·tan(Δ/4)
+/// approximation — under 0.03% radial error at 90°).
+public enum ChromeSectorPath {
+    /// A point on the circle at `angle` (12 o'clock = 0, clockwise).
+    static func point(centerX: Double, centerY: Double, radius: Double, angle: Double) -> (x: Double, y: Double) {
+        (centerX + radius * sin(angle), centerY - radius * cos(angle))
+    }
+
+    /// Cubic segments approximating the arc from `start` to `end`, as path
+    /// text ("C c1x c1y c2x c2y x y" per segment), starting from the arc's
+    /// start point (which the caller has already moved/lined to).
+    ///
+    /// - Parameter clockwise: The direction travelled (an inner donut arc
+    ///   walks back anticlockwise).
+    static func arcSegments(
+        centerX: Double, centerY: Double, radius: Double,
+        from start: Double, to end: Double
+    ) -> String {
+        let total = end - start
+        let segments = max(1, Int((abs(total) / (Double.pi / 2)).rounded(.up)))
+        let step = total / Double(segments)
+        let k = 4.0 / 3.0 * tan(abs(step) / 4) * (step < 0 ? -1 : 1)
+        var pieces: [String] = []
+
+        for segment in 0..<segments {
+            let a0 = start + step * Double(segment)
+            let a1 = a0 + step
+            let p0 = point(centerX: centerX, centerY: centerY, radius: radius, angle: a0)
+            let p1 = point(centerX: centerX, centerY: centerY, radius: radius, angle: a1)
+
+            // Tangents at the endpoints (clockwise travel: d/dθ of the
+            // parameterisation above).
+            let t0 = (x: cos(a0), y: sin(a0))
+            let t1 = (x: cos(a1), y: sin(a1))
+
+            let c1 = (x: p0.x + k * radius * t0.x, y: p0.y + k * radius * t0.y)
+            let c2 = (x: p1.x - k * radius * t1.x, y: p1.y - k * radius * t1.y)
+
+            pieces.append("C \(Int(c1.x.rounded())) \(Int(c1.y.rounded())) \(Int(c2.x.rounded())) \(Int(c2.y.rounded())) \(Int(p1.x.rounded())) \(Int(p1.y.rounded()))")
+        }
+
+        return pieces.joined(separator: " ")
+    }
+
+    /// The full closed sector path: outer arc clockwise, then either back
+    /// along the inner arc (a donut ring) or to the center (a pie slice).
+    public static func payload(
+        centerX: Double, centerY: Double,
+        radius: Double, innerRadius: Double,
+        start: Double, end: Double
+    ) -> String {
+        let outerStart = point(centerX: centerX, centerY: centerY, radius: radius, angle: start)
+        var path = "M \(Int(outerStart.x.rounded())) \(Int(outerStart.y.rounded())) "
+        path += arcSegments(centerX: centerX, centerY: centerY, radius: radius, from: start, to: end)
+
+        if innerRadius > 0 {
+            let innerEnd = point(centerX: centerX, centerY: centerY, radius: innerRadius, angle: end)
+            path += " L \(Int(innerEnd.x.rounded())) \(Int(innerEnd.y.rounded())) "
+            path += arcSegments(centerX: centerX, centerY: centerY, radius: innerRadius, from: end, to: start)
+        } else {
+            path += " L \(Int(centerX.rounded())) \(Int(centerY.rounded()))"
+        }
+
+        return path + " Z"
     }
 }

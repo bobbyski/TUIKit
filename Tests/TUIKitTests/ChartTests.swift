@@ -438,3 +438,163 @@ private func chromeRendered(_ view: TUIView, width: Int, height: Int, theme: The
     #expect(turboContent.chartData(0) == .rgb(red: 0, green: 170, blue: 0), "Turbo's EGA palette: series 1 is green")
     #expect(turboContent.chartData(10) == turboContent.chartData(0), "the palette cycles")
 }
+
+// MARK: - BarChart, PieChart, ScatterChart, area fill (the ActiveUI ports)
+
+@Test @MainActor func barChartDrawsGroupedBarsOnAZeroBaseline() {
+    let chart = BarChart(
+        categories: ["Mon", "Tue"],
+        series: [
+            .init(label: "a", values: [10, 20]),
+            .init(label: "b", values: [5, 10]),
+        ]
+    )
+    chart.theme = .turbo
+    let lines = rendered(chart, width: 30, height: 8)
+    let all = lines.joined(separator: "\n")
+
+    #expect(all.contains("Mon") && all.contains("Tue"), "category labels under the groups")
+    #expect(all.contains("0"), "the baseline is always zero")
+    #expect(all.contains("█"), "bars draw as solid blocks")
+    #expect(all.contains("┼") && all.contains("─"), "the baseline rule renders")
+
+    // The 20-value bar is twice the height of the 10-value bar.
+    let buffer = renderedBuffer(chart, width: 30, height: 8)
+    var heights: [Int: Int] = [:]
+    for x in 0..<30 {
+        var count = 0
+        for y in 0..<8 where buffer[Point(x: x, y: y)].character == "█" {
+            count += 1
+        }
+        if count > 0 { heights[x] = count }
+    }
+    let tallest = heights.values.max() ?? 0
+    #expect(heights.values.contains { $0 <= tallest / 2 + 1 && $0 > 0 }, "half the value, half the bar: \(heights)")
+}
+
+@Test @MainActor func barChartVectorBarsAreRoundedAndSuppressible() {
+    let chart = BarChart(categories: ["A"], series: [.init(label: "s", values: [5])])
+    let (commands, buffer) = chromeRendered(chart, width: 20, height: 7, theme: .turbo)
+
+    guard let bar = commands.first(where: { $0.id.contains("_bar-0-0") }),
+          case .rect(_, _, _, _, let radius, let corners) = bar.shape else {
+        Issue.record("no vector bar")
+        return
+    }
+
+    #expect(radius > 0 && corners == .top, "rounded-top vector bars")
+    #expect(buffer.textLines().joined().contains("█") == false, "glyph bars gave way to vector ones")
+
+    chart.suppressesVectorChrome = true
+    let again = renderedBuffer(chart, width: 20, height: 7)
+    #expect(again.textLines().joined().contains("█"), "suppressed → the ANSI bars")
+}
+
+@Test @MainActor func pieChartLegendCarriesTheTruthAndSlicesKeepTheirOrder() {
+    let chart = PieChart(slices: [
+        .init(label: "rent", value: 42),
+        .init(label: "food", value: -33),   // magnitudes: negatives fold
+        .init(label: "misc", value: 25),
+    ])
+    chart.theme = .turbo
+    let lines = rendered(chart, width: 40, height: 7)
+    let all = lines.joined(separator: "\n")
+
+    #expect(all.contains("rent") && all.contains("42%"), "the legend names every share exactly")
+    #expect(all.contains("food") && all.contains("33%"), "a negative slice reads as its magnitude")
+    #expect(all.contains("misc") && all.contains("25%"))
+    #expect(all.contains("█"), "and there is a disc, comic as cells make it")
+
+    // First slice starts at 12 o'clock: the cell just above center belongs
+    // to rent (chartData(0) = Turbo EGA green), because order is preserved.
+    let buffer = renderedBuffer(chart, width: 40, height: 7)
+    let above = buffer[Point(x: 7, y: 1)]
+    #expect(above.style.foreground == Theme.turbo.resolved().chartData(0), "12 o'clock belongs to the first slice")
+}
+
+@Test @MainActor func pieChartVectorSectorsSweepTheWholeCircleAndDonutsKeepAHole() {
+    let chart = PieChart(slices: [
+        .init(label: "a", value: 3),
+        .init(label: "b", value: 1),
+    ])
+    chart.innerRadiusFraction = 0.5
+    let (commands, _) = chromeRendered(chart, width: 30, height: 7, theme: .turbo)
+
+    let sectors = commands.compactMap { command -> (start: Double, end: Double, inner: Double)? in
+        guard case .sector(_, _, let inner, let start, let end, _) = command.shape else {
+            return nil
+        }
+
+        return (start, end, inner)
+    }
+
+    #expect(sectors.count == 2)
+    #expect(abs((sectors.last?.end ?? 0) - 2 * Double.pi) < 0.001, "the sweep closes the full circle")
+    #expect(abs((sectors[0].end) - 1.5 * Double.pi) < 0.001, "3 of 4 = three quarters of the sweep")
+    #expect(sectors.allSatisfy { $0.inner > 0 }, "the donut keeps its hole")
+}
+
+@Test @MainActor func scatterPlotsEachSeriesInItsOwnMarkerAndVectorDots() {
+    let chart = ScatterChart(series: [
+        .init(label: "hit", points: [.init(x: 0, y: 0), .init(x: 10, y: 10)]),
+        .init(label: "miss", points: [.init(x: 5, y: 5)]),
+    ])
+    chart.theme = .turbo
+    let all = rendered(chart, width: 30, height: 8).joined(separator: "\n")
+
+    #expect(all.contains("•"), "series 1's marker")
+    #expect(all.contains("∘"), "series 2's marker — distinguishable without colour")
+    #expect(all.contains("┤") && all.contains("┬"), "both axes tick")
+
+    let (commands, _) = chromeRendered(chart, width: 30, height: 8, theme: .turbo)
+    #expect(commands.filter { $0.id.contains("_pt-") }.count == 3, "one vector dot per observation")
+}
+
+@Test @MainActor func lineChartAreaFillsBelowTheLine() {
+    let chart = LineChart(series: [
+        .init(label: "m", values: [10, 10, 10], fillsArea: true),
+    ])
+    chart.theme = .turbo
+    chart.yDomain = 0...20
+
+    // Cells: solid blocks from below the line down to the axis.
+    let buffer = renderedBuffer(chart, width: 20, height: 8)
+    var blocks = 0
+    for y in 0..<8 {
+        for x in 0..<20 where buffer[Point(x: x, y: y)].character == "█" {
+            blocks += 1
+        }
+    }
+    #expect(blocks > 10, "the area under the line is solid, got \(blocks) blocks")
+
+    // VTG: a translucent polygon under the trace, closed along the axis.
+    let (commands, _) = chromeRendered(chart, width: 20, height: 8, theme: .turbo)
+    guard let area = commands.first(where: { $0.id.hasSuffix("-area") }),
+          case .polygon(let points, let fill, _, _) = area.shape else {
+        Issue.record("no area polygon")
+        return
+    }
+
+    #expect(points.count >= 4)
+    #expect((fill?.alpha ?? 255) < 255, "the fill is translucent so grid/backing reads through")
+}
+
+@Test func sectorPathsApproximateArcsHonestly() {
+    // Quarter circle from 12 to 3 o'clock, radius 100 at origin 200,200.
+    let payload = ChromeSectorPath.payload(centerX: 200, centerY: 200, radius: 100, innerRadius: 0, start: 0, end: Double.pi / 2)
+
+    #expect(payload.hasPrefix("M 200 100"), "starts at 12 o'clock: \(payload)")
+    #expect(payload.contains("C"), "arcs become cubics")
+    #expect(payload.contains("300 200"), "ends at 3 o'clock")
+    #expect(payload.hasSuffix("L 200 200 Z"), "a pie slice closes through the center")
+
+    let donut = ChromeSectorPath.payload(centerX: 200, centerY: 200, radius: 100, innerRadius: 50, start: 0, end: Double.pi / 2)
+    #expect(donut.contains("L 250 200"), "a ring turns onto the inner arc instead")
+    #expect(!donut.contains("L 200 200"), "and never touches the center")
+}
+
+@Test func scatterMarkersAreSingleWidth() {
+    for marker in ScatterChart.markers {
+        #expect(DisplayWidth.of(marker) == 1, "marker \(marker) must be single-width")
+    }
+}

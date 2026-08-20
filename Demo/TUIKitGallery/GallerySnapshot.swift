@@ -108,6 +108,30 @@ private func gallerySVG(buffer: CellBuffer, chrome: [ChromeCommand], size: Size)
             let list = points.map { "\($0.x * cw),\($0.y * ch)" }.joined(separator: " ")
             svg += "<polyline points=\"\(list)\" fill=\"none\" stroke=\"\(css(color))\" stroke-width=\"\(max(1, width * ch))\" stroke-linejoin=\"round\" stroke-linecap=\"round\"/>\n"
 
+        case .polygon(let points, let fill, let stroke, let width):
+            let list = points.map { "\($0.x * cw),\($0.y * ch)" }.joined(separator: " ")
+            svg += "<polygon points=\"\(list)\" fill=\"\(fill.map(css) ?? "none")\" stroke=\"\(stroke.map(css) ?? "none")\" stroke-width=\"\(max(1, width * ch))\"/>\n"
+
+        case .sector(let center, let radius, let innerRadius, let start, let end, let fill):
+            // Chart angles (0 = 12 o'clock, clockwise) into SVG arcs; the
+            // pixel-space circle stays round at cell scale ch.
+            func at(_ r: Double, _ angle: Double) -> (Double, Double) {
+                (center.x * cw + r * ch * Foundation.sin(angle), center.y * ch - r * ch * Foundation.cos(angle))
+            }
+
+            let large = (end - start) > Double.pi ? 1 : 0
+            let o0 = at(radius, start), o1 = at(radius, end)
+            var d = "M \(o0.0) \(o0.1) A \(radius * ch) \(radius * ch) 0 \(large) 1 \(o1.0) \(o1.1)"
+
+            if innerRadius > 0 {
+                let i1 = at(innerRadius, end), i0 = at(innerRadius, start)
+                d += " L \(i1.0) \(i1.1) A \(innerRadius * ch) \(innerRadius * ch) 0 \(large) 0 \(i0.0) \(i0.1)"
+            } else {
+                d += " L \(center.x * cw) \(center.y * ch)"
+            }
+
+            svg += "<path d=\"\(d) Z\" fill=\"\(css(fill))\"/>\n"
+
         case .image, .sprite:
             break   // raster payloads don't belong in a text snapshot
         }

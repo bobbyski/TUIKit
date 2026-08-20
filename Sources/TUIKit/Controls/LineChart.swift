@@ -34,11 +34,17 @@ public final class LineChart: TUIView {
         /// accent, error accent, foreground — cycling).
         public var style: CellStyle?
 
+        /// Whether the region under the line fills — the area-chart reading
+        /// (`AUIAreaMark`'s shape). Solid blocks in the series colour on
+        /// cells; a translucent polygon under the trace on a VTG terminal.
+        public var fillsArea = false
+
         /// Creates a series.
-        public init(label: String, values: [Double], style: CellStyle? = nil) {
+        public init(label: String, values: [Double], style: CellStyle? = nil, fillsArea: Bool = false) {
             self.label = label
             self.values = values
             self.style = style
+            self.fillsArea = fillsArea
         }
     }
 
@@ -161,14 +167,7 @@ public final class LineChart: TUIView {
 
     // The largest 1/2/5×10^k step giving at most `maximumTicks` intervals.
     private func niceStep(span: Double, maximumTicks: Int) -> Double {
-        let rough = span / Double(max(1, maximumTicks))
-        let magnitude = Foundation.pow(10, Foundation.floor(Foundation.log10(max(rough, .leastNormalMagnitude))))
-
-        for multiplier in [1.0, 2.0, 5.0, 10.0] where magnitude * multiplier >= rough {
-            return magnitude * multiplier
-        }
-
-        return magnitude * 10
+        ChartMath.niceStep(span: span, maximumTicks: maximumTicks)
     }
 
     // MARK: - Drawing
@@ -279,6 +278,24 @@ public final class LineChart: TUIView {
             return
         }
 
+        // Cell-mode area fills paint FIRST (solid blocks under each line),
+        // so every series' line stays on top of every fill.
+        for (index, oneSeries) in series.enumerated() where oneSeries.fillsArea && oneSeries.values.count >= 1 {
+            let style = oneSeries.style ?? defaultStyle(at: index, theme: theme)
+            let bottom = plotTop + plotRows
+
+            for column in 0..<plotWidth {
+                let top = row(of: sample(oneSeries.values, at: column, plotWidth: plotWidth))
+
+                for y in (top + 1)..<bottom {
+                    painter.set(
+                        TerminalCell(character: fidelity == .ascii ? "#" : "█", style: style),
+                        at: Point(x: axisColumn + 1 + column, y: y)
+                    )
+                }
+            }
+        }
+
         for (index, oneSeries) in series.enumerated() where oneSeries.values.count >= 1 {
             let style = oneSeries.style ?? defaultStyle(at: index, theme: theme)
 
@@ -340,6 +357,22 @@ public final class LineChart: TUIView {
                 x: Double(plotLeft) + progress * (Double(plotWidth) - 0.4) + 0.2,
                 y: bottom - fraction * (bottom - top)
             ))
+        }
+
+        // The area reading: a translucent polygon closed along the axis,
+        // under its own trace.
+        if oneSeries.fillsArea, let first = points.first, let last = points.last {
+            var fill = ink
+            fill.alpha = 90
+
+            chrome.polygon(
+                key + "-area",
+                points: points + [
+                    ChromePoint(x: last.x, y: bottom),
+                    ChromePoint(x: first.x, y: bottom),
+                ],
+                fill: fill
+            )
         }
 
         chrome.polyline(key, points: points, color: ink, width: 0.09)

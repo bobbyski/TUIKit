@@ -157,3 +157,26 @@ public final class Sparkline: TUIView {
         }
     }
 }
+
+/// Shared chart arithmetic (internal): the pieces every chart needs and
+/// none should re-derive.
+enum ChartMath {
+    /// The largest 1/2/5×10^k step giving at most `maximumTicks` intervals —
+    /// round tick values, not whatever divides the pixel count.
+    static func niceStep(span: Double, maximumTicks: Int) -> Double {
+        let rough = span / Double(max(1, maximumTicks))
+        var magnitude = 1.0
+
+        if rough > 0 {
+            // The largest power of ten not above `rough`, without libm.
+            while magnitude < rough { magnitude *= 10 }
+            while magnitude > rough { magnitude /= 10 }
+        }
+
+        for multiplier in [1.0, 2.0, 5.0, 10.0] where magnitude * multiplier >= rough {
+            return magnitude * multiplier
+        }
+
+        return magnitude * 10
+    }
+}

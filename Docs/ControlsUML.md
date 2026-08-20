@@ -680,9 +680,31 @@ classDiagram
         +showsLegend : Bool
     }
 
+    class BarChart {
+        +categories : [String]
+        +series : [Series]
+        +maximumValue : Double?
+        +showsLegend : Bool
+    }
+
+    class PieChart {
+        +slices : [Slice]
+        +innerRadiusFraction : Double
+        +showsLegend : Bool
+    }
+
+    class ScatterChart {
+        +series : [Series]
+        +xDomain / yDomain : ClosedRange~Double~?
+        +showsLegend : Bool
+    }
+
     TUIView <|-- Sparkline
     TUIView <|-- TimelineChart
     TUIView <|-- LineChart
+    TUIView <|-- BarChart
+    TUIView <|-- PieChart
+    TUIView <|-- ScatterChart
     TimelineChart o-- TimelineRow : rows
 
     class SyntaxHighlighting {
@@ -710,5 +732,10 @@ classDiagram
 ```
 
 Charts render on one rule — cells first, every glyph single-width, colours
-from theme slots. Long-press (no new class): `MouseInput.Action.longPress` +
+from the `chartData` palette (theme-derived when unset) with per-series
+overrides. The ActiveUI chart shapes all have TUI counterparts now:
+`AUIBarMark`→BarChart, `AUISectorMark`→PieChart (donut included),
+`AUIPointMark`→ScatterChart, `AUIAreaMark`→`LineChart.Series.fillsArea`,
+`AUILineMark`→LineChart; the pie's cell disc is coarse by nature, so its
+legend always carries the exact percentages. Long-press (no new class): `MouseInput.Action.longPress` +
 `Button.onLongPress` + `ToolbarItem.longPressAction`, context menu fallback.

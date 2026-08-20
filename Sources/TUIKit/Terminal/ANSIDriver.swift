@@ -599,6 +599,40 @@ public actor ANSIDriver: TerminalDriver {
                 lineJoin: .round,
                 layer: layer
             )
+
+        case .polygon(let points, let fill, let stroke, let width):
+            let payload = points.enumerated().map { index, point in
+                let pixel = mapper.point(point)
+                return "\(index == 0 ? "M" : "L") \(pixel.x) \(pixel.y)"
+            }.joined(separator: " ") + " Z"
+
+            canvas.path(
+                id: command.id,
+                payload: payload,
+                stroke: stroke.map(vtgColor),
+                fill: fill.map(vtgColor),
+                lineWidth: max(1, mapper.scalar(width)),
+                lineJoin: .round,
+                layer: layer
+            )
+
+        case .sector(let center, let radius, let innerRadius, let start, let end, let fill):
+            let pixelCenter = mapper.point(center)
+
+            canvas.path(
+                id: command.id,
+                payload: ChromeSectorPath.payload(
+                    centerX: Double(pixelCenter.x),
+                    centerY: Double(pixelCenter.y),
+                    radius: Double(mapper.scalar(radius)),
+                    innerRadius: Double(mapper.scalar(innerRadius)),
+                    start: start,
+                    end: end
+                ),
+                stroke: nil,
+                fill: vtgColor(fill),
+                layer: layer
+            )
         }
     }
 
