@@ -95,7 +95,11 @@ public final class Sparkline: TUIView {
     nonisolated static let blockLevels: [Character] = ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"]
     nonisolated static let asciiLevels: [Character] = ["_", ".", "-", "=", "*", "#"]
 
-    /// Draws the newest values that fit, one column each.
+    /// Draws the newest values that fit, one column each — as smooth vector
+    /// bars on a VTG terminal (fractional heights instead of eight block
+    /// levels), as glyphs everywhere else. Set
+    /// ``TUIView/suppressesVectorChrome`` to pin the glyph rendering on any
+    /// terminal.
     public override func draw(_ painter: Painter) {
         let width = bounds.size.width
 
@@ -108,16 +112,44 @@ public final class Sparkline: TUIView {
         let high = range?.upperBound ?? visible.max() ?? 0
         let span = high - low
 
-        let levels = fidelity == .ascii ? Self.asciiLevels : Self.blockLevels
-
         let theme = effectiveTheme
         let cellStyle = style ?? CellStyle(foreground: theme.accent)
 
+        // Height fraction for one value; flat (or floor-clamped) stays a
+        // visible baseline — flat is an answer.
+        func fraction(of value: Double) -> Double {
+            span > 0 ? (min(max(value, low), high) - low) / span : 0
+        }
+
+        // The vector rendering: a backing in the surface colour, then one
+        // sub-cell-precise bar per column. Only when every colour has real
+        // RGB — a colourless theme keeps glyphs.
+        if let chrome = painter.chrome,
+           let ink = ChromeColor(cellStyle.foreground),
+           let backing = ChromeColor(theme.background) {
+            chrome.rect("backing", ChromeRect(bounds), fill: backing)
+
+            let transparent = painter.withBase(CellStyle())
+            transparent.fill(bounds, with: .blank)
+
+            for (column, value) in visible.enumerated() {
+                let height = max(0.1, fraction(of: value) * 0.9)
+                chrome.rect(
+                    "bar-\(column)",
+                    ChromeRect(x: Double(column) + 0.1, y: 0.95 - height, width: 0.8, height: height),
+                    fill: ink,
+                    radius: 0.07,
+                    corners: .top
+                )
+            }
+
+            return
+        }
+
+        let levels = fidelity == .ascii ? Self.asciiLevels : Self.blockLevels
+
         for (column, value) in visible.enumerated() {
-            // A flat series (or one clamped at the floor) reads as the
-            // baseline glyph, not as empty cells: flat is an answer.
-            let fraction = span > 0 ? (min(max(value, low), high) - low) / span : 0
-            let level = Int((fraction * Double(levels.count - 1)).rounded())
+            let level = Int((fraction(of: value) * Double(levels.count - 1)).rounded())
             painter.set(
                 TerminalCell(character: levels[level], style: cellStyle),
                 at: Point(x: column, y: 0)

@@ -228,6 +228,23 @@ public final class TimelineChart: TUIView {
 
         clampScroll()
 
+        // The vector rendering (VTG terminals): bars become rounded
+        // sub-cell-precise blocks on a backing in the surface colour, while
+        // labels and the axis stay native text. Only when the theme's
+        // colours have real RGB; `suppressesVectorChrome` pins glyphs.
+        let chrome: ChromeSurface?
+
+        if let surface = painter.chrome, ChromeColor(theme.background) != nil {
+            chrome = surface
+            surface.rect(
+                "backing",
+                ChromeRect(Rect(x: gutter, y: axisRow + 1, width: plotWidth, height: rowLines)),
+                fill: ChromeColor(theme.background)
+            )
+        } else {
+            chrome = nil
+        }
+
         for line in 0..<rowLines {
             let index = firstVisibleRow + line
 
@@ -244,7 +261,96 @@ public final class TimelineChart: TUIView {
             let label = Label.truncated(row.label, width: max(0, gutter - 1))
             painter.write(label, at: Point(x: 0, y: y), style: labelStyle)
 
-            drawBar(row, at: y, gutter: gutter, plotWidth: plotWidth, domain: domain, theme: theme, painter: painter)
+            if let chrome {
+                drawVectorBar(
+                    row, rowIndex: index, at: y, gutter: gutter, plotWidth: plotWidth,
+                    domain: domain, theme: theme, chrome: chrome, painter: painter
+                )
+            } else {
+                drawBar(row, at: y, gutter: gutter, plotWidth: plotWidth, domain: domain, theme: theme, painter: painter)
+            }
+        }
+    }
+
+    // One row's bar as vector chrome: rounded blocks at true fractional
+    // positions (a 30ms segment is 1.5 real cells wide, not a rounded
+    // column count), same honesty rules — a minimum visible width, never
+    // overlapping the previous segment.
+    private func drawVectorBar(
+        _ row: TimelineRow,
+        rowIndex: Int,
+        at y: Int,
+        gutter: Int,
+        plotWidth: Int,
+        domain: ClosedRange<Double>,
+        theme: ResolvedTheme,
+        chrome: ChromeSurface,
+        painter: Painter
+    ) {
+        let span = domain.upperBound - domain.lowerBound
+
+        guard span > 0 else {
+            return
+        }
+
+        // The bar cells go transparent so the under-text blocks show.
+        let transparent = painter.withBase(CellStyle())
+        transparent.fill(Rect(x: gutter, y: y, width: plotWidth, height: 1), with: .blank)
+
+        func position(_ value: Double) -> Double {
+            (min(max(value, domain.lowerBound), domain.upperBound) - domain.lowerBound)
+                / span * Double(plotWidth)
+        }
+
+        var previousEnd = 0.0
+        let minimumWidth = 0.2
+
+        for (index, segment) in row.segments.sorted(by: { $0.start < $1.start }).enumerated() {
+            var begin = position(segment.start)
+            var end = position(segment.start + segment.duration)
+
+            if end - begin < minimumWidth {
+                end = begin + minimumWidth
+            }
+
+            if begin < previousEnd {
+                begin = previousEnd
+                end = max(end, begin + minimumWidth)
+            }
+
+            guard begin < Double(plotWidth) else {
+                continue
+            }
+
+            end = min(end, Double(plotWidth))
+
+            guard begin < end else {
+                continue
+            }
+
+            // The style override (or the kind's slot) supplies the ink; a
+            // colourless ink drops just this segment to nothing rather than
+            // the whole chart to glyphs — the theme check above already
+            // guaranteed the common slots.
+            let ink = (segment.style ?? style(for: segment.kind, theme: theme)).foreground
+
+            guard let fill = ChromeColor(ink) else {
+                continue
+            }
+
+            // Work reads as a solid block, waiting as a thin channel.
+            let thin = segment.kind == .waiting && segment.style == nil
+            let height = thin ? 0.24 : 0.62
+            let top = Double(y) + (1 - height) / 2
+
+            chrome.rect(
+                "bar-\(rowIndex)-\(index)",
+                ChromeRect(x: Double(gutter) + begin, y: top, width: end - begin, height: height),
+                fill: fill,
+                radius: thin ? 0.1 : 0.26
+            )
+
+            previousEnd = end
         }
     }
 

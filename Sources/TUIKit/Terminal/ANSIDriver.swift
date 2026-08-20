@@ -585,6 +585,20 @@ public actor ANSIDriver: TerminalDriver {
                 width: max(1, mapper.scalar(width)),
                 layer: layer
             )
+
+        case .polyline(let points, let color, let width):
+            canvas.draw(
+                id: command.id,
+                points: points.map { point in
+                    let pixel = mapper.point(point)
+                    return VTGPoint(x: pixel.x, y: pixel.y)
+                },
+                stroke: vtgColor(color),
+                width: max(1, mapper.scalar(width)),
+                lineCap: .round,
+                lineJoin: .round,
+                layer: layer
+            )
         }
     }
 

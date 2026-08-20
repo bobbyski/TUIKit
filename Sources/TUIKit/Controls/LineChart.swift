@@ -252,7 +252,33 @@ public final class LineChart: TUIView {
             theme: theme
         )
 
-        // The series, in declared order.
+        // The series, in declared order. On a VTG terminal each trace is one
+        // smooth vector polyline over a backing in the surface colour —
+        // genuinely diagonal lines instead of box-drawing steps; the axes
+        // and labels stay native text. Only when every colour involved has
+        // real RGB; `suppressesVectorChrome` (or a colourless theme) keeps
+        // the glyph rendering below.
+        if let chrome = painter.chrome,
+           let backing = ChromeColor(theme.background),
+           let inks = vectorInks(theme: theme) {
+            let plotArea = Rect(x: axisColumn + 1, y: plotTop, width: plotWidth, height: plotRows)
+            chrome.rect("backing", ChromeRect(plotArea), fill: backing)
+
+            let transparent = painter.withBase(CellStyle())
+            transparent.fill(plotArea, with: .blank)
+
+            for (index, oneSeries) in series.enumerated() where oneSeries.values.count >= 1 {
+                drawVectorTrace(
+                    oneSeries, key: "trace-\(index)", ink: inks[index],
+                    plotLeft: axisColumn + 1, plotTop: plotTop,
+                    plotWidth: plotWidth, plotRows: plotRows,
+                    domain: domain, chrome: chrome
+                )
+            }
+
+            return
+        }
+
         for (index, oneSeries) in series.enumerated() where oneSeries.values.count >= 1 {
             let style = oneSeries.style ?? defaultStyle(at: index, theme: theme)
 
@@ -266,6 +292,57 @@ public final class LineChart: TUIView {
                          plotWidth: plotWidth, rowOf: row(of:), painter: painter)
             }
         }
+    }
+
+    // Every series' ink as real RGB, or nil when any falls short (one
+    // glyph-drawn series beside vector ones would misalign the story).
+    private func vectorInks(theme: ResolvedTheme) -> [ChromeColor]? {
+        var inks: [ChromeColor] = []
+
+        for (index, oneSeries) in series.enumerated() {
+            let style = oneSeries.style ?? defaultStyle(at: index, theme: theme)
+
+            guard let ink = ChromeColor(style.foreground) else {
+                return nil
+            }
+
+            inks.append(ink)
+        }
+
+        return inks
+    }
+
+    // One series as a single retained polyline, sampled at two points per
+    // column for smooth slopes.
+    private func drawVectorTrace(
+        _ oneSeries: Series,
+        key: String,
+        ink: ChromeColor,
+        plotLeft: Int,
+        plotTop: Int,
+        plotWidth: Int,
+        plotRows: Int,
+        domain: ClosedRange<Double>,
+        chrome: ChromeSurface
+    ) {
+        let samples = max(2, plotWidth * 2)
+        let top = Double(plotTop) + 0.15
+        let bottom = Double(plotTop + plotRows) - 0.15
+        var points: [ChromePoint] = []
+
+        for sampleIndex in 0..<samples {
+            let progress = Double(sampleIndex) / Double(samples - 1)
+            let value = sample(oneSeries.values, at: sampleIndex, plotWidth: samples)
+            let clamped = min(max(value, domain.lowerBound), domain.upperBound)
+            let fraction = (clamped - domain.lowerBound) / (domain.upperBound - domain.lowerBound)
+
+            points.append(ChromePoint(
+                x: Double(plotLeft) + progress * (Double(plotWidth) - 0.4) + 0.2,
+                y: bottom - fraction * (bottom - top)
+            ))
+        }
+
+        chrome.polyline(key, points: points, color: ink, width: 0.09)
     }
 
     private func defaultStyle(at index: Int, theme: ResolvedTheme) -> CellStyle {

@@ -309,6 +309,10 @@ public struct ChromeCommand: Hashable, Sendable {
         /// A straight line.
         case line(from: ChromePoint, to: ChromePoint, color: ChromeColor, width: Double)
 
+        /// A connected polyline (two or more points) — one retained object
+        /// for a whole chart trace instead of a segment per column.
+        case polyline(points: [ChromePoint], color: ChromeColor, width: Double)
+
         /// A raster image, placed and scaled into a rectangle.
         ///
         /// The one shape whose payload is not geometry. It exists because a
@@ -389,6 +393,22 @@ public struct ChromeCommand: Hashable, Sendable {
                 width: Swift.max(from.x, to.x) - minX,
                 height: Swift.max(from.y, to.y) - minY
             )
+
+        case .polyline(let points, _, _):
+            guard let first = points.first else {
+                return ChromeRect(x: 0, y: 0, width: 0, height: 0)
+            }
+
+            var minX = first.x, minY = first.y, maxX = first.x, maxY = first.y
+
+            for point in points.dropFirst() {
+                minX = Swift.min(minX, point.x)
+                minY = Swift.min(minY, point.y)
+                maxX = Swift.max(maxX, point.x)
+                maxY = Swift.max(maxY, point.y)
+            }
+
+            return ChromeRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
         }
     }
 }
@@ -515,6 +535,18 @@ public struct ChromeSurface {
             let command = ChromeCommand(id: id, layer: layer, shape: .line(from: a, to: b, color: color, width: width))
 
             guard command.boundingRect.intersects(chromeClip) else {
+                return
+            }
+
+            target.appendChrome(command)
+
+        case .polyline(let points, let color, let width):
+            let translated = points.map {
+                ChromePoint(x: $0.x + Double(origin.x), y: $0.y + Double(origin.y))
+            }
+            let command = ChromeCommand(id: id, layer: layer, shape: .polyline(points: translated, color: color, width: width))
+
+            guard translated.count >= 2, command.boundingRect.intersects(chromeClip) else {
                 return
             }
 
@@ -762,4 +794,21 @@ public struct ChromeSurface {
         append(key, layer: layer, shape: .line(from: from, to: to, color: color, width: width))
     }
 
+    /// Draws a connected polyline — one retained object for a whole trace.
+    ///
+    /// - Parameters:
+    ///   - key: Id unique within the drawing view.
+    ///   - points: TUIView-local vertices in fractional cells (at least two).
+    ///   - color: Line color.
+    ///   - width: Line width in cell heights.
+    ///   - layer: Drawing plane.
+    public func polyline(
+        _ key: String,
+        points: [ChromePoint],
+        color: ChromeColor,
+        width: Double = 0.05,
+        layer: ChromeLayer = .underText
+    ) {
+        append(key, layer: layer, shape: .polyline(points: points, color: color, width: width))
+    }
 }

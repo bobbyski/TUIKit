@@ -70,13 +70,20 @@ public struct Painter {
     // `renderTree`), so chrome object ids are view-scoped.
     private let chromeOwnerID: String
 
+    // Whether a view up the chain opted its subtree out of vector chrome
+    // (`TUIView.suppressesVectorChrome`) — the painter then reports no
+    // surface even on a VTG terminal.
+    private let chromeSuppressed: Bool
+
     /// The vector chrome surface, when the frame is chrome-enabled.
     ///
-    /// `nil` on plain terminals — views guard chrome drawing with
+    /// `nil` on plain terminals — and inside subtrees that set
+    /// ``TUIView/suppressesVectorChrome``. Views guard chrome drawing with
     /// `if let chrome = painter.chrome`, and the cell path stays the
-    /// universal fallback (Phase 10 contract).
+    /// universal fallback (Phase 10 contract), so suppression needs nothing
+    /// from the view: it simply takes its own fallback branch.
     public var chrome: ChromeSurface? {
-        guard target.chromeEnabled else {
+        guard target.chromeEnabled, !chromeSuppressed else {
             return nil
         }
 
@@ -91,18 +98,21 @@ public struct Painter {
     ///   - clip: Writable region in buffer coordinates.
     ///   - base: Theme base colors for `.standard` substitution.
     ///   - chromeOwnerID: Retained-scene id prefix for chrome commands.
+    ///   - chromeSuppressed: Whether the subtree opted out of chrome.
     init(
         target: RenderTarget,
         origin: Point,
         clip: Rect,
         base: CellStyle = CellStyle(),
-        chromeOwnerID: String = "root"
+        chromeOwnerID: String = "root",
+        chromeSuppressed: Bool = false
     ) {
         self.target = target
         self.origin = origin
         self.clip = clip
         self.base = base
         self.chromeOwnerID = chromeOwnerID
+        self.chromeSuppressed = chromeSuppressed
     }
 
     /// Writes one cell at a view-local point, subject to clipping.
@@ -230,7 +240,8 @@ public struct Painter {
             origin: subviewOrigin,
             clip: clip.intersection(frameInBuffer),
             base: base,
-            chromeOwnerID: chromeOwnerID
+            chromeOwnerID: chromeOwnerID,
+            chromeSuppressed: chromeSuppressed
         )
     }
 
@@ -239,7 +250,14 @@ public struct Painter {
     /// - Parameter newBase: Theme base colors for the subtree.
     /// - Returns: Painter with the same translation and clip.
     func withBase(_ newBase: CellStyle) -> Painter {
-        Painter(target: target, origin: origin, clip: clip, base: newBase, chromeOwnerID: chromeOwnerID)
+        Painter(
+            target: target,
+            origin: origin,
+            clip: clip,
+            base: newBase,
+            chromeOwnerID: chromeOwnerID,
+            chromeSuppressed: chromeSuppressed
+        )
     }
 
     /// Derives a painter whose chrome object ids are scoped to a view.
@@ -251,6 +269,28 @@ public struct Painter {
     /// - Parameter ownerID: The drawing view's stable id prefix.
     /// - Returns: Painter with the same translation, clip, and base.
     func withChromeOwner(_ ownerID: String) -> Painter {
-        Painter(target: target, origin: origin, clip: clip, base: base, chromeOwnerID: ownerID)
+        Painter(
+            target: target,
+            origin: origin,
+            clip: clip,
+            base: base,
+            chromeOwnerID: ownerID,
+            chromeSuppressed: chromeSuppressed
+        )
+    }
+
+    /// Derives a painter that reports no chrome surface, for a subtree that
+    /// opted out (`TUIView.suppressesVectorChrome`).
+    ///
+    /// - Returns: Painter with the same translation, clip, and base.
+    func withoutChrome() -> Painter {
+        Painter(
+            target: target,
+            origin: origin,
+            clip: clip,
+            base: base,
+            chromeOwnerID: chromeOwnerID,
+            chromeSuppressed: true
+        )
     }
 }

@@ -304,3 +304,111 @@ private func waterfall() -> TimelineChart {
     let resolved = Theme.turbo.resolved()
     #expect(buffer[Point(x: 0, y: 0)].style.foreground == resolved.accent, "first series wears the accent")
 }
+
+// MARK: - VTG rendering and the suppression override
+
+@MainActor
+private func chromeRendered(_ view: TUIView, width: Int, height: Int, theme: Theme = .ambiance) -> (commands: [ChromeCommand], buffer: CellBuffer) {
+    view.theme = theme
+    view.frame = Rect(x: 0, y: 0, width: width, height: height)
+    let renderer = SceneRenderer(root: view)
+    renderer.chromeEnabled = true
+    let buffer = renderer.render(size: Size(width: width, height: height))
+    return (renderer.chromeCommands, buffer)
+}
+
+@Test @MainActor func chartsDrawVectorGraphicsOnAVTGTerminal() {
+    // Sparkline: a backing plus one sub-cell bar per value, cells cleared.
+    let spark = Sparkline(values: [1, 2, 3])
+    let (sparkCommands, sparkBuffer) = chromeRendered(spark, width: 3, height: 1)
+    #expect(sparkCommands.contains { $0.id.hasSuffix("_backing") })
+    #expect(sparkCommands.filter { $0.id.contains("_bar-") }.count == 3)
+    #expect(sparkBuffer[Point(x: 0, y: 0)].character == " ", "glyphs give way to the vector bars")
+    #expect(sparkBuffer[Point(x: 0, y: 0)].style.background == .standard, "cells go transparent over the bars")
+
+    // Timeline: rounded blocks at true fractional positions.
+    let chart = TimelineChart(rows: [
+        TimelineRow(label: "r", segments: [.init(start: 0, duration: 30, kind: .active)]),
+    ])
+    chart.domain = 0...800
+    chart.showsAxis = false
+    let (barCommands, _) = chromeRendered(chart, width: 40, height: 1)
+
+    guard let bar = barCommands.first(where: { $0.id.contains("_bar-0-0") }),
+          case .rect(let rect, _, _, _, let radius, _) = bar.shape else {
+        Issue.record("no vector bar drawn")
+        return
+    }
+
+    #expect(radius > 0, "the requested rounded corners")
+    #expect(rect.width > 0.19 && rect.width < 2.5, "a 30ms segment is sub-cell honest, not a rounded column: \(rect.width)")
+
+    // LineChart: one retained polyline per series.
+    let line = LineChart(series: [.init(label: "m", values: [0, 10, 5])])
+    let (lineCommands, _) = chromeRendered(line, width: 30, height: 8)
+
+    guard let trace = lineCommands.first(where: { $0.id.contains("_trace-0") }),
+          case .polyline(let points, _, _) = trace.shape else {
+        Issue.record("no vector trace drawn")
+        return
+    }
+
+    #expect(points.count >= 20, "sampled smoothly, not per cell")
+    #expect(lineCommands.contains { $0.id.hasSuffix("_backing") })
+}
+
+@Test @MainActor func suppressesVectorChromePinsTheCellRenderingPerView() {
+    // The side-by-side gallery case: two identical sparklines on one
+    // chrome-enabled screen, one opted out — it renders the plain-terminal
+    // glyphs while its twin draws vector bars.
+    let root = TUIView(frame: Rect(x: 0, y: 0, width: 8, height: 1))
+    root.theme = .ambiance
+
+    let vector = Sparkline(values: [0, 7])
+    vector.frame = Rect(x: 0, y: 0, width: 2, height: 1)
+    root.addSubview(vector)
+
+    let cells = Sparkline(values: [0, 7])
+    cells.suppressesVectorChrome = true
+    cells.frame = Rect(x: 4, y: 0, width: 2, height: 1)
+    root.addSubview(cells)
+
+    let renderer = SceneRenderer(root: root)
+    renderer.chromeEnabled = true
+    let buffer = renderer.render(size: Size(width: 8, height: 1))
+
+    #expect(buffer[Point(x: 0, y: 0)].character == " ", "the vector twin cleared its glyphs")
+    #expect(buffer[Point(x: 4, y: 0)].character == "▁", "the suppressed twin keeps the ANSI glyphs")
+    #expect(buffer[Point(x: 5, y: 0)].character == "█")
+
+    let owners = Set(renderer.chromeCommands.map(\.id))
+    #expect(!owners.isEmpty, "the vector twin emitted chrome")
+    #expect(
+        renderer.chromeCommands.count == 1 + 2,
+        "backing + two bars from ONE sparkline only, got \(renderer.chromeCommands.count)"
+    )
+
+    // The override cascades: a suppressed CONTAINER pins every descendant.
+    let group = TUIView(frame: Rect(x: 0, y: 0, width: 8, height: 1))
+    group.theme = .ambiance
+    group.suppressesVectorChrome = true
+    let child = Sparkline(values: [0, 7])
+    child.frame = Rect(x: 0, y: 0, width: 2, height: 1)
+    group.addSubview(child)
+
+    let groupRenderer = SceneRenderer(root: group)
+    groupRenderer.chromeEnabled = true
+    let groupBuffer = groupRenderer.render(size: Size(width: 8, height: 1))
+
+    #expect(groupRenderer.chromeCommands.isEmpty, "nothing below a suppressed view emits chrome")
+    #expect(groupBuffer[Point(x: 1, y: 0)].character == "█")
+}
+
+@Test @MainActor func aColourlessThemeKeepsChartsOnGlyphsEvenWithChrome() {
+    // Mono has no RGB story: charts must not half-render — they take the
+    // glyph path wholesale.
+    let spark = Sparkline(values: [1, 2])
+    let (commands, buffer) = chromeRendered(spark, width: 2, height: 1, theme: .mono)
+    #expect(commands.isEmpty)
+    #expect(buffer[Point(x: 1, y: 0)].character == "█")
+}

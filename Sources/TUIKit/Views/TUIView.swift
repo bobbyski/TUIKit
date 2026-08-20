@@ -105,6 +105,22 @@ open class TUIView {
         }
     }
 
+    /// Opts this view AND its subtree out of vector chrome (Phase 10).
+    ///
+    /// On a VTG terminal the painter simply reports no `ChromeSurface`
+    /// below here, so every view takes its plain-cell fallback branch —
+    /// which is how the gallery shows a chart's VTG and ANSI renderings
+    /// side by side on the same screen, and how an app pins a region to
+    /// cells (a diff view where sub-cell smoothness would lie about column
+    /// alignment, say). A no-op on plain terminals.
+    public var suppressesVectorChrome = false {
+        didSet {
+            if suppressesVectorChrome != oldValue {
+                setNeedsDisplay()
+            }
+        }
+    }
+
     /// Name for the data layer: dotted-path lookup, bulk form I/O, and
     /// bindings (`Docs/DataBinding.md`). Distinct from `identifier`, which is
     /// the stylesheet `#id`.
@@ -576,9 +592,13 @@ open class TUIView {
         // theme override and/or stylesheet rules); a no-op when nothing
         // applies. Chrome object ids are scoped to this view's identity —
         // stable across frames for the terminal's retained vector scene.
-        let painter = painter
+        var painter = painter
             .withBase(effectiveTheme.base)
             .withChromeOwner("v\(UInt(bitPattern: ObjectIdentifier(self)))")
+
+        if suppressesVectorChrome {
+            painter = painter.withoutChrome()
+        }
 
         draw(painter)
 
