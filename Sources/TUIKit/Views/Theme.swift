@@ -337,15 +337,30 @@ extension Theme {
         var content = ThemePalette()
         content.foreground = .rgb(red: 255, green: 255, blue: 85)    // yellow
         content.background = .rgb(red: 0, green: 0, blue: 170)       // blue
-        content.headerForeground = .rgb(red: 255, green: 255, blue: 255)
-        content.headerBackground = .rgb(red: 0, green: 0, blue: 170)
+        // The `header` slot is the toolbar's (and a menu bar's) paint. In a
+        // Borland IDE those bars are gray chrome sitting on the blue document,
+        // not more blue — white-on-blue made a toolbar disappear into the page
+        // behind it. Gray ground, and the document's own blue for the text.
+        content.headerForeground = .rgb(red: 0, green: 0, blue: 170)    // the content blue
+        content.headerBackground = .rgb(red: 170, green: 170, blue: 170)  // the chrome gray
         content.borderForeground = .rgb(red: 255, green: 255, blue: 255)
         content.borderBackground = .rgb(red: 0, green: 0, blue: 170)
         content.borderStyle = .double   // floating window frame → double border
         content.scrollbarThumb = .rgb(red: 85, green: 255, blue: 255)    // light cyan
         content.scrollbarTrack = .rgb(red: 0, green: 0, blue: 110)       // navy
-        content.placeholderForeground = .rgb(red: 0, green: 170, blue: 170)
-        content.placeholderBackground = .rgb(red: 0, green: 0, blue: 170)
+        // A toolbar's resting items are `.tinted` by default, which paints them
+        // in `accent` rather than in `header`'s foreground. `base.accent` is
+        // Borland green, chosen against the gray chrome — on the content
+        // window's own toolbar that read as green-on-gray next to a blue
+        // document. The content surface takes its own accent: the document's
+        // blue, so the buttons match the window they belong to.
+        content.accent = .rgb(red: 0, green: 0, blue: 170)
+
+        // Disabled toolbar items, which sit on that same gray: a darker gray
+        // shade, matching what `base` already does on the chrome surface — so
+        // a greyed-out button reads the same wherever it is.
+        content.placeholderForeground = .rgb(red: 85, green: 85, blue: 85)
+        content.placeholderBackground = .rgb(red: 170, green: 170, blue: 170)
 
         var desktop = ThemePalette()
         desktop.background = .rgb(red: 85, green: 85, blue: 255)     // light blue backdrop
