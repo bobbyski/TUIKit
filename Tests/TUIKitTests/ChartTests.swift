@@ -529,11 +529,14 @@ private func chromeRendered(_ view: TUIView, width: Int, height: Int, theme: The
     }
 
     #expect(sectors.count == 2)
-    #expect(
-        sectors.last?.end == 2 * Double.pi,
-        "the sweep closes EXACTLY — summed fractions are forced to 1, or rounding leaves a dark sliver at 12 o'clock"
-    )
-    #expect(abs((sectors[0].end) - 1.5 * Double.pi) < 0.001, "3 of 4 = three quarters of the sweep")
+
+    // The sweep closes past a full turn by the seam overlap (never short of
+    // one — a hair under 2π reads as a dark sliver at 12 o'clock), and each
+    // slice overdraws its end so no abutting-edge hairline shows.
+    let closing = sectors.last?.end ?? 0
+    #expect(closing >= 2 * Double.pi && closing < 2 * Double.pi + 0.05, "closes just past full: \(closing)")
+    #expect(sectors[0].end > 1.5 * Double.pi && sectors[0].end < 1.5 * Double.pi + 0.05, "3 of 4 ≈ three quarters, plus the overlap")
+    #expect(sectors[1].start < sectors[0].end, "the next slice starts under the previous one's overdrawn edge")
 
     // The hole is one surface-colored circle over full pie slices —
     // winding-proof, unlike per-slice inner arcs.

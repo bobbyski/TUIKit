@@ -136,7 +136,10 @@ public enum ChromeSectorPath {
         from start: Double, to end: Double
     ) -> String {
         let total = end - start
-        let segments = max(1, Int((abs(total) / (Double.pi / 2)).rounded(.up)))
+        // Eighth-turns, not quarter-turns: with endpoints rounded to whole
+        // pixels, shorter cubics keep the junctions on the true circle
+        // (a 90° cubic's mid-arc sag is what reads as a hairline seam).
+        let segments = max(1, Int((abs(total) / (Double.pi / 4)).rounded(.up)))
         let step = total / Double(segments)
         let k = 4.0 / 3.0 * tan(abs(step) / 4) * (step < 0 ? -1 : 1)
         var pieces: [String] = []

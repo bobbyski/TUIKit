@@ -156,13 +156,21 @@ public final class PieChart: TUIView {
             // circle on top — not per-slice inner arcs. A ring path (outer
             // arc, reversed inner arc) leans on the renderer's winding
             // rules; slices-plus-hole is winding-proof and closes cleanly.
+            //
+            // Each slice overdraws its end by a hair: two fills sharing an
+            // edge let a hairline of background through the antialiasing,
+            // so every boundary is COVERED by the next slice instead of
+            // abutted — and the last slice wraps just past 12 o'clock to
+            // cover the first boundary the same way.
+            let overlap = 0.012
+
             for (index, _) in slices.enumerated() where magnitudes[index] > 0 {
                 chrome.sector(
                     "slice-\(index)",
                     center: ChromePoint(x: centerX, y: centerY),
                     radius: radiusY,
                     start: boundaries[index] * 2 * Double.pi,
-                    end: boundaries[index + 1] * 2 * Double.pi,
+                    end: boundaries[index + 1] * 2 * Double.pi + overlap,
                     fill: ChromeColor(inks[index].foreground)!
                 )
             }
