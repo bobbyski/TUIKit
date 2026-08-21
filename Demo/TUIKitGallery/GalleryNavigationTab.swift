@@ -35,8 +35,28 @@ func makeNavigationTab() -> TUIView {
     accordion.addSection("Appearance", content: Label("theme and colours"))
     accordion.addSection("Advanced", content: Label("the dangerous switches"))
 
+    // Navigator: a drill-down menu two levels deep. Esc or ◂ Back returns.
+    let menu = VStack(spacing: 0)
+    let navigator = Navigator(root: menu, title: "Settings")
+    let depthLabel = Label("level 1 — Enter a row to drill in")
+    navigator.onDepthChanged = { depthLabel.text = "level \($0) — Esc, Backspace or ◂ Back returns" }
+
+    for (title, body) in [("Appearance", "theme, colours, fonts"), ("Network", "proxies and timeouts")] {
+        menu.addSubview(pinnedHeight(Button("\(title) ›") { [weak navigator] in
+            let page = VStack(spacing: 0)
+            page.addSubview(pinnedHeight(Label(body), 1))
+            page.addSubview(pinnedHeight(Button("Advanced \(title) ›") { [weak navigator] in
+                navigator?.push(Label("the deep end of \(title)"), title: "Advanced \(title)")
+            }, 1))
+            navigator?.push(page, title: title)
+        }, 1))
+    }
+
     root.addSubview(pinnedHeight(row([group("ViewThatFits — wide", [saveChoices()]), narrow]), 4))
-    root.addSubview(pinnedHeight(group("PageView", [pages, pageLabel]), 6))
+    root.addSubview(pinnedHeight(row([
+        group("PageView", [pages, pageLabel]),
+        group("Navigator — drill in, Esc back", [navigator, depthLabel]),
+    ]), 7))
     root.addSubview(group("Accordion — exclusive; Space on a header", [accordion]))
 
     return root

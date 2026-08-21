@@ -114,6 +114,26 @@ func makeChartsTab() -> TUIView {
         return chart
     }, 10)
 
+    // Canvas (Phase 16.9): a draw closure, chrome only — so the ANSI side is
+    // the honest placeholder rather than a blank.
+    addRow(sideBySide("Canvas — chrome-only draw closure", height: 7) {
+        let canvas = Canvas()
+        canvas.drawChrome = { chrome, bounds in
+            let w = Double(bounds.size.width)
+            let h = Double(bounds.size.height)
+            chrome.rect("plate", ChromeRect(x: 1, y: 0.5, width: w - 2, height: h - 1),
+                        fill: ChromeColor(red: 28, green: 40, blue: 80), radius: 0.5)
+            chrome.circle("sun", center: ChromePoint(x: w * 0.25, y: h * 0.5), radius: h * 0.3,
+                          fill: ChromeColor(red: 250, green: 200, blue: 60))
+            chrome.polyline("hills", points: [
+                ChromePoint(x: w * 0.4, y: h * 0.8), ChromePoint(x: w * 0.55, y: h * 0.35),
+                ChromePoint(x: w * 0.7, y: h * 0.65), ChromePoint(x: w * 0.85, y: h * 0.3),
+                ChromePoint(x: w * 0.95, y: h * 0.8),
+            ], color: ChromeColor(red: 90, green: 200, blue: 120), width: 0.12)
+        }
+        return canvas
+    }, 7)
+
     // The pie sits last: its cell disc is the coarsest thing on the tab,
     // and the charts above it deserve the first screenful.
     addRow(sideBySide("PieChart (donut 0.55)", height: 8) {

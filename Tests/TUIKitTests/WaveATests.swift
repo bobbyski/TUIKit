@@ -346,3 +346,85 @@ private func click(_ window: Window, x: Int, y: Int = 0) {
     #expect(a.isExpanded && b.isExpanded)
     #expect(a.frame.size.height == 5 && b.frame.size.height == 5)
 }
+
+// MARK: - Navigator (16.1)
+
+@Test @MainActor func navigatorPushesPopsAndKeepsTheHeaderHonest() {
+    let navigator = Navigator(root: Label("root body"), title: "Settings")
+    let window = host(navigator, width: 30, height: 4)
+    var depths: [Int] = []
+    navigator.onDepthChanged = { depths.append($0) }
+
+    var text = lines(window)
+    #expect(text[0].contains("Settings") && !text[0].contains("Back"), "the root has nothing to go back to")
+    #expect(text[1].hasPrefix("root body"))
+    #expect(!navigator.pop(), "nothing to pop at the root")
+
+    navigator.push(Label("second body"), title: "Second")
+    text = lines(window)
+    #expect(text[0].contains("◂ Back") && text[0].contains("Second"))
+    #expect(text[1].hasPrefix("second body") && !text[1].contains("root"))
+    #expect(navigator.depth == 2)
+
+    window.route(key(.escape))   // bubbles up from the header, which is focused
+    text = lines(window)
+    #expect(navigator.depth == 1 && text[1].hasPrefix("root body"))
+
+    navigator.push(Label("third"), title: "Third")
+    click(window, x: 2, y: 0)    // on "◂ Back"
+    #expect(navigator.depth == 1)
+    #expect(depths == [2, 1, 2, 1])
+}
+
+@Test @MainActor func navigatorMovesFocusOntoThePushedView() {
+    let navigator = Navigator(root: Label("root"), title: "Root")
+    let window = host(navigator, width: 30, height: 4)
+    let field = TextField(placeholder: "name")
+
+    navigator.push(field, title: "Name")
+    #expect(window.firstResponder === field)
+
+    navigator.popToRoot()
+    #expect(navigator.depth == 1)
+    #expect(window.firstResponder !== field, "a popped view keeps no focus")
+}
+
+// MARK: - Canvas (16.9)
+
+@Test @MainActor func canvasWithOnlyChromeShowsAnHonestPlaceholderOnPlainTerminals() {
+    let canvas = Canvas(chrome: { chrome, bounds in
+        chrome.rect("backing", ChromeRect(bounds), fill: ChromeColor(red: 10, green: 20, blue: 30))
+    })
+    let window = host(canvas, width: 30, height: 5)
+    let text = lines(window)
+
+    #expect(text.joined().contains("VTG graphics required"))
+    #expect(text[0].hasPrefix("┌") || text[0].hasPrefix("╔") || text[0].hasPrefix("╭"), "framed, not a blank")
+}
+
+@Test @MainActor func canvasDrawsChromeWhenTheTerminalHasItAndCellsAlways() {
+    var cellDraws = 0
+    let canvas = Canvas(
+        cells: { painter, _ in
+            cellDraws += 1
+            painter.write("42%", at: Point(x: 1, y: 1))
+        },
+        chrome: { chrome, bounds in
+            chrome.circle("dial", center: ChromePoint(x: 5, y: 2.5), radius: 2, fill: ChromeColor(red: 1, green: 2, blue: 3))
+        }
+    )
+    canvas.frame = Rect(x: 0, y: 0, width: 20, height: 5)
+
+    // Plain terminal: cells only, no placeholder (there IS a cell drawing).
+    let plain = SceneRenderer(root: canvas)
+    let plainText = plain.render(size: Size(width: 20, height: 5)).textLines()
+    #expect(plainText[1].contains("42%") && !plainText.joined().contains("VTG"))
+
+    // VectorTerminal: the chrome closure runs, cells draw over it.
+    let vector = SceneRenderer(root: canvas)
+    vector.chromeEnabled = true
+    let vectorText = vector.render(size: Size(width: 20, height: 5)).textLines()
+    #expect(vectorText[1].contains("42%"))
+    #expect(vector.chromeCommands.contains { $0.id.hasSuffix("_dial") })
+    #expect(cellDraws == 2)
+}

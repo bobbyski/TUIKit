@@ -831,10 +831,33 @@ classDiagram
         +setExpanded(Int, Bool, notify)
     }
 
+    class Navigator {
+        +levels : [Level]
+        +depth : Int
+        +topView : TUIView
+        +title : String
+        +showsHeader : Bool
+        +backTitle : String
+        +onDepthChanged : (Int) -> Void
+        +push(TUIView, title)
+        +pop() Bool
+        +popToRoot()
+    }
+
+    class Canvas {
+        +drawCells : ((Painter, Rect) -> Void)?
+        +drawChrome : ((ChromeSurface, Rect) -> Void)?
+        +placeholderText : String
+        +naturalSize : Size?
+        +redraw()
+    }
+
     TUIView <|-- SearchField
     TUIView <|-- Link
     TUIView <|-- PasteButton
     TUIView <|-- RangeSlider
+    TUIView <|-- Navigator
+    TUIView <|-- Canvas
     TUIView <|-- ViewThatFits
     TUIView <|-- PageView
     TUIView <|-- Accordion
