@@ -53,7 +53,20 @@ func makeListsTab() -> TUIView {
         group("DirectoryTree (the real disk)", [directory]),
         group("Browser — Miller columns", [browser]),
     ]))
+    // Phase 16: Sidebar — tiles beside the detail here; below 60 columns
+    // it turns into a navigator (resize the window to see it flip).
+    let folders = [
+        SidebarItem(icon: "✉", title: "Inbox", subtitle: "12 unread"),
+        SidebarItem(icon: "★", title: "Starred", subtitle: "3 flagged"),
+        SidebarItem(icon: "✎", title: "Drafts", subtitle: "1 draft"),
+        SidebarItem(icon: "⌫", title: "Trash", subtitle: "empty"),
+    ]
+    let sidebar = Sidebar(items: folders) { index in
+        Label("  \(folders[index].title): \(folders[index].subtitle ?? "") — the detail pane for this folder")
+    }
+
     root.addSubview(pinnedHeight(group("PathControl · TUIFavorites", [row(spacing: 2, [path, favorites])]), 4))
+    root.addSubview(pinnedHeight(group("Sidebar — list + detail; pushes below 60 columns", [sidebar]), 8))
 
     return root
 }
@@ -215,11 +228,22 @@ func makeLayoutTab() -> TUIView {
         group("Form — Section headers, one label column", [sectioned]),
     ]), 8))
     root.addSubview(pinnedHeight(group("StatusBar — flash and priority", [status, row([pinnedHeight(flash, 1)])]), 5))
+    // Phase 16: Scroller — a bar of its own, driving the ScrollView beside it
+    // (and following it, when the view scrolls on its own).
+    let scroller = Scroller(axis: .vertical, span: ScrollSpan(offset: 0, viewport: 8, content: 30))
+    scroller.onScroll = { [weak scroll] offset in
+        scroll?.setOffset(Point(x: 0, y: offset), notify: false)
+    }
+    scroll.onOffsetChanged = { [weak scroller, weak scroll] offset in
+        guard let scroller, let scroll else { return }
+        scroller.span = ScrollSpan(offset: offset.y, viewport: scroll.bounds.size.height, content: scroll.contentSize.height)
+    }
+
     root.addSubview(row(spacing: 1, [
         // Button and split as siblings: nesting them in their own stack
         // would give the pair a fit-content intrinsic and starve the split.
         group("SplitView — Flip Axis is R7", [pinnedHeight(flip, 1), split]),
-        group("ScrollView", [scroll]),
+        group("Scroller ⟷ ScrollView", [row(spacing: 1, [scroller, scroll])]),
         group("DisclosureGroup + Divider", [disclosure, Divider(axis: .horizontal), Label("below the rule")]),
     ]))
 

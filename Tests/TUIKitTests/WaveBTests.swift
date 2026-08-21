@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import TUIKit
 
@@ -279,4 +280,120 @@ private func click(_ window: Window, x: Int, y: Int = 0) {
     #expect(!completions.isHidden)
     window.route(key(.escape))
     #expect(completions.isHidden)
+}
+
+
+// MARK: - Sidebar (16.19)
+
+@Test @MainActor func sidebarTilesWhenWideAndPushesWhenNarrow() {
+    let items = [
+        SidebarItem(icon: "✉", title: "Inbox", subtitle: "12 unread"),
+        SidebarItem(icon: "★", title: "Starred", subtitle: "3 flagged"),
+    ]
+    let sidebar = Sidebar(items: items) { index in Label("detail: \(items[index].title)") }
+    let window = host(sidebar, width: 80, height: 8)
+
+    var text = lines(window)
+    #expect(!sidebar.isCompact)
+    #expect(text[0].contains("✉ Inbox") && text[0].contains("detail: Inbox"), "tiled: list beside detail")
+    #expect(text[1].contains("12 unread"))
+
+    sidebar.list.select(1, notify: true)
+    #expect(lines(window)[0].contains("detail: Starred"))
+
+    // Narrow: the list becomes a navigator root; activating pushes.
+    sidebar.frame = Rect(x: 0, y: 0, width: 40, height: 8)
+    window.frame = Rect(x: 0, y: 0, width: 40, height: 8)
+    text = lines(window)
+    #expect(sidebar.isCompact)
+    #expect(text[1].contains("Inbox") && !text.joined().contains("detail:"), "compact: list only")
+
+    window.makeFirstResponder(sidebar.list)
+    window.route(key(.enter))
+    text = lines(window)
+    #expect(text[0].contains("◂ Back") && text[0].contains("Starred"))
+    #expect(text[1].contains("detail: Starred"))
+}
+
+// MARK: - ImageView (16.20)
+
+private let tinyPNG = Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAABgAAAAQCAIAAACDRijCAAACvUlEQVR4nA3MoQ6FIABAUbrJYpdsM9gd1chmdzNanR/gRrQ6y00Gmlm7hWSnmyh+AO+dDzhCCBJBJsgFhaAS1IJG0Ao6wSCYBLNgEWyCXXAILsEteARe8Ao+QRQIkZKkZCl5SpFSpdQpTUqb0qUMKVPKnLKkbCl7ypFypdwpT4pPeVO+lJj+I0kiySS5pJBUklrSSFpJJxkkk2SWLJJNsksOySW5JY/ES17JJ4nyH5UkJVlJXlKUVCV1SVPSlnQlQ8lUMpcsJVvJXnKUXCV3yVPiS96SrySW/0iRKDJFrigUlaJWNIpW0SkGxaSYFYtiU+yKQ3EpbsWj8IpX8Smi+keaRJNpck2hqTS1ptG0mk4zaCbNrFk0m2bXHJpLc2sejde8mk8T9T/qSXqynryn6Kl66p6mp+3peoaeqWfuWXq2nr3n6Ll67p6nx/e8PV9P7P/RSDKSjeQjxUg1Uo80I+1INzKMTCPzyDKyjewjx8g1co88I37kHflG4viPDIkhM+SGwlAZakNjaA2dYTBMhtmwGDbDbjgMl+E2PAZveA2fIZp/tJKsZCv5SrFSrdQrzUq70q0MK9PKvLKsbCv7yrFyrdwrz4pfeVe+lbj+I0tiySy5pbBUltrSWFpLZxksk2W2LJbNslsOy2W5LY/FW17LZ4n2H50kJ9lJflKcVCf1SXPSnnQnw8l0Mp8sJ9vJfnKcXCf3yXPiT96T7ySe/8iRODJH7igclaN2NI7W0TkGx+SYHYtjc+yOw3E5bsfj8I7X8Tmi+0eexJN5ck/hqTy1p/G0ns4zeCbP7Fk8m2f3HJ7Lc3sej/e8ns8T/T8KJIEskAeKQBWoA02gDXSBITAF5sAS2AJ74AhcgTvwBHzgDXyBGP5RJIlkkTxSRKpIHWkibaSLDJEpMkeWyBbZI0fkityRJ+Ijb+SLxMgPxrJt7yOvB+kAAAAASUVORK5CYII=")!
+
+@Test @MainActor func imageViewReadsTheHeaderShowsACardAndDrawsPixelsUnderVTG() {
+    let image = ImageView(data: tinyPNG, caption: "gradient.png")
+    #expect(image.format == .png)
+    #expect(image.pixelSize?.width == 24 && image.pixelSize?.height == 16)
+    #expect(image.detailLine.hasPrefix("24×16 · PNG"))
+
+    let window = host(image, width: 30, height: 4)
+    let text = lines(window)
+    #expect(text[1].contains("gradient.png") && text[2].contains("24×16"), "cells: the card")
+    #expect(image.contextMenu != nil, "with its Open / Copy / Paste menu")
+
+    let vector = SceneRenderer(root: image)
+    vector.chromeEnabled = true
+    _ = vector.render(size: Size(width: 30, height: 4))
+    #expect(vector.chromeCommands.contains { $0.id.hasSuffix("_pixels") }, "VTG: the pixels")
+
+    #expect(ImageView.detectFormat(Data([0xFF, 0xD8, 0xFF, 0xE0])) == .jpeg)
+    #expect(ImageView.detectFormat(Data("hello".utf8)) == nil)
+}
+
+// MARK: - Scroller (16.21)
+
+@Test @MainActor func scrollerDrawsAThumbAndReportsOffsets() {
+    let bar = Scroller(axis: .vertical, span: ScrollSpan(offset: 0, viewport: 10, content: 50))
+    let window = host(bar, width: 1, height: 10)
+    var offsets: [Int] = []
+    bar.onScroll = { offsets.append($0) }
+
+    let text = lines(window)
+    #expect(text[0] == "▴" && text[9] == "▾", "arrows at the ends")
+
+    click(window, x: 0, y: 9)   // the down arrow
+    #expect(offsets.last == 1)
+
+    window.route(.mouse(MouseInput(position: Point(x: 0, y: 5), action: .scrollDown, button: .none, modifiers: [])))
+    #expect(offsets.last == 2)
+
+    bar.setOffset(999)
+    #expect(bar.span.offset == 40, "clamped to content - viewport")
+}
+
+// MARK: - Preferences (16.22)
+
+@Test @MainActor func ephemeralPreferencesRoundTripTypesAndReportChanges() {
+    let prefs = Preferences.ephemeral()
+    var changed: [String] = []
+    prefs.onChange = { changed.append($0) }
+
+    prefs.set("turbo", forKey: "theme")
+    prefs.set(42, forKey: "answer")
+    prefs.set(0.5, forKey: "ratio")
+    prefs.set(true, forKey: "wraps")
+
+    #expect(prefs.string(forKey: "theme") == "turbo")
+    #expect(prefs.integer(forKey: "answer") == 42 && prefs.double(forKey: "answer") == 42)
+    #expect(prefs.double(forKey: "ratio") == 0.5)
+    #expect(prefs.bool(forKey: "wraps") == true)
+    #expect(prefs.string(forKey: "missing") == nil)
+    #expect(prefs.keys == ["answer", "ratio", "theme", "wraps"])
+
+    prefs.remove("answer")
+    #expect(prefs.integer(forKey: "answer") == nil)
+    #expect(changed == ["theme", "answer", "ratio", "wraps", "answer"])
+}
+
+@Test @MainActor func filePreferencesPersistAsJSON() throws {
+    let url = FileManager.default.temporaryDirectory
+        .appendingPathComponent("tuikit-prefs-\(UUID().uuidString)")
+        .appendingPathComponent("preferences.json")
+    defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+
+    let first = Preferences(store: .file(url))
+    first.set("ambiance", forKey: "theme")
+    first.set(3, forKey: "tabs")
+
+    let second = Preferences(store: .file(url))
+    #expect(second.string(forKey: "theme") == "ambiance" && second.integer(forKey: "tabs") == 3)
 }

@@ -1,3 +1,4 @@
+import Foundation
 import TUIKit
 
 // The Charts tab: every chart TWICE, side by side — the left copy renders
@@ -128,6 +129,14 @@ func makeChartsTab() -> TUIView {
         return gauges
     }, 8)
 
+    // ImageView (Phase 16.20): pixels under VTG, the card with its menu
+    // (Open in Viewer / Copy / Paste) everywhere else.
+    addRow(sideBySide("ImageView — right-click or long-press for the menu", height: 6) {
+        let image = ImageView(data: galleryGradientPNG, caption: "gradient.png")
+        image.scaling = .fit
+        return image
+    }, 6)
+
     // Canvas (Phase 16.9): a draw closure, chrome only — so the ANSI side is
     // the honest placeholder rather than a blank.
     addRow(sideBySide("Canvas — chrome-only draw closure", height: 7) {
@@ -171,3 +180,7 @@ func makeChartsTab() -> TUIView {
     scroll.fitsDocumentWidth = true
     return scroll
 }
+
+
+// A 24×16 RGB gradient, generated once, so the gallery needs no asset file.
+let galleryGradientPNG = Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAABgAAAAQCAIAAACDRijCAAACvUlEQVR4nA3MoQ6FIABAUbrJYpdsM9gd1chmdzNanR/gRrQ6y00Gmlm7hWSnmyh+AO+dDzhCCBJBJsgFhaAS1IJG0Ao6wSCYBLNgEWyCXXAILsEteARe8Ao+QRQIkZKkZCl5SpFSpdQpTUqb0qUMKVPKnLKkbCl7ypFypdwpT4pPeVO+lJj+I0kiySS5pJBUklrSSFpJJxkkk2SWLJJNsksOySW5JY/ES17JJ4nyH5UkJVlJXlKUVCV1SVPSlnQlQ8lUMpcsJVvJXnKUXCV3yVPiS96SrySW/0iRKDJFrigUlaJWNIpW0SkGxaSYFYtiU+yKQ3EpbsWj8IpX8Smi+keaRJNpck2hqTS1ptG0mk4zaCbNrFk0m2bXHJpLc2sejde8mk8T9T/qSXqynryn6Kl66p6mp+3peoaeqWfuWXq2nr3n6Ll67p6nx/e8PV9P7P/RSDKSjeQjxUg1Uo80I+1INzKMTCPzyDKyjewjx8g1co88I37kHflG4viPDIkhM+SGwlAZakNjaA2dYTBMhtmwGDbDbjgMl+E2PAZveA2fIZp/tJKsZCv5SrFSrdQrzUq70q0MK9PKvLKsbCv7yrFyrdwrz4pfeVe+lbj+I0tiySy5pbBUltrSWFpLZxksk2W2LJbNslsOy2W5LY/FW17LZ4n2H50kJ9lJflKcVCf1SXPSnnQnw8l0Mp8sJ9vJfnKcXCf3yXPiT96T7ySe/8iRODJH7igclaN2NI7W0TkGx+SYHYtjc+yOw3E5bsfj8I7X8Tmi+0eexJN5ck/hqTy1p/G0ns4zeCbP7Fk8m2f3HJ7Lc3sej/e8ns8T/T8KJIEskAeKQBWoA02gDXSBITAF5sAS2AJ74AhcgTvwBHzgDXyBGP5RJIlkkTxSRKpIHWkibaSLDJEpMkeWyBbZI0fkityRJ+Ijb+SLxMgPxrJt7yOvB+kAAAAASUVORK5CYII=")!

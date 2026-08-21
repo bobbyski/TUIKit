@@ -970,10 +970,74 @@ classDiagram
         +onDeleteBackwardAtStart : () -> Void
     }
 
+    class SidebarList {
+        +items : [SidebarItem]
+        +selectedIndex : Int?
+        +rowHeight : Int
+        +onSelectionChanged : (Int?) -> Void
+        +onActivate : (Int) -> Void
+        +select(Int?, notify)
+    }
+
+    class Sidebar {
+        +list : SidebarList
+        +detail : (Int) -> TUIView
+        +sidebarWidth : Int
+        +adaptiveWidth : Int
+        +isCompact : Bool
+        +onSelectionChanged : (Int?) -> Void
+    }
+
+    class ImageView {
+        +data : Data?
+        +format : ImageFormat?
+        +pixelSize : (Int, Int)?
+        +caption : String
+        +path : String?
+        +scaling : Scaling
+        +onOpenInViewer : (() -> Void)?
+        +setData(Data?)
+        +openInViewer()
+        +paste(String)
+    }
+
+    class ImageViewer {
+        +image : ImageView
+        +zoom : Double
+        +pan : Point
+    }
+
+    class Scroller {
+        +axis : Axis
+        +span : ScrollSpan
+        +onScroll : (Int) -> Void
+        +setOffset(Int)
+    }
+
+    class Preferences {
+        +onChange : (String) -> Void
+        +string(forKey) String?
+        +integer(forKey) Int?
+        +double(forKey) Double?
+        +bool(forKey) Bool?
+        +set(_, forKey)
+        +remove(String)
+        +synchronize()
+        +ephemeral()$ Preferences
+    }
+
     TUIView <|-- Wizard
     TUIView <|-- Gauge
     TUIView <|-- FlowStack
     TUIView <|-- Matrix
+    TUIView <|-- SidebarList
+    TUIView <|-- Sidebar
+    TUIView <|-- ImageView
+    FloatingWindow <|-- ImageViewer
+    TUIView <|-- Scroller
+    Sidebar *-- SidebarList : list
+    Sidebar *-- Navigator : compact
+    ImageViewer *-- ImageView : shows
     TUIView <|-- Toolbox
     TUIView <|-- TokenField
     TUIView <|-- CompletionList

@@ -124,6 +124,15 @@ func makeInputsTab(app: App) -> TUIView {
     root.addSubview(pinnedHeight(group("Text & Choices", [row([field, combo, popUp])]), 4))
     root.addSubview(pinnedHeight(group("Search & Paste", [row([search, paste]), searchResult]), 5))
     root.addSubview(pinnedHeight(group("TokenField + CompletionList — type 'd', ↓, Return", [row([recipients, themeField])]), 4))
+
+    // Phase 16: Preferences — an ephemeral store here (nothing touches disk);
+    // the checkbox writes, the label reads back through onChange.
+    let prefs = Preferences.ephemeral()
+    let prefsLabel = Label("stored: (nothing yet)")
+    prefs.onChange = { key in prefsLabel.text = "stored: \(key) = \(prefs.bool(forKey: key).map(String.init) ?? "nil")" }
+    let remember = Checkbox("Remember window size")
+    remember.onChange = { prefs.set($0, forKey: "remembersWindowSize") }
+    root.addSubview(pinnedHeight(group("Preferences — UserDefaults / JSON / ephemeral", [row(spacing: 2, [remember, prefsLabel])]), 4))
     // Phase 16: tick marks (snapping walks them) and the two-thumb range.
     let ticked = Slider(value: 50, in: 0...100)
     ticked.tickMarks = 5
