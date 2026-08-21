@@ -51,6 +51,13 @@ public actor ANSIDriver: TerminalDriver {
     // app deaf to every key after it.)
     private var inputChunks: AsyncStream<[UInt8]>.Continuation?
     private var decodeTask: Task<Void, Never>?
+
+    // The rows last written, for damage diffing in `present(_:)`. `nil`
+    // whenever the terminal's actual content is unknown — before the first
+    // frame, after resume() (a child owned the screen), and after a resize
+    // (terminals crop, pad, or reflow the alternate screen on their own) —
+    // which forces the next present to paint everything.
+    private var presentedLines: [String]?
     private var continuations: [Int: AsyncStream<TerminalInput>.Continuation] = [:]
     private var nextContinuationID = 0
     private var currentSize = Size(width: 80, height: 24)
@@ -148,6 +155,7 @@ public actor ANSIDriver: TerminalDriver {
         _ = fcntl(inputDescriptor, F_SETFL, flags | O_NONBLOCK)
 
         isActive = true
+        presentedLines = nil
 
         // Alternate screen, hidden cursor, SGR mouse reporting.
         await write("\u{1B}[?1049h\u{1B}[?25l\u{1B}[?1002h\u{1B}[?1006h\u{1B}[2J\u{1B}[H")
@@ -213,6 +221,7 @@ public actor ANSIDriver: TerminalDriver {
         _ = fcntl(inputDescriptor, F_SETFL, flags | O_NONBLOCK)
 
         isActive = true
+        presentedLines = nil
 
         await write("\u{1B}[?1049h\u{1B}[?25l\u{1B}[?1002h\u{1B}[?1006h\u{1B}[2J\u{1B}[H")
         currentSize = Self.probeSize(descriptor: outputDescriptor) ?? currentSize
@@ -272,15 +281,22 @@ public actor ANSIDriver: TerminalDriver {
         continuations.removeAll()
     }
 
-    /// Presents a buffer with a full redraw.
+    /// Presents a buffer, repainting only the rows that changed.
+    ///
+    /// The first frame after `begin()`/`resume()` — and after a resize,
+    /// when the terminal may have reflowed or cleared on its own — paints
+    /// everything; after that, unchanged rows write nothing. An idle app
+    /// with one live cell (a clock) costs the terminal a row a second
+    /// instead of a full screen a second.
     ///
     /// - Parameter buffer: Composed cells to display.
     public func present(_ buffer: CellBuffer) async {
-        var frame = ""
         let lines = ANSIEncoder.encode(buffer)
+        let frame = ANSIEncoder.frame(lines: lines, previous: presentedLines)
+        presentedLines = lines
 
-        for (row, line) in lines.enumerated() {
-            frame += "\u{1B}[\(row + 1);1H" + line
+        guard !frame.isEmpty else {
+            return
         }
 
         await write(frame)
@@ -809,6 +825,7 @@ public actor ANSIDriver: TerminalDriver {
         }
 
         currentSize = size
+        presentedLines = nil
         publish(.resize(size))
     }
 

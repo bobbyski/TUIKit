@@ -49,3 +49,35 @@ private let esc = "\u{1B}"
 
     #expect(lines == ["\(esc)[0mhi \(esc)[0m", "\(esc)[0m   \(esc)[0m"])
 }
+
+// MARK: - Damage frames
+
+@Test func aFirstFramePaintsEveryRow() {
+    let frame = ANSIEncoder.frame(lines: ["one", "two"], previous: nil)
+
+    #expect(frame == "\(esc)[1;1Hone\(esc)[2;1Htwo")
+}
+
+@Test func anIdenticalFrameWritesNothing() {
+    let lines = ["one", "two", "three"]
+
+    #expect(ANSIEncoder.frame(lines: lines, previous: lines).isEmpty)
+}
+
+@Test func onlyChangedRowsRepaint() {
+    // The idle-clock case: one row live, the rest of the screen quiet.
+    // This single-row frame is why an idle app costs the terminal bytes
+    // per second instead of full screens per second.
+    let previous = ["head", "clock 12:00:00", "foot"]
+    let current = ["head", "clock 12:00:01", "foot"]
+
+    let frame = ANSIEncoder.frame(lines: current, previous: previous)
+
+    #expect(frame == "\(esc)[2;1Hclock 12:00:01")
+}
+
+@Test func aHeightChangeForcesAFullPaint() {
+    let frame = ANSIEncoder.frame(lines: ["a", "b"], previous: ["a"])
+
+    #expect(frame == "\(esc)[1;1Ha\(esc)[2;1Hb", "row counts differ — nothing is trustworthy")
+}

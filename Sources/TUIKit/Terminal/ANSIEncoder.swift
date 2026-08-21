@@ -71,6 +71,37 @@ public enum ANSIEncoder {
         return lines
     }
 
+    /// Composes the wire frame for a set of encoded lines, repainting only
+    /// what changed.
+    ///
+    /// Every emitted row is prefixed with an absolute cursor move, so rows
+    /// are independent and any subset can be rewritten. With no previous
+    /// frame — or one of a different height — every row is emitted. An
+    /// identical frame produces an empty string: write nothing.
+    ///
+    /// This is what keeps an idle app quiet. A one-cell change (a status
+    /// clock) repaints one row, not the whole screen — the difference
+    /// between ~100 bytes and ~100 KB a second flowing at a terminal
+    /// whose parser, scrollback, and renderer all have to swallow it.
+    ///
+    /// - Parameters:
+    ///   - lines: This frame's encoded rows, from ``encode(_:)``.
+    ///   - previous: The rows last presented, or `nil` to force a full paint.
+    /// - Returns: The bytes to write — possibly empty.
+    public static func frame(lines: [String], previous: [String]?) -> String {
+        var output = ""
+
+        for (row, line) in lines.enumerated() {
+            if let previous, previous.count == lines.count, previous[row] == line {
+                continue
+            }
+
+            output += "\u{1B}[\(row + 1);1H" + line
+        }
+
+        return output
+    }
+
     // Maps a color to its SGR parameter codes.
     private static func colorCodes(_ color: TerminalColor, isForeground: Bool) -> [String] {
         switch color {
