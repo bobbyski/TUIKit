@@ -209,7 +209,7 @@ public final class SidebarList: TUIView {
     }
 }
 
-/// THE sidebar — the list, the content, and the adaptivity, one API.
+/// Master–detail: a source list driving a detail pane, adaptive to width.
 ///
 /// ```text
 ///   wide:                              narrow (< adaptiveWidth):
@@ -223,12 +223,16 @@ public final class SidebarList: TUIView {
 /// is the root and selecting pushes the detail, with Back to return. The
 /// same control, the same items, either way.
 ///
+/// Not to be confused with the TUIKit *sidebar*: that is `SlideOut`, the
+/// full-height panel that slides out of a window's edge (OmegaCLIDE's left
+/// pane), revealed by shifting the window content aside.
+///
 /// ```swift
-/// let mail = Sidebar(items: folders) { index in folderView(folders[index]) }
+/// let mail = MasterDetail(items: folders) { index in folderView(folders[index]) }
 /// mail.onSelectionChanged = { index in status.text = folders[index ?? 0].title }
 /// ```
 @MainActor
-public final class Sidebar: TUIView {
+public final class MasterDetail: TUIView {
     /// The list.
     public let list: SidebarList
 

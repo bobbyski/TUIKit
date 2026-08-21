@@ -53,15 +53,16 @@ func makeListsTab() -> TUIView {
         group("DirectoryTree (the real disk)", [directory]),
         group("Browser — Miller columns", [browser]),
     ]))
-    // Phase 16: Sidebar — tiles beside the detail here; below 60 columns
-    // it turns into a navigator (resize the window to see it flip).
+    // Phase 16: MasterDetail — tiles beside the detail here; below 60
+    // columns it turns into a navigator (resize the window to see it flip).
+    // (The TUIKit *sidebar* is SlideOut — the panel OmegaCLIDE slides out.)
     let folders = [
         SidebarItem(icon: "✉", title: "Inbox", subtitle: "12 unread"),
         SidebarItem(icon: "★", title: "Starred", subtitle: "3 flagged"),
         SidebarItem(icon: "✎", title: "Drafts", subtitle: "1 draft"),
         SidebarItem(icon: "⌫", title: "Trash", subtitle: "empty"),
     ]
-    let sidebar = Sidebar(items: folders) { index in
+    let sidebar = MasterDetail(items: folders) { index in
         Label("  \(folders[index].title): \(folders[index].subtitle ?? "") — the detail pane for this folder")
     }
 
@@ -75,7 +76,7 @@ func makeListsTab() -> TUIView {
     files.itemWidth = 16
 
     root.addSubview(pinnedHeight(row([
-        group("Sidebar — list + detail; pushes below 60 columns", [sidebar]),
+        group("MasterDetail — list + detail; pushes below 60 columns", [sidebar]),
         group("CollectionView — arrows walk the grid", [files]),
     ]), 8))
 

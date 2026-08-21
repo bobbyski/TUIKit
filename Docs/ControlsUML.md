@@ -979,7 +979,7 @@ classDiagram
         +select(Int?, notify)
     }
 
-    class Sidebar {
+    class MasterDetail {
         +list : SidebarList
         +detail : (Int) -> TUIView
         +sidebarWidth : Int
@@ -1069,11 +1069,23 @@ classDiagram
         +close(then)
     }
 
+    class PreferencesDialog {
+        +selectorStyle : SelectorStyle
+        +pageTitles : [String]
+        +selectedIndex : Int
+        +onPageChanged : (Int) -> Void
+        +addPage(String, icon, content) Int
+        +select(Int, notify)
+    }
+
     TUIView <|-- Wizard
     TUIView <|-- Gauge
     TUIView <|-- FlowStack
     TUIView <|-- Matrix
     TUIView <|-- CollectionView
+    Dialog <|-- PreferencesDialog
+    PreferencesDialog *-- Toolbox : strip
+    PreferencesDialog *-- SidebarList : split
     TUIView <|-- SidebarList
     MarkdownView *-- SyntaxTextView : editor
     DocumentController --> FileDialog : presents
@@ -1082,8 +1094,8 @@ classDiagram
     TUIView <|-- ImageView
     FloatingWindow <|-- ImageViewer
     TUIView <|-- Scroller
-    Sidebar *-- SidebarList : list
-    Sidebar *-- Navigator : compact
+    MasterDetail *-- SidebarList : list
+    MasterDetail *-- Navigator : compact
     ImageViewer *-- ImageView : shows
     TUIView <|-- Toolbox
     TUIView <|-- TokenField

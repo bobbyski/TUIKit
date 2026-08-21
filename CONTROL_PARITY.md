@@ -79,9 +79,9 @@ is the showcase — PLAN rule: every new control gets a gallery spot.
 | AUIViewThatFits | First child that fits | `ViewThatFits` | ✅ | Wave A (16.4): axis horizontal / vertical / both |
 | AUIForm | Labelled rows, shared label column, sections | `Form` (+ `FormBuilder`, `Field`, `Section`) | ✅ | Wave B (16.18): `Section` headers |
 | AUITabView | Tabbed content | `TabView` | ✅ | Folder tabs |
-| AUIMasterDetailView | Master list driving a detail page, adaptive | `Sidebar` | ✅ | Wave B (16.19): tiles wide, pushes narrow |
+| AUIMasterDetailView | Master list driving a detail page, adaptive | `MasterDetail` | ✅ | Wave B (16.19): tiles wide, pushes narrow |
 | AUISidebarList | Source list — icon, title, wrapping subtitle rows | `SidebarList` | ✅ | Wave B (16.19): icon + title + subtitle rows |
-| AUISidebar | THE sidebar — list + content + chrome, one API | `Sidebar` | ✅ | Wave B (16.19) |
+| AUISidebar | THE sidebar — list + content + chrome, one API | `SlideOut` (+ `MasterDetail`) | ✅ | The TUIKit sidebar is `SlideOut`: a full-height panel sliding out of the window's edge, revealed by shifting the content aside, with `◂`/`▸` toggles on the border (OmegaCLIDE's left pane). The list-drives-detail idiom is `MasterDetail` |
 | AUINavigator | Push/pop stack with a title per level | `Navigator` | ✅ | Wave A (16.1): `◂ Back` header, Esc/Backspace/Enter pops, focus follows the top |
 | AUIFolderPanel | Tabbed document strip | `TabView` | ✅ | Literally the folder-tab container |
 | AUIMatrix | Grid of cells behaving as one control (radio/highlight) | `Matrix` | ✅ | Wave B (16.13) |
@@ -92,7 +92,7 @@ is the showcase — PLAN rule: every new control gets a gallery spot.
 | AUIVisualEffectView | System materials / translucency | — | ➖ | |
 | AUIPreferences | Defaults system wrapper | `Preferences` | ✅ | Wave B (16.22): UserDefaults / JSON file / ephemeral |
 | AUIIconStrip | Icon-over-caption pane selector | `Toolbar` (`.both` mode), `SegmentedControl` | 🟡 | No dedicated strip |
-| AUIPreferencesWindow | Paged settings window | `FloatingWindow` + `TabView`/`IconStrip` | 🟡 | Assemble; no paged settings window type |
+| AUIPreferencesWindow | Paged settings window | `PreferencesDialog` | ✅ | 16.29: pages behind a `Toolbox` strip (`.toolbar`) or a `SidebarList` (`.split`) |
 | AUIWindow | Levels, size bounds, titlebar accessories, autosave | `Window`, `FloatingWindow` | ✅ | Resize/move/close/maximize chrome. Frame autosave ❌ |
 | AUIApplication | Run entry, menu bar, appearance | `App`, `Desktop`, `MenuBar`, themes | ✅ | |
 | AUIPanel | Floating / utility / HUD / non-activating | `FloatingWindow`, `Dialog` | ✅ | HUD/non-activating ➖ |
@@ -141,8 +141,8 @@ the theme/CSS system (`Theme`, `StyleSheet`, contexts) and the VTG chrome layer
 
 | | Count |
 |---|---|
-| ✅ equivalent | 64 |
-| 🟡 partial / assemble | 9 |
+| ✅ equivalent | 65 |
+| 🟡 partial / assemble | 8 |
 | ❌ missing | 2 |
 | ➖ not applicable | 6 |
 
@@ -156,7 +156,7 @@ AUIDiagramView · AUIBoardView — both planned as sibling packages (PLAN 16.27,
 
 Wave A (PLAN 16.1–16.10) and Wave B (16.11–16.25), both shipped 2026-08-21,
 closed every in-package gap; what remains 🟡 is either assembled from parts
-(ControlGroup, PromptField, PreferencesWindow, IconStrip, BezierPath, Shape,
+(ControlGroup, PromptField, IconStrip, BezierPath, Shape,
 OutlineView row views, Terminal, Canvas-level Bezier) or a sibling-package
 item.
 

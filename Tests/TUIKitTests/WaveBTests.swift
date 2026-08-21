@@ -283,14 +283,14 @@ private func click(_ window: Window, x: Int, y: Int = 0) {
 }
 
 
-// MARK: - Sidebar (16.19)
+// MARK: - MasterDetail (16.19)
 
-@Test @MainActor func sidebarTilesWhenWideAndPushesWhenNarrow() {
+@Test @MainActor func masterDetailTilesWhenWideAndPushesWhenNarrow() {
     let items = [
         SidebarItem(icon: "✉", title: "Inbox", subtitle: "12 unread"),
         SidebarItem(icon: "★", title: "Starred", subtitle: "3 flagged"),
     ]
-    let sidebar = Sidebar(items: items) { index in Label("detail: \(items[index].title)") }
+    let sidebar = MasterDetail(items: items) { index in Label("detail: \(items[index].title)") }
     let window = host(sidebar, width: 80, height: 8)
 
     var text = lines(window)
@@ -514,4 +514,45 @@ private let tinyPNG = Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAABgAAAAQCAIAA
     var closed = 0
     document.close { closed += 1 }
     #expect(closed == 1, "clean: closes straight through")
+}
+
+// MARK: - PreferencesDialog (16.29)
+
+@Test @MainActor func preferencesDialogToolbarStyleSwitchesPages() {
+    let dialog = PreferencesDialog(style: .toolbar)
+    let general = Label("general page body")
+    let editor = Label("editor page body")
+    dialog.addPage("General", icon: "⚙", content: general)
+    dialog.addPage("Editor", icon: "✎", content: editor)
+    dialog.addButton("&Done", isDefault: true)
+    var changes: [Int] = []
+    dialog.onPageChanged = { changes.append($0) }
+
+    dialog.frame = Rect(x: 0, y: 0, width: 44, height: 12)
+    var text = SceneRenderer(root: dialog).render(size: Size(width: 44, height: 12)).textLines()
+
+    #expect(text.joined().contains("General") && text.joined().contains("Editor"), "the strip names both pages")
+    #expect(text.joined().contains("general page body") && !text.joined().contains("editor page body"))
+
+    dialog.select(1, notify: true)
+    text = SceneRenderer(root: dialog).render(size: Size(width: 44, height: 12)).textLines()
+    #expect(text.joined().contains("editor page body") && !text.joined().contains("general page body"))
+    #expect(changes == [1])
+    #expect(dialog.preferredSize.width >= 24 && dialog.preferredSize.height >= 8, "room for strip, page, buttons")
+}
+
+@Test @MainActor func preferencesDialogSplitStyleListsPagesBesideThem() {
+    let dialog = PreferencesDialog(style: .split)
+    dialog.addPage("General", content: Label("the general body"))
+    dialog.addPage("Network", content: Label("the network body"))
+
+    dialog.frame = Rect(x: 0, y: 0, width: 50, height: 10)
+    let text = SceneRenderer(root: dialog).render(size: Size(width: 50, height: 10)).textLines()
+
+    #expect(text.joined().contains("General") && text.joined().contains("Network"), "the list names the pages")
+    #expect(text.joined().contains("the general body") && !text.joined().contains("the network body"))
+
+    dialog.select(1)
+    let after = SceneRenderer(root: dialog).render(size: Size(width: 50, height: 10)).textLines()
+    #expect(after.joined().contains("the network body"))
 }

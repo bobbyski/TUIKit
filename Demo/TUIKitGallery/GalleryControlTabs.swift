@@ -95,13 +95,39 @@ func makeButtonsTab(app: App) -> TUIView {
         app.present(window)
     }
 
+    // Phase 16.29: the preferences dialog — pages behind a Toolbox strip,
+    // bound to a Preferences store.
+    let openPreferences = Button("Preferences…") { [weak app] in
+        guard let app else { return }
+        let store = Preferences.ephemeral()
+        let dialog = PreferencesDialog(style: .toolbar)
+
+        let general = Form(spacing: 0) {
+            Field("Name") { TextField(placeholder: "your name") }
+            Field("Autosave") { Checkbox("every 5 minutes").onChange { store.set($0, forKey: "autosave") } }
+        }
+        let appearance = Form(spacing: 0) {
+            Field("Theme") { PopUpButton(items: TUIKit.Theme.builtIn.map(\.name), selectedIndex: 0) }
+            Field("Density") { SegmentedControl(["Cozy", "Compact"], selectedIndex: 0) }
+        }
+        dialog.addPage("General", icon: "⚙", content: general)
+        dialog.addPage("Appearance", icon: "✎", content: appearance)
+        dialog.addButton("&Done", isDefault: true)
+        dialog.onDismiss = { [weak dialog, weak app] in
+            if let dialog, let app { app.dismiss(dialog) }
+        }
+        dialog.sizeToFit(in: app.desktop.bounds.size)
+        app.present(dialog)
+        dialog.sizeToFit(in: app.desktop.bounds.size)
+    }
+
     root.addSubview(pinnedHeight(group("Roles & Styles", [row([ok, danger, plain, bordered])]), 4))
     root.addSubview(pinnedHeight(group("Long-press (hold a fresh press ~600 ms)", [
         row([hold, menuButton]),
         holdResult,
     ]), 5))
     root.addSubview(pinnedHeight(group("State", [row([toggle, check])]), 4))
-    root.addSubview(pinnedHeight(group("Dialogs · Document window (16.25)", [row([showDialog, openFile, openDocument]), dialogResult]), 5))
+    root.addSubview(pinnedHeight(group("Dialogs · Document (16.25) · Preferences (16.29)", [row([showDialog, openFile, openDocument, openPreferences]), dialogResult]), 5))
     root.addSubview(group("Choice", [row(spacing: 3, [radios, segments])]))
 
     return root

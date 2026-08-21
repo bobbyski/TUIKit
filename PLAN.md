@@ -45,7 +45,7 @@ Phase 12 · TUIBuilder (declarative)   █████████████�
 Phase 13 · TUIView base rename        ██████████████████████████  100%  ✅ Done — base class View → TUIView (SwiftUI coexistence)
 Phase 14 · Data In / Out (binding)    ██████████████████████████  100%  🔄 Code complete — value/named/dict + typed binding + load/save/live + @Bound macro
 Phase 15 · TUICodeEditor              ████████████████░░░░░░░░░░   62%  🔄 E1–E5/E8 code complete — stateful colouring, banded gutter, OmegaCLIDE swapped over; E6 folding, E7 diff/merge, E9 perf remain
-Phase 16 · Control Parity             ███████████████████████░░░   89%  🔄 Waves A+B complete (16.1–16.25, 2026-08-21); Wave C siblings remain — 28 items in 3 waves (CONTROL_PARITY.md)
+Phase 16 · Control Parity             ███████████████████████░░░   90%  🔄 Waves A+B complete (16.1–16.25 + 16.29 PreferencesDialog; MasterDetail renamed — the sidebar IS SlideOut); Wave C siblings remain — 28 items in 3 waves (CONTROL_PARITY.md)
 ```
 
 **Status key:** ✅ Done &nbsp;|&nbsp; 🔄 In Progress &nbsp;|&nbsp; ⏳ Pending &nbsp;|&nbsp; 🚫 Blocked
@@ -550,13 +550,14 @@ Dependencies: 16.11 Wizard and 16.19 Sidebar build on 16.1 Navigator;
 | 16.16 | `CompletionList` (public) | ✅ Done (2026-08-21; attaches to any TextField, field keeps focus; editor attach later) | Promote the internal `PopUpList`: attach to any `TextField`/`TextView`/`SyntaxTextView`, items + filter, ↑/↓/Return/Esc; the code editor's completion UI lands on it. |
 | 16.17 | `FlowStack` | ✅ Done (2026-08-21) | Wrapping stack (the missing `AUIStack` mode): rows fill then wrap, `spacing`/`lineSpacing`, alignment. Tag clouds, button rows that reflow. |
 | 16.18 | `Form` sections | ✅ Done (2026-08-21; `Section` in the `FormBuilder` DSL) | `Section("Title") { … }` in `FormBuilder` and `form.addSection(_:)`; header row styled on the header slot; label column still shared across sections. |
-| 16.19 | `Sidebar` / `MasterDetail` | ✅ Done (2026-08-21; `Sidebar` + `SidebarList`, tiles or pushes by width) | One-call assembly over `SplitView` + `ListView`/`TreeView` + detail; `adaptive` below a width threshold pushes the detail on a `Navigator` instead of tiling. Rows gain icon + title + subtitle (`SidebarList` row style). |
+| 16.19 | `MasterDetail` | ✅ Done (2026-08-21; `MasterDetail` + `SidebarList`, tiles or pushes by width. Renamed from `Sidebar` per Bobby: the TUIKit sidebar IS `SlideOut`, the full-height panel that slides out of a window edge) | One-call assembly over `SplitView` + `ListView`/`TreeView` + detail; `adaptive` below a width threshold pushes the detail on a `Navigator` instead of tiling. Rows gain icon + title + subtitle (`SidebarList` row style). |
 | 16.20 | `ImageView` + `ImageViewer` | ✅ Done (2026-08-21; card + menu in cells, pixels under VTG) | **Placeholder + menu.** Cells: framed card `🖼 logo.png · 640×480 · PNG` with context menu Open in Viewer / Copy / Paste (paste replaces the image from the pasteboard path or data). VTG: `chrome.image` fitted/filled/centred, tint ignored. `ImageViewer` = `FloatingWindow` hosting an `ImageView` with zoom/pan (VTG) or the card (cells). Absorbs 11.3. |
 | 16.21 | `Scroller` (public) | ✅ Done (2026-08-21) | The border scrollbar as a standalone control driving any `ScrollSpan`; `onScroll`. |
 | 16.22 | `Preferences` | ✅ Done (2026-08-21; UserDefaults / JSON file / ephemeral; `TUIFavorites` move left for later) | Thin typed store over `UserDefaults` (Apple) / a JSON file in `XDG_CONFIG_HOME` (Linux); `@Bound`-compatible so forms bind straight to it. `TUIFavorites` moves onto it. |
 | 16.23 | `CollectionView` | ✅ Done (2026-08-21; no recycling) | Selection model, sections with headers, arrow navigation and `onActivate` over a `GridView` in a `ScrollView`; item views supplied by a closure. No recycling until a demo needs it. |
 | 16.24 | `MarkdownView` edit mode | ✅ Done (2026-08-21; `isEditing` flips to a `SyntaxTextView` with `MarkdownHighlighter`) | `isEditing` flips the pane between RichSwift rendering and a `SyntaxTextView` with a new `MarkdownHighlighter` (headings, emphasis, code, links); `onSourceChanged`; toolbar/accelerator to toggle. Not WYSIWYG by decision. |
-| 16.25 | `Document` model | ✅ Done (2026-08-21; `DocumentController`) | `DocumentController`: open/save/save-as via `FileDialog`, dirty tracking, recents, window title `•` marker, close-confirm `Dialog`. OmegaCLIDE and the browser both reinvent this today. |
+| 16.25 | `Document` model | ✅ Done (2026-08-21; `DocumentController`) |
+| 16.29 | `PreferencesDialog` | ✅ Done (2026-08-21, added per Bobby: a dialog presenting preference pages — a `Toolbox` strip across the top (`.toolbar`) or a `SidebarList` beside them (`.split`); bind the pages to a `Preferences` store) | `DocumentController`: open/save/save-as via `FileDialog`, dirty tracking, recents, window title `•` marker, close-confirm `Dialog`. OmegaCLIDE and the browser both reinvent this today. |
 
 ### Wave C — sibling packages (own repos under `UILess/Code`, consume TUIKit by path like `TUIWebBrowser`)
 
