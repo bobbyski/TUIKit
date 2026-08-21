@@ -30,7 +30,9 @@ func writeGallerySnapshots(to directory: String) throws {
     app.desktop.frame = Rect(origin: .zero, size: size)
     app.desktop.fillStyle = CellStyle(background: Theme.modernTurbo.resolved(for: .desktop).background)
 
-    let window = makeGalleryWindow(index: 0, app: app)
+    let settings = GallerySettings(store: Preferences.ephemeral())
+    settings.controlsPanelOpen = true   // the snapshot shows the Controls slide-out open
+    let window = makeGalleryWindow(index: 0, app: app, settings: settings)
     window.frame = Rect(x: 2, y: 1, width: size.width - 4, height: size.height - 2)
     app.present(window)
 

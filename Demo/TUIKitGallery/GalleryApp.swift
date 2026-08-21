@@ -7,6 +7,7 @@ import TUIKit
 @MainActor
 final class GalleryApp {
     let app = App(driver: ANSIDriver())
+    let settings = GallerySettings(store: Preferences(suite: "com.tuikit.gallery"))
     private var windowCount = 0
 
     func run() async throws {
@@ -23,7 +24,7 @@ final class GalleryApp {
         // Status strip content, declared early so the theme path can
         // restyle it.
         let statusTitle = Label(" TUIKit Gallery")
-        let statusHint = Label("Tab ↹ moves focus · drag the ◢ corner to resize · Theme menu restyles")
+        let statusHint = Label("Tab ↹ moves focus · ^L controls panel · Theme menu restyles")
         let clock = Label("--:--:--")
 
         func styleStatusChrome() {
@@ -35,7 +36,8 @@ final class GalleryApp {
             clock.style = plain
         }
 
-        // The one theming path, used at boot and by every Theme menu item.
+        // The one theming path, used at boot, by every Theme menu item, and
+        // by the preferences dialog's Appearance page.
         func applyGalleryTheme(_ theme: Theme) {
             app.applyTheme(theme)
 
@@ -47,11 +49,21 @@ final class GalleryApp {
             styleStatusChrome()
         }
 
-        // File: more gallery windows, close, quit.
+        let settings = self.settings
+        settings.applyTheme = applyGalleryTheme
+        settings.setHintsVisible = { [weak statusHint] visible in
+            statusHint?.text = visible ? "Tab ↹ moves focus · ^L controls panel · Theme menu restyles" : ""
+        }
+
+        // File: more gallery windows, preferences, close, quit.
         let fileMenu = Menu("&File")
         fileMenu.addItem("&New Gallery Window", keyEquivalent: KeyInput(key: .character("n"), modifiers: .control)) {
             self.windowCount += 1
-            app.present(makeGalleryWindow(index: self.windowCount, app: app))
+            app.present(makeGalleryWindow(index: self.windowCount, app: app, settings: settings))
+        }
+        fileMenu.addSeparator()
+        fileMenu.addItem("&Preferences…", keyEquivalent: KeyInput(key: .character("p"), modifiers: .control)) {
+            settings.presentPreferences(in: app)
         }
         fileMenu.addSeparator()
         fileMenu.addItem("&Close Window", keyEquivalent: KeyInput(key: .character("w"), modifiers: .control)) {
@@ -72,8 +84,16 @@ final class GalleryApp {
             }
         }
 
+        // View: the Controls slide-out of the frontmost gallery window — the
+        // menu's equivalent of ^L and the [>] title button.
+        let viewMenu = Menu("&View")
+        viewMenu.addItem("Toggle &Controls Panel", keyEquivalent: KeyInput(key: .character("l"), modifiers: .control)) {
+            (app.windows.last { $0 is GalleryWindow } as? GalleryWindow)?.toggleSlideOut(.leading)
+        }
+
         let menuBar = MenuBar()
         menuBar.addMenu(fileMenu)
+        menuBar.addMenu(viewMenu)
         menuBar.addMenu(themeMenu)
         menuBar.anchors = AnchorSet(leading: 0, trailing: 0, top: 0, height: 1)
         shell.addSubview(menuBar)
@@ -95,10 +115,12 @@ final class GalleryApp {
         status.anchors = AnchorSet(leading: 0, trailing: 0, bottom: 0, height: 1)
         shell.addSubview(status)
 
-        // Boot look: Modern Turbo, via the same path the menu takes.
-        applyGalleryTheme(.modernTurbo)
+        // Boot look: the remembered theme, else Modern Turbo — via the same
+        // path the menu and the preferences dialog take.
+        applyGalleryTheme(settings.storedTheme ?? .modernTurbo)
+        settings.setHintsVisible(settings.showsHints)
 
-        app.present(makeGalleryWindow(index: 0, app: app))
+        app.present(makeGalleryWindow(index: 0, app: app, settings: settings))
 
         do {
             try await app.run(shell)

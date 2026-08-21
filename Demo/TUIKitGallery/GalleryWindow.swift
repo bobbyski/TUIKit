@@ -5,12 +5,28 @@ import TUIKit
 // per control group. RULE (PLAN.md maintenance rules): a new TUIKit control
 // lands with a spot in one of these tabs, in the same commit.
 
+/// The gallery window: a content window with the Controls slide-out on its
+/// left edge — the TUIKit sidebar, as an app uses it. `^L` toggles it, so
+/// does the `[>]`/`[<]` button after the title.
+@MainActor
+final class GalleryWindow: FloatingWindow {
+    override func handleHotKey(_ key: KeyInput) -> Bool {
+        if key.modifiers == .control, key.key == .character("l") {
+            toggleSlideOut(.leading)
+            return true
+        }
+
+        return super.handleHotKey(key)
+    }
+}
+
 /// Builds one gallery window — a resizable, maximizable *content* window
 /// (Turbo dresses it blue with a white double frame) whose content is a
-/// folder-tab view over every control in the kit.
+/// folder-tab view over every control in the kit, with a Controls panel
+/// that slides out of the left edge to jump between the tabs.
 @MainActor
-func makeGalleryWindow(index: Int, app: App) -> FloatingWindow {
-    let window = FloatingWindow(
+func makeGalleryWindow(index: Int, app: App, settings: GallerySettings) -> GalleryWindow {
+    let window = GalleryWindow(
         title: index == 0 ? "TUIKit Gallery" : "TUIKit Gallery \(index + 1)",
         frame: Rect(x: 2 + index * 2, y: 1 + index, width: 78, height: 24)
     )
@@ -23,17 +39,23 @@ func makeGalleryWindow(index: Int, app: App) -> FloatingWindow {
         }
     }
 
-    installToolbar(on: window)
+    installToolbar(on: window, app: app, settings: settings)
 
     let tabs = TabView()
-    tabs.addTab("Buttons", content: makeButtonsTab(app: app))
-    tabs.addTab("Inputs", content: makeInputsTab(app: app))
-    tabs.addTab("Pickers", content: makePickersTab())
-    tabs.addTab("Lists", content: makeListsTab())
-    tabs.addTab("Text", content: makeTextTab())
-    tabs.addTab("Layout", content: makeLayoutTab())
-    tabs.addTab("Navigation", content: makeNavigationTab())
-    tabs.addTab("Charts", content: makeChartsTab())
+    let pages: [(title: String, summary: String, content: TUIView)] = [
+        ("Buttons", "roles, long-press, dialogs", makeButtonsTab(app: app, settings: settings)),
+        ("Inputs", "fields, sliders, tokens", makeInputsTab(app: app)),
+        ("Pickers", "dates, colours, matrix", makePickersTab()),
+        ("Lists", "lists, trees, tables", makeListsTab()),
+        ("Text", "editors and markdown", makeTextTab()),
+        ("Layout", "stacks, splits, forms", makeLayoutTab()),
+        ("Navigation", "wizard, pages, accordion", makeNavigationTab()),
+        ("Charts", "cells and VTG", makeChartsTab()),
+    ]
+
+    for page in pages {
+        tabs.addTab(page.title, content: page.content)
+    }
 
     // A rule between the toolbar and the folder tabs; connected, so the
     // window welds it into its frame (╟─╢).
@@ -43,6 +65,27 @@ func makeGalleryWindow(index: Int, app: App) -> FloatingWindow {
     content.anchors = .fill()
     window.content.addSubview(content)
 
+    // The Controls panel: the slide-out, holding an index of the tabs.
+    // Selecting a row shows that tab; the panel stays put (pinned) because
+    // jumping between tabs is exactly when you want it open.
+    let index = SidebarList(items: pages.map { SidebarItem(icon: "▸", title: $0.title, subtitle: $0.summary) })
+    index.onSelectionChanged = { [weak tabs] selected in
+        if let selected {
+            tabs?.select(selected)
+        }
+    }
+    index.onActivate = { [weak tabs] selected in
+        tabs?.select(selected)
+    }
+
+    let panel = window.addSlideOut(.leading, title: "Controls", content: index, length: 28, minimumLength: 16)
+    panel.isPinned = true
+    window.slideOutToggleEdge = .leading
+
+    if settings.controlsPanelOpen {
+        window.openSlideOut(.leading)
+    }
+
     return window
 }
 
@@ -50,7 +93,7 @@ func makeGalleryWindow(index: Int, app: App) -> FloatingWindow {
 // long-press example — hold Back for its history menu, exactly the browser
 // gesture the feature was built for.
 @MainActor
-private func installToolbar(on window: FloatingWindow) {
+private func installToolbar(on window: FloatingWindow, app: App, settings: GallerySettings) {
     let bar = Toolbar()
     bar.displayMode = .both   // glyph over title: the two-row bar, shown off
 
@@ -86,8 +129,10 @@ private func installToolbar(on window: FloatingWindow) {
     bar.add(.divider())
     bar.add(.view(address, title: "Address", flexible: true))
     bar.add(.divider())
-    bar.addItem("Settings", glyph: "⚙") {
-        address.setText("tuikit://settings")
+    bar.addItem("Settings", glyph: "⚙") { [weak app] in
+        if let app {
+            settings.presentPreferences(in: app)   // the real preferences dialog
+        }
     }
 
     window.setToolbar(bar)

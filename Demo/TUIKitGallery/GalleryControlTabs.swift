@@ -6,7 +6,7 @@ import TUIKit
 // MARK: - Buttons
 
 @MainActor
-func makeButtonsTab(app: App) -> TUIView {
+func makeButtonsTab(app: App, settings: GallerySettings) -> TUIView {
     let root = VStack(spacing: 0, insets: EdgeInsets(top: 0, left: 1, bottom: 0, right: 1))
 
     // Roles: how a theme dresses ordinary/default/destructive.
@@ -95,39 +95,26 @@ func makeButtonsTab(app: App) -> TUIView {
         app.present(window)
     }
 
-    // Phase 16.29: the preferences dialog — pages behind a Toolbox strip,
-    // bound to a Preferences store.
-    let openPreferences = Button("Preferences…") { [weak app] in
-        guard let app else { return }
-        let store = Preferences.ephemeral()
-        let dialog = PreferencesDialog(style: .toolbar)
-
-        let general = Form(spacing: 0) {
-            Field("Name") { TextField(placeholder: "your name") }
-            Field("Autosave") { Checkbox("every 5 minutes").onChange { store.set($0, forKey: "autosave") } }
-        }
-        let appearance = Form(spacing: 0) {
-            Field("Theme") { PopUpButton(items: TUIKit.Theme.builtIn.map(\.name), selectedIndex: 0) }
-            Field("Density") { SegmentedControl(["Cozy", "Compact"], selectedIndex: 0) }
-        }
-        dialog.addPage("General", icon: "⚙", content: general)
-        dialog.addPage("Appearance", icon: "✎", content: appearance)
-        dialog.addButton("&Done", isDefault: true)
-        dialog.onDismiss = { [weak dialog, weak app] in
-            if let dialog, let app { app.dismiss(dialog) }
-        }
-        dialog.sizeToFit(in: app.desktop.bounds.size)
-        app.present(dialog)
-        dialog.sizeToFit(in: app.desktop.bounds.size)
-    }
-
     root.addSubview(pinnedHeight(group("Roles & Styles", [row([ok, danger, plain, bordered])]), 4))
     root.addSubview(pinnedHeight(group("Long-press (hold a fresh press ~600 ms)", [
         row([hold, menuButton]),
         holdResult,
     ]), 5))
     root.addSubview(pinnedHeight(group("State", [row([toggle, check])]), 4))
-    root.addSubview(pinnedHeight(group("Dialogs · Document (16.25) · Preferences (16.29)", [row([showDialog, openFile, openDocument, openPreferences]), dialogResult]), 5))
+    // The preferences dialog in each variation — the gallery's own
+    // preferences (theme, panel at launch, hints), so the pages are real.
+    let preferencesToolbar = Button("Preferences (toolbar)…") { [weak app] in
+        if let app { settings.presentPreferences(in: app, style: .toolbar) }
+    }
+    let preferencesSplit = Button("Preferences (split)…") { [weak app] in
+        if let app { settings.presentPreferences(in: app, style: .split) }
+    }
+
+    root.addSubview(pinnedHeight(group("Dialogs · Document (16.25) · Preferences (16.29)", [
+        row([showDialog, openFile, openDocument]),
+        row([preferencesToolbar, preferencesSplit]),
+        dialogResult,
+    ]), 6))
     root.addSubview(group("Choice", [row(spacing: 3, [radios, segments])]))
 
     return root
@@ -182,14 +169,6 @@ func makeInputsTab(app: App) -> TUIView {
     root.addSubview(pinnedHeight(group("Search & Paste", [row([search, paste]), searchResult]), 5))
     root.addSubview(pinnedHeight(group("TokenField + CompletionList — type 'd', ↓, Return", [row([recipients, themeField])]), 4))
 
-    // Phase 16: Preferences — an ephemeral store here (nothing touches disk);
-    // the checkbox writes, the label reads back through onChange.
-    let prefs = Preferences.ephemeral()
-    let prefsLabel = Label("stored: (nothing yet)")
-    prefs.onChange = { key in prefsLabel.text = "stored: \(key) = \(prefs.bool(forKey: key).map(String.init) ?? "nil")" }
-    let remember = Checkbox("Remember window size")
-    remember.onChange = { prefs.set($0, forKey: "remembersWindowSize") }
-    root.addSubview(pinnedHeight(group("Preferences — UserDefaults / JSON / ephemeral", [row(spacing: 2, [remember, prefsLabel])]), 4))
     // Phase 16: tick marks (snapping walks them) and the two-thumb range.
     let ticked = Slider(value: 50, in: 0...100)
     ticked.tickMarks = 5

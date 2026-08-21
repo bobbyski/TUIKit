@@ -53,19 +53,6 @@ func makeListsTab() -> TUIView {
         group("DirectoryTree (the real disk)", [directory]),
         group("Browser — Miller columns", [browser]),
     ]))
-    // Phase 16: MasterDetail — tiles beside the detail here; below 60
-    // columns it turns into a navigator (resize the window to see it flip).
-    // (The TUIKit *sidebar* is SlideOut — the panel OmegaCLIDE slides out.)
-    let folders = [
-        SidebarItem(icon: "✉", title: "Inbox", subtitle: "12 unread"),
-        SidebarItem(icon: "★", title: "Starred", subtitle: "3 flagged"),
-        SidebarItem(icon: "✎", title: "Drafts", subtitle: "1 draft"),
-        SidebarItem(icon: "⌫", title: "Trash", subtitle: "empty"),
-    ]
-    let sidebar = MasterDetail(items: folders) { index in
-        Label("  \(folders[index].title): \(folders[index].subtitle ?? "") — the detail pane for this folder")
-    }
-
     root.addSubview(pinnedHeight(group("PathControl · TUIFavorites", [row(spacing: 2, [path, favorites])]), 4))
     // Phase 16: CollectionView — sections of uniform items, a selection,
     // arrows that walk the grid.
@@ -75,8 +62,20 @@ func makeListsTab() -> TUIView {
     ]) { Label($0) }
     files.itemWidth = 16
 
+    // MasterDetail — a list driving a detail pane (NOT a sidebar: the
+    // sidebar is the window's SlideOut). Below 60 columns it pushes.
+    let folders = [
+        SidebarItem(icon: "✉", title: "Inbox", subtitle: "12 unread"),
+        SidebarItem(icon: "★", title: "Starred", subtitle: "3 flagged"),
+        SidebarItem(icon: "✎", title: "Drafts", subtitle: "1 draft"),
+        SidebarItem(icon: "⌫", title: "Trash", subtitle: "empty"),
+    ]
+    let masterDetail = MasterDetail(items: folders) { index in
+        Label("  \(folders[index].title): \(folders[index].subtitle ?? "") — the detail pane for this folder")
+    }
+
     root.addSubview(pinnedHeight(row([
-        group("MasterDetail — list + detail; pushes below 60 columns", [sidebar]),
+        group("MasterDetail — list drives detail; pushes below 60 columns", [masterDetail]),
         group("CollectionView — arrows walk the grid", [files]),
     ]), 8))
 
