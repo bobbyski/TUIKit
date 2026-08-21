@@ -45,7 +45,7 @@ Phase 12 · TUIBuilder (declarative)   █████████████�
 Phase 13 · TUIView base rename        ██████████████████████████  100%  ✅ Done — base class View → TUIView (SwiftUI coexistence)
 Phase 14 · Data In / Out (binding)    ██████████████████████████  100%  🔄 Code complete — value/named/dict + typed binding + load/save/live + @Bound macro
 Phase 15 · TUICodeEditor              ████████████████░░░░░░░░░░   62%  🔄 E1–E5/E8 code complete — stateful colouring, banded gutter, OmegaCLIDE swapped over; E6 folding, E7 diff/merge, E9 perf remain
-Phase 16 · Control Parity             █████████░░░░░░░░░░░░░░░░░   36%  🔄 Wave A complete (16.1–16.10, 2026-08-21); Wave B next; 28 items in 3 waves (CONTROL_PARITY.md)
+Phase 16 · Control Parity             █████████████░░░░░░░░░░░░░   50%  🔄 Wave B underway — 16.11, 16.12, 16.17, 16.18 shipped; 28 items in 3 waves (CONTROL_PARITY.md)
 ```
 
 **Status key:** ✅ Done &nbsp;|&nbsp; 🔄 In Progress &nbsp;|&nbsp; ⏳ Pending &nbsp;|&nbsp; 🚫 Blocked
@@ -492,7 +492,7 @@ SwiftyCodeEditor is not restructured by this plan; no split is forced on it.
 Full plan and parity matrix: **`Docs/CodeEditorPlan.md`**.
 `SyntaxTextView` stays for plain-text duty; the IDE swaps editors at E8.
 
-## Phase 16 — Control Parity (ActiveUI gap fill) 🔄 36%
+## Phase 16 — Control Parity (ActiveUI gap fill) 🔄 50%
 
 Source: **`CONTROL_PARITY.md`** — every ActiveUI catalog page mapped to its
 TUIKit twin (33 ✅ / 31 🟡 / 11 ❌ / 6 ➖ as of 2026-08-21). This phase is the
@@ -542,14 +542,14 @@ Dependencies: 16.11 Wizard and 16.19 Sidebar build on 16.1 Navigator;
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 16.11 | `Wizard` | ⏳ Pending | Steps with titles on a `Navigator`; `Back`/`Next`/`Finish` footer; per-step `validate() -> String?` blocks Next with the message in the footer; `next(from:) -> StepID` for branching; progress `Step 2 of 5`. In-package (ActiveUI's is a sibling; here it is small once Navigator exists). |
-| 16.12 | `Gauge` + `LevelIndicator` thresholds | ⏳ Pending | Styles `.bar` (cells + VTG), `.ring`/`.dial` (VTG via sectors; cells fall back to `.bar` with the value — no placeholder needed, a bar *is* the honest form). `warningThreshold`/`criticalThreshold` colour bands, shared with `LevelIndicator` (new `warningAccent`-style slots already exist). |
+| 16.11 | `Wizard` | ✅ Done (2026-08-21) | Steps with titles on a `Navigator`; `Back`/`Next`/`Finish` footer; per-step `validate() -> String?` blocks Next with the message in the footer; `next(from:) -> StepID` for branching; progress `Step 2 of 5`. In-package (ActiveUI's is a sibling; here it is small once Navigator exists). |
+| 16.12 | `Gauge` + `LevelIndicator` thresholds | ✅ Done (2026-08-21) | Styles `.bar` (cells + VTG), `.ring`/`.dial` (VTG via sectors; cells fall back to `.bar` with the value — no placeholder needed, a bar *is* the honest form). `warningThreshold`/`criticalThreshold` colour bands, shared with `LevelIndicator` (new `warningAccent`-style slots already exist). |
 | 16.13 | `Matrix` | ⏳ Pending | Grid of cells as one control: `.radio` (one selected) / `.highlight` (many); arrows move, Space toggles; `onSelectionChanged`. Keyboard navigation is the work. |
 | 16.14 | `Toolbox` | ⏳ Pending | Exclusive tool palette docked to an edge: `ToolbarItem`s in `.radio` mode, vertical or horizontal, icon+caption. Built on `Toolbar`. |
 | 16.15 | `TokenField` | ⏳ Pending | Return mints a token from typed text, Backspace on an empty tail removes the last, ←/→ walk tokens, `onTokensChanged`; optional `completions` from 16.16. Absorbs 11.4. |
 | 16.16 | `CompletionList` (public) | ⏳ Pending | Promote the internal `PopUpList`: attach to any `TextField`/`TextView`/`SyntaxTextView`, items + filter, ↑/↓/Return/Esc; the code editor's completion UI lands on it. |
-| 16.17 | `FlowStack` | ⏳ Pending | Wrapping stack (the missing `AUIStack` mode): rows fill then wrap, `spacing`/`lineSpacing`, alignment. Tag clouds, button rows that reflow. |
-| 16.18 | `Form` sections | ⏳ Pending | `Section("Title") { … }` in `FormBuilder` and `form.addSection(_:)`; header row styled on the header slot; label column still shared across sections. |
+| 16.17 | `FlowStack` | ✅ Done (2026-08-21) | Wrapping stack (the missing `AUIStack` mode): rows fill then wrap, `spacing`/`lineSpacing`, alignment. Tag clouds, button rows that reflow. |
+| 16.18 | `Form` sections | ✅ Done (2026-08-21; `Section` in the `FormBuilder` DSL) | `Section("Title") { … }` in `FormBuilder` and `form.addSection(_:)`; header row styled on the header slot; label column still shared across sections. |
 | 16.19 | `Sidebar` / `MasterDetail` | ⏳ Pending | One-call assembly over `SplitView` + `ListView`/`TreeView` + detail; `adaptive` below a width threshold pushes the detail on a `Navigator` instead of tiling. Rows gain icon + title + subtitle (`SidebarList` row style). |
 | 16.20 | `ImageView` + `ImageViewer` | ⏳ Pending | **Placeholder + menu.** Cells: framed card `🖼 logo.png · 640×480 · PNG` with context menu Open in Viewer / Copy / Paste (paste replaces the image from the pasteboard path or data). VTG: `chrome.image` fitted/filled/centred, tint ignored. `ImageViewer` = `FloatingWindow` hosting an `ImageView` with zoom/pan (VTG) or the card (cells). Absorbs 11.3. |
 | 16.21 | `Scroller` (public) | ⏳ Pending | The border scrollbar as a standalone control driving any `ScrollSpan`; `onScroll`. |

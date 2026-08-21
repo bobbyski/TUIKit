@@ -114,6 +114,20 @@ func makeChartsTab() -> TUIView {
         return chart
     }, 10)
 
+    // Gauge (Phase 16.12): a ring under VTG, the bar as the honest cell
+    // form; thresholds recolour the fill.
+    addRow(sideBySide("Gauge — ring (VTG) / bar (cells), 0.7 warning, 0.9 critical", height: 8) {
+        let gauges = HStack(spacing: 2)
+        for (label, value) in [("CPU", 42.0), ("RAM", 76.0), ("Disk", 93.0)] {
+            let gauge = Gauge(value: value, in: 0...100, style: .ring)
+            gauge.label = label
+            gauge.warningThreshold = 0.7
+            gauge.criticalThreshold = 0.9
+            gauges.addSubview(gauge)
+        }
+        return gauges
+    }, 8)
+
     // Canvas (Phase 16.9): a draw closure, chrome only — so the ANSI side is
     // the honest placeholder rather than a blank.
     addRow(sideBySide("Canvas — chrome-only draw closure", height: 7) {

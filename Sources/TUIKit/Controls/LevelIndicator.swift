@@ -53,6 +53,21 @@ public final class LevelIndicator: TUIView {
     /// Whether arrows and clicks change the value.
     public var isEditable = false
 
+    /// Level at or above which the fill wears the theme's warning accent.
+    public var warningLevel: Int? {
+        didSet {
+            setNeedsDisplay()
+        }
+    }
+
+    /// Level at or above which the fill wears the theme's error accent —
+    /// the capacity gauge turning red as the disk fills.
+    public var criticalLevel: Int? {
+        didSet {
+            setNeedsDisplay()
+        }
+    }
+
     /// Called when the value changes through interaction or
     /// `setValue(_:notify:)`.
     public var onValueChanged: (Int) -> Void = { _ in }
@@ -100,13 +115,28 @@ public final class LevelIndicator: TUIView {
         }
     }
 
-    /// Draws filled cells in the accent color, empty cells de-emphasized.
+    /// The colour the filled cells wear at the current level.
+    public func fillColor(_ theme: ResolvedTheme) -> TerminalColor {
+        if let criticalLevel, value >= criticalLevel {
+            return theme.errorAccent
+        }
+
+        if let warningLevel, value >= warningLevel {
+            return theme.warningAccent
+        }
+
+        return theme.accent
+    }
+
+    /// Draws filled cells in the accent (or threshold) color, empty cells
+    /// de-emphasized.
     public override func draw(_ painter: Painter) {
         let theme = effectiveTheme
         var filledStyle = CellStyle()
+        let fill = fillColor(theme)
 
-        if theme.accent != .standard {
-            filledStyle.foreground = theme.accent
+        if fill != .standard {
+            filledStyle.foreground = fill
         }
 
         for cell in 0..<min(maximum, bounds.size.width) {

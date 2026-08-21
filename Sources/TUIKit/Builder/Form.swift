@@ -19,22 +19,66 @@ public struct Field {
     }
 }
 
-/// Collects `Field`s inside a `Form`.
+/// A titled group of fields inside a `Form`: a header row, then its fields.
+///
+/// ```swift
+/// Section("Account") {
+///     Field("Name")  { TextField() }
+///     Field("Email") { TextField() }
+/// }
+/// ```
+@MainActor
+public struct Section {
+    let title: String
+    let fields: [Field]
+
+    /// Creates a section.
+    ///
+    /// - Parameters:
+    ///   - title: The header text.
+    ///   - content: The fields under it.
+    public init(_ title: String, @FormBuilder _ content: () -> [FormEntry]) {
+        self.title = title
+        self.fields = content().compactMap { entry in
+            if case .field(let field) = entry {
+                return field
+            }
+
+            return nil   // nested sections flatten to their fields' level
+        }
+    }
+}
+
+/// One row of a `Form`: a field, or a section header.
+@MainActor
+public enum FormEntry {
+    /// A labelled control.
+    case field(Field)
+
+    /// A header spanning both columns.
+    case header(String)
+}
+
+/// Collects `Field`s and `Section`s inside a `Form`.
 @MainActor
 @resultBuilder
 public enum FormBuilder {
     /// Collects a single field.
-    public static func buildExpression(_ field: Field) -> [Field] { [field] }
+    public static func buildExpression(_ field: Field) -> [FormEntry] { [.field(field)] }
+    /// Collects a section: its header, then its fields.
+    public static func buildExpression(_ section: Section) -> [FormEntry] {
+        [.header(section.title)] + section.fields.map { .field($0) }
+    }
     /// Flattens the block's parts.
-    public static func buildBlock(_ parts: [Field]...) -> [Field] { parts.flatMap { $0 } }
+    public static func buildBlock(_ parts: [FormEntry]...) -> [FormEntry] { parts.flatMap { $0 } }
     /// Keeps the `if` branch's parts (or none).
-    public static func buildOptional(_ part: [Field]?) -> [Field] { part ?? [] }
+    public static func buildOptional(_ part: [FormEntry]?) -> [FormEntry] { part ?? [] }
     /// Keeps the `if` branch's parts.
-    public static func buildEither(first: [Field]) -> [Field] { first }
+    public static func buildEither(first: [FormEntry]) -> [FormEntry] { first }
     /// Keeps the `else` branch's parts.
-    public static func buildEither(second: [Field]) -> [Field] { second }
+    public static func buildEither(second: [FormEntry]) -> [FormEntry] { second }
     /// Flattens a `for` loop's parts.
-    public static func buildArray(_ parts: [[Field]]) -> [Field] { parts.flatMap { $0 } }
+    public static func buildArray(_ parts: [[FormEntry]]) -> [FormEntry] { parts.flatMap { $0 } }
 }
 
 /// A column of labeled controls whose fields all line up — the aligned form,
@@ -69,15 +113,23 @@ public final class Form: TUIView {
     ///     to the widest label.
     ///   - spacing: Blank rows between fields.
     ///   - fields: The rows.
-    public init(labelWidth: Int? = nil, spacing: Int = 1, @FormBuilder _ fields: () -> [Field]) {
-        let rows = fields()
-        let labelColumn = labelWidth ?? (rows.map { $0.title.count + 1 }.max() ?? 0)
+    public init(labelWidth: Int? = nil, spacing: Int = 1, @FormBuilder _ fields: () -> [FormEntry]) {
+        let entries = fields()
+        let fieldRows = entries.compactMap { entry -> Field? in
+            if case .field(let field) = entry { return field } else { return nil }
+        }
+        let labelColumn = labelWidth ?? (fieldRows.map { $0.title.count + 1 }.max() ?? 0)
 
-        let controls = rows.map { $0.control.makeView() }
-        let rowHeights = controls.map { $0.intrinsicContentSize?.height ?? 1 }
-        let widestControl = controls.map { $0.intrinsicContentSize?.width ?? 12 }.max() ?? 12
+        // One grid row per entry: a header spans both columns; a field is a
+        // label beside its control. The label column is shared across
+        // sections, so every field in the form still lines up.
+        let views: [TUIView?] = entries.map { entry in
+            if case .field(let field) = entry { return field.control.makeView() } else { return nil }
+        }
+        let rowHeights = views.map { $0?.intrinsicContentSize?.height ?? 1 }
+        let widestControl = views.compactMap { $0?.intrinsicContentSize?.width }.max() ?? 12
 
-        naturalHeight = rowHeights.reduce(0, +) + spacing * max(0, rows.count - 1)
+        naturalHeight = rowHeights.reduce(0, +) + spacing * max(0, entries.count - 1)
         naturalWidth = labelColumn + 1 + widestControl
 
         let grid = GridView(
@@ -88,18 +140,56 @@ public final class Form: TUIView {
 
         super.init(frame: .zero)
 
-        for (index, field) in rows.enumerated() {
-            let label = Label("\(field.title):")
-            label.style.flags.insert(.bold)
-            label.alignment = .trailing
+        for (index, entry) in entries.enumerated() {
+            switch entry {
+            case .field(let field):
+                let label = Label("\(field.title):")
+                label.style.flags.insert(.bold)
+                label.alignment = .trailing
+                grid.place(label, column: 0, row: index)
 
-            grid.place(label, column: 0, row: index)
-            grid.place(controls[index], column: 1, row: index)
+                if let control = views[index] {
+                    grid.place(control, column: 1, row: index)
+                }
+
+            case .header(let title):
+                let header = SectionHeader(title)
+                grid.place(header, column: 0, row: index, columnSpan: 2)
+            }
+
             grid.setRow(index, .fixed(rowHeights[index]))
         }
 
         grid.anchors = .fill()
         addSubview(grid)
+    }
+
+    // A section header row: the title in the theme's header style, with a
+    // rule filling the rest of the row.
+    private final class SectionHeader: TUIView {
+        let title: String
+
+        init(_ title: String) {
+            self.title = title
+            super.init(frame: .zero)
+        }
+
+        override var intrinsicContentSize: Size? {
+            Size(width: title.count + 2, height: 1)
+        }
+
+        override func draw(_ painter: Painter) {
+            let theme = effectiveTheme
+            let width = bounds.size.width
+            let text = Label.truncated(title, width: max(0, width - 1))
+            var style = theme.base
+            style.flags.insert(.bold)
+            painter.write(text, at: .zero, style: style)
+
+            if let line = theme.dividerStyle.characters?.horizontal, width > text.count + 1 {
+                painter.write(String(repeating: line, count: width - text.count - 1), at: Point(x: text.count + 1, y: 0), style: theme.border)
+            }
+        }
     }
 
     /// The form's natural size: the label column, the widest control, and the

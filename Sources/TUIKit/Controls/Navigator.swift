@@ -26,7 +26,7 @@ public final class Navigator: TUIView {
         public let view: TUIView
 
         /// The level's title, shown in the header.
-        public let title: String
+        public var title: String
     }
 
     /// The stack, root first.
@@ -104,6 +104,19 @@ public final class Navigator: TUIView {
         addSubview(view)
         reveal(view)
         onDepthChanged(depth)
+    }
+
+    /// Renames the top level — a wizard's step counter, a document's dirty
+    /// marker.
+    ///
+    /// - Parameter title: The new header title.
+    public func setTitle(_ title: String) {
+        guard levels[levels.count - 1].title != title else {
+            return
+        }
+
+        levels[levels.count - 1].title = title
+        setNeedsDisplay()
     }
 
     /// Comes back one level.

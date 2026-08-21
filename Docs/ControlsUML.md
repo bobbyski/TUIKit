@@ -865,3 +865,68 @@ classDiagram
     SearchField *-- TextField : editing
     PasteButton *-- Button : pressing
 ```
+
+## Phase 16 — Control parity (Wave B)
+
+```mermaid
+classDiagram
+    direction TB
+
+    class TUIView
+    class Navigator
+    class Button
+    class DisclosureGroup
+
+    class Wizard {
+        +steps : [Step]
+        +currentIndex : Int
+        +currentStep : Step
+        +navigator : Navigator
+        +backButton : Button
+        +nextButton : Button
+        +isOnFinalStep : Bool
+        +onFinish : () -> Void
+        +onStepChanged : (Int) -> Void
+        +goNext() Bool
+        +goBack() Bool
+    }
+
+    class Gauge {
+        +value : Double
+        +range : ClosedRange~Double~
+        +style : Style
+        +label : String
+        +warningThreshold : Double?
+        +criticalThreshold : Double?
+        +fraction : Double
+        +setValue(Double)
+        +fillColor(ResolvedTheme) TerminalColor
+    }
+
+    class LevelIndicator {
+        +warningLevel : Int?
+        +criticalLevel : Int?
+        +fillColor(ResolvedTheme) TerminalColor
+    }
+
+    class FlowStack {
+        +spacing : Int
+        +lineSpacing : Int
+        +insets : EdgeInsets
+        +defaultChildWidth : Int
+    }
+
+    class Form {
+        +init(labelWidth, spacing, FormBuilder)
+    }
+    class Section {
+        +init(String, FormBuilder)
+    }
+
+    TUIView <|-- Wizard
+    TUIView <|-- Gauge
+    TUIView <|-- FlowStack
+    Wizard *-- Navigator : steps
+    Wizard *-- Button : footer
+    Form o-- Section : headers
+```

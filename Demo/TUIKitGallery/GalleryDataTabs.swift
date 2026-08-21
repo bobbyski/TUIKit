@@ -182,7 +182,27 @@ func makeLayoutTab() -> TUIView {
     status.addSegment(Label("Ln 12, Col 4"), priority: 1)
     let flash = Button("&Flash") { [weak status] in status?.flash("Saved 3 files — back in 3 seconds") }
 
+    // Phase 16: FlowStack reflows tags to the width; Form sections share
+    // one label column across headers.
+    let tags = FlowStack(spacing: 1)
+    for tag in ["swift", "terminal", "tui", "concurrency", "testing", "headless", "vtg", "themes", "gallery", "wave-b"] {
+        tags.addSubview(Button(tag) {})
+    }
+    let sectioned = Form(spacing: 0) {
+        Section("Account") {
+            Field("Name") { TextField(placeholder: "your name") }
+            Field("Email") { TextField(placeholder: "you@host") }
+        }
+        Section("Appearance") {
+            Field("Theme") { PopUpButton(items: ["Turbo", "Ambiance", "Standard"], selectedIndex: 0) }
+        }
+    }
+
     root.addSubview(pinnedHeight(group("Ribbon — grouped toolbar, placed like any view", [ribbon]), 5))
+    root.addSubview(pinnedHeight(row([
+        group("FlowStack — tags wrap to the width", [tags]),
+        group("Form — Section headers, one label column", [sectioned]),
+    ]), 8))
     root.addSubview(pinnedHeight(group("StatusBar — flash and priority", [status, row([pinnedHeight(flash, 1)])]), 5))
     root.addSubview(row(spacing: 1, [
         // Button and split as siblings: nesting them in their own stack

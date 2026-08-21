@@ -91,6 +91,8 @@ func makeInputsTab(app: App) -> TUIView {
     let stepper = Stepper(value: 4, in: 0...10)
     let level = LevelIndicator(value: 3, maximum: 5)
     level.isEditable = true
+    level.warningLevel = 4      // Phase 16.12: thresholds recolour the fill
+    level.criticalLevel = 5
 
     let bar = ProgressIndicator(style: .bar, value: 0.6)
     let spinner = ProgressIndicator(style: .spinner)
