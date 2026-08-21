@@ -111,9 +111,18 @@ func makeTextTab() -> TUIView {
         group("RichText", [rich]),
     ])
 
+    // Phase 16: Link hands its URL over (or opens it); (?) is the same
+    // control in its help-button dress.
+    let linkResult = Label("links report here")
+    let link = Link("TUIKit on GitHub", url: "https://github.com/bobbyski/TUIKit")
+    link.onOpen = { linkResult.text = "would open: \($0)" }
+    let help = Link.help(anchor: "text", baseURL: "tuikit://help#")
+    help.onOpen = { linkResult.text = "help anchor: \($0)" }
+
     let root = VStack(spacing: 0, insets: EdgeInsets(top: 0, left: 1, bottom: 0, right: 1))
     root.addSubview(top)
     root.addSubview(bottom)
+    root.addSubview(pinnedHeight(group("Link & HelpLink", [row(spacing: 2, [link, help, linkResult])]), 4))
     return root
 }
 

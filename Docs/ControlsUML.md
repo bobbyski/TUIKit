@@ -739,3 +739,48 @@ overrides. The ActiveUI chart shapes all have TUI counterparts now:
 `AUILineMark`→LineChart; the pie's cell disc is coarse by nature, so its
 legend always carries the exact percentages. Long-press (no new class): `MouseInput.Action.longPress` +
 `Button.onLongPress` + `ToolbarItem.longPressAction`, context menu fallback.
+
+## Phase 16 — Control parity (Wave A)
+
+```mermaid
+classDiagram
+    direction TB
+
+    class TUIView
+    class TextField
+    class Button
+
+    class SearchField {
+        +field : TextField
+        +text : String
+        +placeholder : String
+        +debounce : Duration?
+        +onSearch : (String) -> Void
+        +onCommit : (String) -> Void
+        +setText(String)
+        +clear()
+    }
+
+    class Link {
+        +title : String
+        +url : String
+        +presentation : Presentation
+        +onOpen : ((String) -> Void)?
+        +open()
+        +help(anchor, baseURL)$ Link
+    }
+
+    class PasteButton {
+        +button : Button
+        +pasteboard : Pasteboard?
+        +onPaste : (String) -> Void
+        +onEmpty : () -> Void
+        +paste()
+    }
+
+    TUIView <|-- SearchField
+    TUIView <|-- Link
+    TUIView <|-- PasteButton
+    SearchField *-- TextField : editing
+    PasteButton *-- Button : pressing
+```

@@ -100,7 +100,17 @@ func makeInputsTab(app: App) -> TUIView {
         spinner?.advance()
     }
 
+    // Phase 16: SearchField (live + committed reports, Esc/✕ clear) and
+    // PasteButton (the app pasteboard, or an honest "nothing to paste").
+    let searchResult = Label("search reports here")
+    let search = SearchField()
+    search.onSearch = { searchResult.text = $0.isEmpty ? "search cleared" : "searching: \($0)" }
+    search.onCommit = { searchResult.text = "committed: \($0)" }
+    let paste = PasteButton { searchResult.text = "pasted: \($0)" }
+    paste.onEmpty = { searchResult.text = "nothing to paste — copy something first (^C in a field)" }
+
     root.addSubview(pinnedHeight(group("Text & Choices", [row([field, combo, popUp])]), 4))
+    root.addSubview(pinnedHeight(group("Search & Paste", [row([search, paste]), searchResult]), 5))
     root.addSubview(pinnedHeight(group("Values", [row(spacing: 3, [slider, stepper, level])]), 4))
     root.addSubview(group("Progress (the spinner rides an App timer)", [row(spacing: 3, [bar, spinner])]))
 
