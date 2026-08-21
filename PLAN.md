@@ -124,7 +124,7 @@ Layout per the AICoding rules framework structure.
 |---|------|--------|-------|
 | 2.1 | `TerminalDriver` protocol | ✅ Done | Async protocol: size, begin/end, present, cursor, input stream. |
 | 2.2 | Cell/attribute model | ✅ Done | TerminalCell/CellStyle/TerminalColor/CellFlags + CellBuffer with clipping; ANSIEncoder (pure SGR encoding) added as shared driver piece. |
-| 2.3 | ANSI driver (macOS/Linux) | ✅ Done | Actor: termios raw mode, alt screen, SGR mouse, DispatchSourceRead + non-blocking fd (never blocks), SIGWINCH resize, writes off the cooperative pool, full-redraw present (diffing later). |
+| 2.3 | ANSI driver (macOS/Linux) | ✅ Done | Actor: termios raw mode, alt screen, SGR mouse, DispatchSourceRead + non-blocking fd (never blocks), SIGWINCH resize, writes off the cooperative pool. Present is damage-diffed (2026-08-20, `ANSIEncoder.frame`): only changed rows repaint, so an idle app writes ~bytes/s not ~screens/s; baseline resets on begin/resume/resize. Input chunks decode strictly in arrival order (AsyncStream hand-off, 2026-08-20) and control strings self-heal at `controlStringCap` — a lost ST can no longer deafen the app (the "locks up after idle" / "quit doesn't quit" reports). |
 | 2.4 | Input decoder | ✅ Done | Pure state machine: UTF-8, ctrl/alt, arrows+modifiers, nav/tilde keys, F1-F12 (SS3/CSI/tilde), shift-tab, SGR mouse (press/release/drag/move/scroll/modifiers), chunk-split and lone-ESC handling; 20 tests. |
 | 2.5 | Headless driver | ✅ Done | Actor: scripted input, presented-buffer snapshots, resize simulation; 6 tests. |
 
