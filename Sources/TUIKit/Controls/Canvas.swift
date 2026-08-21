@@ -102,7 +102,7 @@ public final class Canvas: TUIView {
         }
 
         if bounds.size.height >= 3 {
-            painter.drawBox(bounds, style: theme.border, border: theme.borderStyle)
+            painter.drawBox(bounds, style: theme.border, border: theme.borderStyle.inner)
         }
 
         let text = Label.truncated(placeholderText, width: max(0, bounds.size.width - 2))

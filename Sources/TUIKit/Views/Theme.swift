@@ -44,6 +44,17 @@ public enum BorderStyle: String, Hashable, Sendable, CaseIterable {
         }
     }
 
+    /// The weight for borders INSIDE a window — group boxes, placeholders,
+    /// calendars, anything whose parent is not the desktop.
+    ///
+    /// House rule: double lines are reserved for the frames of windows
+    /// whose parent is the desktop, and for dialogs; everything nested
+    /// inside draws single. So `.double` maps to `.single` here and every
+    /// other style is itself.
+    public var inner: BorderStyle {
+        self == .double ? .single : self
+    }
+
     /// Junction glyphs for connected dividers: tees against each edge and
     /// the four-way crossing. Rounded borders use the single-line tees.
     public var junctions: (

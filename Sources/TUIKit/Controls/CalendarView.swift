@@ -116,7 +116,7 @@ final class CalendarView: TUIView {
 
         if isPopup {
             painter.fill(bounds, with: .blank)
-            painter.drawBox(bounds, style: theme.border, border: theme.borderStyle)
+            painter.drawBox(bounds, style: theme.border, border: theme.borderStyle.inner)
             contentOrigin = Point(x: 1, y: 1)
         } else {
             contentOrigin = .zero

@@ -428,3 +428,43 @@ private func click(_ window: Window, x: Int, y: Int = 0) {
     #expect(vector.chromeCommands.contains { $0.id.hasSuffix("_dial") })
     #expect(cellDraws == 2)
 }
+
+
+// MARK: - Border weight rule (double for desktop-level windows and dialogs; single inside)
+
+@Test @MainActor func nestedPanelsDrawSingleWhereWindowsDrawDouble() {
+    // A panel sitting directly in a window IS its frame: double under the
+    // Turbo content window. The same panel nested one level deeper is a
+    // group box: single.
+    let frame = Panel("Window")
+    frame.themeContext = .contentWindow
+    frame.theme = .turbo
+    let nested = Panel("Group")
+    nested.anchors = .fill(inset: 1)
+    frame.content.addSubview(nested)
+    let window = host(frame, width: 20, height: 6)
+    let text = lines(window)
+
+    #expect(text[0].hasPrefix("╔"), "the window frame is double")
+    #expect(text[2].contains("┌"), "the group box inside it is single: \(text[2])")
+
+    let dialog = Dialog(title: "Sure?", message: "Really.")
+    dialog.theme = .turbo
+    dialog.frame = Rect(x: 0, y: 0, width: 30, height: 6)
+    let dialogText = SceneRenderer(root: dialog).render(size: Size(width: 30, height: 6)).textLines()
+
+    #expect(dialogText[0].hasPrefix("╔"), "a dialog is a window: it wears the double frame")
+    #expect(BorderStyle.double.inner == .single && BorderStyle.rounded.inner == .rounded)
+}
+
+@Test @MainActor func sliderTicksAreSingleLineEvenOnADoubleTrack() {
+    let slider = Slider(value: 0, in: 0...100)
+    slider.tickMarks = 3
+    slider.theme = .turbo
+    slider.themeContext = .contentWindow   // where Turbo frames are double
+    let window = host(slider, width: 22)
+    let row = lines(window)[0]
+
+    #expect(row.contains("═"), "Turbo's track is double")
+    #expect(row.contains("┼") && !row.contains("╬"), "its ticks are not")
+}

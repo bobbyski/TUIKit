@@ -29,11 +29,27 @@ func makeNavigationTab() -> TUIView {
     ])
     pages.onPageChanged = { pageLabel.text = "page \($0 + 1) of 3 — ←/→ turn, or click the dots" }
 
-    // Accordion: exclusive sections.
+    // Accordion: two sections with more options than fit, two with a line
+    // or two. The sections do NOT scroll themselves — the accordion sits in
+    // a ScrollView and is scrolled as a whole, its open section at its
+    // natural height.
+    func options(_ prefix: String, count: Int) -> TUIView {
+        let list = VStack(spacing: 0)
+        for index in 1...count {
+            list.addSubview(pinnedHeight(Checkbox("\(prefix) option \(index)"), 1))
+        }
+        return list
+    }
     let accordion = Accordion(mode: .exclusive)
-    accordion.addSection("General", content: Label("general settings live here"), isExpanded: true)
-    accordion.addSection("Appearance", content: Label("theme and colours"))
-    accordion.addSection("Advanced", content: Label("the dangerous switches"))
+    accordion.addSection("General — 30 options", content: options("General", count: 30), isExpanded: true)
+    accordion.addSection("Appearance — 24 options", content: options("Appearance", count: 24))
+    accordion.addSection("Shortcuts — one item", content: Label("⌘K opens the command palette"))
+    let about = VStack(spacing: 0)
+    about.addSubview(pinnedHeight(Label("TUIKit Gallery"), 1))
+    about.addSubview(pinnedHeight(Label("the control showroom"), 1))
+    accordion.addSection("About — two items", content: about)
+    let accordionScroll = ScrollView(document: accordion)
+    accordionScroll.fitsDocumentWidth = true
 
     // Navigator: a drill-down menu two levels deep. Esc or ◂ Back returns.
     let menu = VStack(spacing: 0)
@@ -57,7 +73,7 @@ func makeNavigationTab() -> TUIView {
         group("PageView", [pages, pageLabel]),
         group("Navigator — drill in, Esc back", [navigator, depthLabel]),
     ]), 7))
-    root.addSubview(group("Accordion — exclusive; Space on a header", [accordion]))
+    root.addSubview(group("Accordion — exclusive; Space on a header; the whole accordion scrolls", [accordionScroll]))
 
     return root
 }

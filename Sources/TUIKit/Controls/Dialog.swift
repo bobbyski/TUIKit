@@ -41,9 +41,12 @@ open class Dialog: Window {
 
     /// Border variant for the dialog frame.
     ///
-    /// Defaults to `.single`: dialogs keep a single-line frame regardless of
-    /// the theme's window border (e.g. Turbo's double frame).
-    public var borderStyle: BorderStyle = .single {
+    /// `nil` (the default) follows the theme's window frame — a dialog is a
+    /// window whose parent is the desktop, so under Turbo it wears the
+    /// double frame like every top-level window (house rule: double for
+    /// desktop-level windows and dialogs, single for everything nested).
+    /// Set it to pin a specific look.
+    public var borderStyle: BorderStyle? {
         didSet {
             panel.borderStyleOverride = borderStyle
         }
@@ -94,9 +97,10 @@ open class Dialog: Window {
         super.init(frame: .zero)
 
         isModal = true   // dialogs own all input while key
+        themeContext = .modalWindows   // the theme's dialog look (Turbo: double frame); apps may override
 
         panel.isWindowChrome = true   // wears the vector titlebar on VTG terminals
-        panel.borderStyleOverride = borderStyle   // single frame by default
+        panel.borderStyleOverride = borderStyle   // nil: the theme's window frame
         panel.anchors = .fill()
         addSubview(panel)
 

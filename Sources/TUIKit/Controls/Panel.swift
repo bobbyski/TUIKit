@@ -74,9 +74,10 @@ public final class Panel: TUIView {
 
     /// Border variant to draw, overriding the theme's `borderStyle`.
     ///
-    /// `nil` (the default) follows the theme — a Turbo double frame, a
-    /// Standard single one. Set it to pin a specific look regardless of
-    /// theme (dialogs use `.single`).
+    /// `nil` (the default) follows the theme by the house rule: a panel
+    /// that IS a window's chrome draws the theme's `borderStyle` (Turbo's
+    /// double frame), while a panel nested inside a window — a group box —
+    /// draws its `inner` weight (single). Set it to pin a specific look.
     public var borderStyleOverride: BorderStyle? {
         didSet {
             if borderStyleOverride != oldValue {
@@ -93,6 +94,19 @@ public final class Panel: TUIView {
     // inner panels (group boxes) keep their cell borders even on a VTG
     // terminal.
     var isWindowChrome = false
+
+    // The border weight actually drawn: the override, else the theme's
+    // frame for a panel that IS a window's frame — declared chrome, or
+    // sitting directly in a Window — and its inner weight for panels nested
+    // anywhere deeper (group boxes).
+    func frameStyle(_ theme: ResolvedTheme) -> BorderStyle {
+        if let borderStyleOverride {
+            return borderStyleOverride
+        }
+
+        let isWindowFrame = isWindowChrome || superview is Window
+        return isWindowFrame ? theme.borderStyle : theme.borderStyle.inner
+    }
 
     // Whether the last draw rendered the vector titlebar, and with which
     // button side — cached so hit-testing agrees with what is on screen.
@@ -211,7 +225,7 @@ public final class Panel: TUIView {
         let theme = effectiveTheme
 
         painter.fill(bounds, with: .blank)
-        painter.drawBox(bounds, style: theme.border, border: borderStyleOverride ?? theme.borderStyle)
+        painter.drawBox(bounds, style: theme.border, border: frameStyle(theme))
 
         let width = bounds.size.width
 
@@ -354,7 +368,7 @@ public final class Panel: TUIView {
 
         // The tee welds the interior line (`dividerStyle` — the nub) into the
         // frame (`borderStyle`), e.g. a single divider into a double frame → ╟.
-        let frame = borderStyleOverride ?? theme.borderStyle
+        let frame = frameStyle(theme)
         let nub = theme.dividerStyle
         let contentSize = content.frame.size
 

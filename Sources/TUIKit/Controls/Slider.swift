@@ -177,8 +177,10 @@ public final class Slider: TUIView {
         }
 
         // Ticks sit on the track; the handle draws over the one it rests on.
+        // Always the single-line cross: a tick is a mark, not a frame, so it
+        // stays light even where the theme frames windows in double lines.
         for tick in tickValues {
-            painter.set(TerminalCell(character: junctions.cross, style: theme.border), at: point(along: offset(forValue: tick)))
+            painter.set(TerminalCell(character: "┼", style: theme.border), at: point(along: offset(forValue: tick)))
         }
 
         var handleStyle = theme.border

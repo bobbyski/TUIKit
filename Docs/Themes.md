@@ -157,7 +157,7 @@ Slots become **flat, self-describing keys** so a palette is a plain dictionary
 | `selection` | `selectionForeground`, `selectionBackground` |
 | `header` | `headerForeground`, `headerBackground` |
 | *(new — toolbars)* | `toolbarForeground`, `toolbarBackground` — the toolbar/ribbon strip's own paint, falling back to `header`. Exists so a theme can dress the toolbar as chrome (Turbo content: gray bar on the blue document) **without** dragging window titles and folder tabs — which also wear `header` — into reverse video with it |
-| `border` | `borderForeground`, `borderBackground`, `borderStyle` (window/panel **frames**) · `dividerStyle` (**interior** lines — dividers, split bars, separators; usually `single` even when frames are `double`) · `dividerConnection` (`welded` — tee/cross junctions where lines meet, Borland-style — or `notWelded` — plain unattached lines; gates welding *together with* each `Divider`'s own `isConnected`) |
+| `border` | `borderForeground`, `borderBackground`, `borderStyle` (**window frames** — desktop-level windows and dialogs; nested panels draw `borderStyle.inner`, which maps `double` → `single`, because double is reserved for top-level frames) · `dividerStyle` (**interior** lines — dividers, split bars, separators; usually `single` even when frames are `double`) · `dividerConnection` (`welded` — tee/cross junctions where lines meet, Borland-style — or `notWelded` — plain unattached lines; gates welding *together with* each `Divider`'s own `isConnected`) |
 | `scrollbar` | `scrollbarThumb`, `scrollbarTrack` |
 | `placeholder` | `placeholderForeground`, `placeholderBackground` |
 | *(new — see 8.13)* | `fieldForeground`, `fieldBackground` — the editable "well" |
