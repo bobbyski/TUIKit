@@ -45,7 +45,7 @@ Phase 12 · TUIBuilder (declarative)   █████████████�
 Phase 13 · TUIView base rename        ██████████████████████████  100%  ✅ Done — base class View → TUIView (SwiftUI coexistence)
 Phase 14 · Data In / Out (binding)    ██████████████████████████  100%  🔄 Code complete — value/named/dict + typed binding + load/save/live + @Bound macro
 Phase 15 · TUICodeEditor              ████████████████░░░░░░░░░░   62%  🔄 E1–E5/E8 code complete — stateful colouring, banded gutter, OmegaCLIDE swapped over; E6 folding, E7 diff/merge, E9 perf remain
-Phase 16 · Control Parity             █████░░░░░░░░░░░░░░░░░░░░░   18%  🔄 Wave A underway — 16.2, 16.3, 16.7, 16.8, 16.10 shipped; 28 items in 3 waves (CONTROL_PARITY.md)
+Phase 16 · Control Parity             ███████░░░░░░░░░░░░░░░░░░░   29%  🔄 Wave A underway — 16.2–16.8, 16.10 shipped (16.1, 16.9 next); 28 items in 3 waves (CONTROL_PARITY.md)
 ```
 
 **Status key:** ✅ Done &nbsp;|&nbsp; 🔄 In Progress &nbsp;|&nbsp; ⏳ Pending &nbsp;|&nbsp; 🚫 Blocked
@@ -492,7 +492,7 @@ SwiftyCodeEditor is not restructured by this plan; no split is forced on it.
 Full plan and parity matrix: **`Docs/CodeEditorPlan.md`**.
 `SyntaxTextView` stays for plain-text duty; the IDE swaps editors at E8.
 
-## Phase 16 — Control Parity (ActiveUI gap fill) 🔄 18%
+## Phase 16 — Control Parity (ActiveUI gap fill) 🔄 29%
 
 Source: **`CONTROL_PARITY.md`** — every ActiveUI catalog page mapped to its
 TUIKit twin (33 ✅ / 31 🟡 / 11 ❌ / 6 ➖ as of 2026-08-21). This phase is the
@@ -530,9 +530,9 @@ Dependencies: 16.11 Wizard and 16.19 Sidebar build on 16.1 Navigator;
 | 16.1 | `Navigator` | ⏳ Pending | Push/pop stack of views, title per level, header row `◂ Back  Title`, Esc/Backspace pops, `push(_:title:)`/`pop()`/`popToRoot()`, `onDepthChanged`. The piece phone-width terminals, drill-down settings and wizards all need. |
 | 16.2 | `SearchField` | ✅ Done (2026-08-21) | `TextField` subclass: `⌕` glyph, Esc clears (and reports), `onSearch` live as you type + `onCommit` on Return; `debounce` via the App timer (default 0 = live). Absorbs 11.1. |
 | 16.3 | `RangeSlider` + `Slider` ticks | ✅ Done (2026-08-21; horizontal only — `Slider` keeps the vertical case) | Two thumbs, `minimumGap`, Tab moves between thumbs, `lowerValue`/`upperValue` bindings. `Slider` gains `tickMarks: Int` (drawn as `┼` on the track) and `snapsToTicks`. |
-| 16.4 | `ViewThatFits` | ⏳ Pending | Container that lays out the first child whose intrinsic size fits the bounds (axis: `.horizontal`/`.vertical`/`.both`); re-picks on resize. 80 vs 250 columns makes this more useful than on desktop. |
-| 16.5 | `PageView` | ⏳ Pending | `ZStack` + `●○○` dots + `◂ ▸` arrows, ←/→ keys, `onPageChanged`. |
-| 16.6 | `Accordion` | ⏳ Pending | Coordinates existing `DisclosureGroup`s: `.exclusive` (one open) or `.shared` (open ones split the space). No new section control. |
+| 16.4 | `ViewThatFits` | ✅ Done (2026-08-21) | Container that lays out the first child whose intrinsic size fits the bounds (axis: `.horizontal`/`.vertical`/`.both`); re-picks on resize. 80 vs 250 columns makes this more useful than on desktop. |
+| 16.5 | `PageView` | ✅ Done (2026-08-21) | `ZStack` + `●○○` dots + `◂ ▸` arrows, ←/→ keys, `onPageChanged`. |
+| 16.6 | `Accordion` | ✅ Done (2026-08-21) | Coordinates existing `DisclosureGroup`s: `.exclusive` (one open) or `.shared` (open ones split the space). No new section control. |
 | 16.7 | `Link` + `HelpLink` | ✅ Done (2026-08-21; HelpLink = `Link.help(anchor:baseURL:)`; OSC 8 deferred — needs a cell-level URL attribute) | Underlined label emitting OSC 8 hyperlinks on terminals that render them; Enter/click calls `onOpen(url)` or, when nil, opens via `open`/`xdg-open`. `HelpLink` = `Link` with a `?` glyph and an anchor. |
 | 16.8 | `StatusBar` flash + priority | ✅ Done (2026-08-21) | `flash(_ text:, for:)` timed message that temporarily replaces the lowest-priority segments; `StatusBarSegment.priority` decides truncation order when narrow. Finishes the existing control. |
 | 16.9 | `Canvas` | ⏳ Pending | `Canvas { painter, chrome in … }` — draw closure, no subclassing. Cell form: if the app gives `cellDraw` it runs; otherwise the framed "VTG graphics required" placeholder. VTG form: the chrome closure draws. First user of the placeholder pattern. |

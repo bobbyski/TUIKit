@@ -806,10 +806,39 @@ classDiagram
         +priority : Int
     }
 
+    class ViewThatFits {
+        +axis : Axis
+        +candidates : [TUIView]
+        +chosenIndex : Int?
+        +onChoiceChanged : (Int) -> Void
+    }
+
+    class PageView {
+        +pages : [TUIView]
+        +currentIndex : Int
+        +showsControls : Bool
+        +onPageChanged : (Int) -> Void
+        +setCurrentIndex(Int, notify)
+        +next() Bool
+        +previous() Bool
+    }
+
+    class Accordion {
+        +mode : Mode
+        +sections : [DisclosureGroup]
+        +onSectionChanged : (Int, Bool) -> Void
+        +addSection(String, content, isExpanded) DisclosureGroup
+        +setExpanded(Int, Bool, notify)
+    }
+
     TUIView <|-- SearchField
     TUIView <|-- Link
     TUIView <|-- PasteButton
     TUIView <|-- RangeSlider
+    TUIView <|-- ViewThatFits
+    TUIView <|-- PageView
+    TUIView <|-- Accordion
+    Accordion o-- DisclosureGroup : sections
     SearchField *-- TextField : editing
     PasteButton *-- Button : pressing
 ```

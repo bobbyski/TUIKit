@@ -32,6 +32,7 @@ func makeGalleryWindow(index: Int, app: App) -> FloatingWindow {
     tabs.addTab("Lists", content: makeListsTab())
     tabs.addTab("Text", content: makeTextTab())
     tabs.addTab("Layout", content: makeLayoutTab())
+    tabs.addTab("Navigation", content: makeNavigationTab())
     tabs.addTab("Charts", content: makeChartsTab())
 
     // A rule between the toolbar and the folder tabs; connected, so the

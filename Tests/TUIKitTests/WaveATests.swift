@@ -257,3 +257,92 @@ private func click(_ window: Window, x: Int, y: Int = 0) {
     #expect(keep.content.frame.size.width == 6, "the higher priority keeps its width")
     #expect(drop.content.frame.size.width == 2, "the lower one takes the whole deficit")
 }
+
+// MARK: - ViewThatFits (16.4)
+
+@Test @MainActor func viewThatFitsShowsTheFirstCandidateThatFits() {
+    let fits = ViewThatFits(axis: .horizontal, candidates: [
+        Label("Save the document to disk"),   // 25
+        Label("Save document"),               // 13
+        Label("Save"),                        // 4
+    ])
+    var choices: [Int] = []
+    fits.onChoiceChanged = { choices.append($0) }
+
+    let wide = host(fits, width: 30)
+    #expect(lines(wide)[0].hasPrefix("Save the document to disk"))
+
+    fits.frame = Rect(x: 0, y: 0, width: 20, height: 1)
+    wide.frame = Rect(x: 0, y: 0, width: 20, height: 1)
+    #expect(lines(wide)[0].hasPrefix("Save document"))
+    #expect(!lines(wide)[0].contains("disk"))
+
+    fits.frame = Rect(x: 0, y: 0, width: 6, height: 1)
+    wide.frame = Rect(x: 0, y: 0, width: 6, height: 1)
+    #expect(lines(wide)[0].hasPrefix("Save"))
+    #expect(choices == [0, 1, 2], "each switch is reported once")
+}
+
+// MARK: - PageView (16.5)
+
+@Test @MainActor func pageViewShowsOnePageAndArrowsDotsAndKeysTurnIt() {
+    let pages = PageView(pages: [Label("one"), Label("two"), Label("three")])
+    let window = host(pages, width: 20, height: 3)
+    var turned: [Int] = []
+    pages.onPageChanged = { turned.append($0) }
+
+    var text = lines(window)
+    #expect(text[0].hasPrefix("one") && !text[0].contains("two"))
+    #expect(text[2].hasPrefix("◂") && text[2].hasSuffix("▸"))
+    #expect(text[2].contains("● ○ ○"))
+
+    window.makeFirstResponder(pages)
+    window.route(key(.right))
+    text = lines(window)
+    #expect(text[0].hasPrefix("two") && text[2].contains("○ ● ○"))
+
+    click(window, x: 19, y: 2)   // the ▸ arrow
+    #expect(pages.currentIndex == 2)
+    #expect(!pages.next(), "no page past the last")
+
+    click(window, x: 7, y: 2)    // the first dot
+    #expect(pages.currentIndex == 0)
+    #expect(turned == [1, 2, 0])
+}
+
+// MARK: - Accordion (16.6)
+
+@Test @MainActor func accordionExclusiveOpensOneSectionAndGivesItTheSpace() {
+    let accordion = Accordion(mode: .exclusive)
+    let a = accordion.addSection("General", content: Label("general body"), isExpanded: true)
+    let b = accordion.addSection("Appearance", content: Label("appearance body"))
+    accordion.addSection("Advanced", content: Label("advanced body"))
+    let window = host(accordion, width: 30, height: 9)
+    var changes: [String] = []
+    accordion.onSectionChanged = { changes.append("\($0):\($1)") }
+
+    var text = lines(window)
+    #expect(text[0].hasPrefix("▾ General") && text[1].contains("general body"))
+    #expect(a.frame.size.height == 7, "the open section takes the rows left after three headers")
+
+    window.makeFirstResponder(b)
+    window.route(key(.character(" ")))   // open Appearance → General closes
+    text = lines(window)
+    #expect(text[0].hasPrefix("▸ General") && text[1].hasPrefix("▾ Appearance"))
+    #expect(!a.isExpanded && b.isExpanded)
+    #expect(changes == ["1:true"])
+    #expect(b.frame.size.height == 7 && a.frame.size.height == 1)
+}
+
+@Test @MainActor func accordionSharedSplitsTheSpaceBetweenOpenSections() {
+    let accordion = Accordion(mode: .shared)
+    let a = accordion.addSection("One", content: Label("1"), isExpanded: true)
+    let b = accordion.addSection("Two", content: Label("2"), isExpanded: true)
+    accordion.addSection("Three", content: Label("3"))
+    let window = host(accordion, width: 20, height: 11)
+    _ = lines(window)
+
+    // 11 rows - 3 headers = 8 left, 4 each.
+    #expect(a.isExpanded && b.isExpanded)
+    #expect(a.frame.size.height == 5 && b.frame.size.height == 5)
+}
