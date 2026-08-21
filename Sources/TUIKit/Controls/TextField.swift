@@ -31,6 +31,11 @@ public final class TextField: TUIView {
     /// Called when Return is pressed.
     public var onSubmit: (String) -> Void = { _ in }
 
+    /// Called when Backspace is pressed with the caret at the start and
+    /// nothing selected — the one keystroke a field cannot use itself, and
+    /// the one a `TokenField` wrapping it needs ("remove the last token").
+    public var onDeleteBackwardAtStart: () -> Void = {}
+
     // Cursor position as a character offset into `text`.
     private var cursorIndex = 0
 
@@ -382,6 +387,7 @@ public final class TextField: TUIView {
         }
 
         guard cursorIndex > 0 else {
+            onDeleteBackwardAtStart()   // a token field removes its last token
             return
         }
 

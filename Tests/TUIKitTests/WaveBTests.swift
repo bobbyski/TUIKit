@@ -161,3 +161,122 @@ private func key(_ key: Key, _ modifiers: KeyModifiers = []) -> TerminalInput {
     }
     #expect(Set(columns).count == 1, "label colons line up across sections: \(columns)")
 }
+
+@MainActor
+private func click(_ window: Window, x: Int, y: Int = 0) {
+    window.route(.mouse(MouseInput(position: Point(x: x, y: y), action: .press, button: .left, modifiers: [])))
+    window.route(.mouse(MouseInput(position: Point(x: x, y: y), action: .release, button: .left, modifiers: [])))
+}
+
+// MARK: - Matrix (16.13)
+
+@Test @MainActor func matrixRadioAndHighlightSelectByKeysAndClicks() {
+    let radio = Matrix(titles: ["Mon", "Tue", "Wed", "Thu"], columns: 2, mode: .radio)
+    let window = host(radio, width: 20, height: 2)
+    var picks: [Set<Int>] = []
+    radio.onSelectionChanged = { picks.append($0) }
+
+    window.makeFirstResponder(radio)
+    #expect(lines(window)[0].hasPrefix("[Mon]"), "the cursor cell wears brackets")
+
+    window.route(key(.right))
+    window.route(key(.character(" ")))
+    #expect(radio.selectedIndex == 1)
+    window.route(key(.down))
+    window.route(key(.character(" ")))
+    #expect(radio.selected == [3], "radio keeps one")
+    #expect(picks == [[1], [3]])
+
+    let multi = Matrix(titles: ["a", "b", "c"], columns: 3, mode: .highlight)
+    let window2 = host(multi, width: 20, height: 1)
+    window2.makeFirstResponder(multi)
+    click(window2, x: 0)
+    click(window2, x: 8)   // third cell: cells are 3 wide + 1 gap
+    #expect(multi.selected == [0, 2])
+    click(window2, x: 0)
+    #expect(multi.selected == [2], "highlight toggles")
+}
+
+// MARK: - Toolbox (16.14)
+
+@Test @MainActor func toolboxSelectsOneToolAndActivatesIt() {
+    var activated: [String] = []
+    let tools = Toolbox(axis: .vertical, tools: [
+        .init(glyph: "↖", caption: "Select") { activated.append("select") },
+        .init(glyph: "✎", caption: "Pen") { activated.append("pen") },
+        .init(glyph: "▭", caption: "Rect") { activated.append("rect") },
+    ])
+    let window = host(tools, width: 12, height: 3)
+    var picks: [Int] = []
+    tools.onSelectionChanged = { picks.append($0) }
+
+    let text = lines(window)
+    #expect(text[0].contains("↖ Select") && text[1].contains("✎ Pen"))
+
+    window.makeFirstResponder(tools)
+    window.route(key(.down))
+    window.route(key(.enter))
+    #expect(tools.selectedIndex == 1 && activated == ["pen"])
+
+    click(window, x: 2, y: 2)
+    #expect(tools.selectedIndex == 2 && picks == [1, 2])
+}
+
+// MARK: - TokenField (16.15)
+
+@Test @MainActor func tokenFieldMintsOnReturnRemovesOnBackspaceAndClick() {
+    let field = TokenField(tokens: ["ops"])
+    let window = host(field, width: 40)
+    var changes: [[String]] = []
+    field.onTokensChanged = { changes.append($0) }
+
+    #expect(lines(window)[0].hasPrefix("[ops ×]"))
+
+    window.makeFirstResponder(field)
+    for character in "dev" {
+        window.route(key(.character(character)))
+    }
+    window.route(key(.enter))
+    #expect(field.tokens == ["ops", "dev"])
+    #expect(field.field.text.isEmpty, "Return clears the tail")
+
+    window.route(key(.backspace))   // empty tail → the last token goes
+    #expect(field.tokens == ["ops"])
+
+    click(window, x: 5)   // the × of "[ops ×]"
+    #expect(field.tokens.isEmpty)
+    #expect(changes == [["ops", "dev"], ["ops"], []])
+}
+
+// MARK: - CompletionList (16.16)
+
+@Test @MainActor func completionListFollowsTheFieldAndAcceptsWithReturn() {
+    let field = TextField()
+    let window = host(field, width: 30, height: 8)
+    let completions = CompletionList(for: field)
+    completions.items = ["turbo", "turbo-dark", "ambiance", "standard"]
+    var accepted: [String] = []
+    var submitted: [String] = []
+    field.onSubmit = { submitted.append($0) }   // set AFTER attach: replaced, the list wraps what was there before
+    _ = submitted
+
+    window.makeFirstResponder(field)
+    #expect(completions.isHidden, "nothing typed, nothing shown")
+
+    window.route(key(.character("t")))
+    #expect(!completions.isHidden && completions.matches == ["turbo", "turbo-dark"])
+    #expect(lines(window)[2].contains("▸turbo"), "the list sits under the field (row 1 is its border)")
+    #expect(window.firstResponder === field, "the field keeps the focus")
+
+    window.route(key(.down))
+    #expect(completions.highlightedIndex == 1)
+
+    completions.onAccept = { accepted.append($0) }
+    completions.accept(completions.highlightedIndex)
+    #expect(accepted == ["turbo-dark"] && completions.isHidden)
+
+    window.route(key(.character("u")))   // "tu" → turbo, turbo-dark again
+    #expect(!completions.isHidden)
+    window.route(key(.escape))
+    #expect(completions.isHidden)
+}

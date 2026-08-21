@@ -923,9 +923,62 @@ classDiagram
         +init(String, FormBuilder)
     }
 
+    class Matrix {
+        +titles : [String]
+        +columns : Int
+        +mode : Mode
+        +selected : Set~Int~
+        +cursor : Int
+        +onSelectionChanged : (Set~Int~) -> Void
+        +onActivate : (Int) -> Void
+        +select(Set~Int~, notify)
+    }
+
+    class Toolbox {
+        +tools : [Tool]
+        +axis : Axis
+        +showsCaptions : Bool
+        +selectedIndex : Int
+        +onSelectionChanged : (Int) -> Void
+        +select(Int, notify)
+    }
+
+    class TokenField {
+        +tokens : [String]
+        +field : TextField
+        +placeholder : String
+        +onTokensChanged : ([String]) -> Void
+        +setTokens([String], notify)
+        +mint(String)
+        +remove(at)
+        +removeLast()
+    }
+
+    class CompletionList {
+        +field : TextField?
+        +items : [String]
+        +filter : (String, String) -> Bool
+        +maximumVisible : Int
+        +matches : [String]
+        +highlightedIndex : Int
+        +onAccept : ((String) -> Void)?
+        +accept(Int)
+        +hide()
+    }
+
+    class TextField {
+        +onDeleteBackwardAtStart : () -> Void
+    }
+
     TUIView <|-- Wizard
     TUIView <|-- Gauge
     TUIView <|-- FlowStack
+    TUIView <|-- Matrix
+    TUIView <|-- Toolbox
+    TUIView <|-- TokenField
+    TUIView <|-- CompletionList
+    TokenField *-- TextField : tail
+    CompletionList --> TextField : follows
     Wizard *-- Navigator : steps
     Wizard *-- Button : footer
     Form o-- Section : headers

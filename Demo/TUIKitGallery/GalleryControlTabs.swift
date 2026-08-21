@@ -111,8 +111,19 @@ func makeInputsTab(app: App) -> TUIView {
     let paste = PasteButton { searchResult.text = "pasted: \($0)" }
     paste.onEmpty = { searchResult.text = "nothing to paste — copy something first (^C in a field)" }
 
+    // Phase 16: TokenField (Return mints, Backspace/× remove) with a
+    // CompletionList following its tail; a second list on a plain field.
+    let recipients = TokenField(tokens: ["ops"], placeholder: "add a team, Return mints")
+    let teamCompletions = CompletionList(for: recipients.field)
+    teamCompletions.items = ["ops", "dev", "design", "docs", "qa", "security"]
+    teamCompletions.onAccept = { [weak recipients] in recipients?.mint($0) }
+    let themeField = TextField(placeholder: "type a theme name…")
+    let themeCompletions = CompletionList(for: themeField)
+    themeCompletions.items = TUIKit.Theme.builtIn.map(\.name)
+
     root.addSubview(pinnedHeight(group("Text & Choices", [row([field, combo, popUp])]), 4))
     root.addSubview(pinnedHeight(group("Search & Paste", [row([search, paste]), searchResult]), 5))
+    root.addSubview(pinnedHeight(group("TokenField + CompletionList — type 'd', ↓, Return", [row([recipients, themeField])]), 4))
     // Phase 16: tick marks (snapping walks them) and the two-thumb range.
     let ticked = Slider(value: 50, in: 0...100)
     ticked.tickMarks = 5
@@ -138,8 +149,16 @@ func makePickersTab() -> TUIView {
     let calendar = DatePicker(mode: .calendar)
     let color = ColorPicker()
 
+    // Phase 16: Matrix — a grid of cells as one control.
+    let days = Matrix(titles: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], columns: 4, mode: .highlight)
+    let daysLabel = Label("highlight mode — Space toggles, arrows move")
+    days.onSelectionChanged = { daysLabel.text = "selected: \($0.sorted().map { ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][$0] }.joined(separator: ", "))" }
+    let size = Matrix(titles: ["S", "M", "L", "XL"], columns: 4, mode: .radio)
+    size.select([1])
+
     let left = VStack(spacing: 0)
     left.addSubview(pinnedHeight(group("DatePicker — .date (Space drops a month grid)", [date]), 4))
+    left.addSubview(pinnedHeight(group("Matrix — .highlight (days) and .radio (size)", [days, row(spacing: 2, [size, daysLabel])]), 6))
     left.addSubview(group("DatePicker — .calendar", [calendar]))
 
     root.addSubview(left)

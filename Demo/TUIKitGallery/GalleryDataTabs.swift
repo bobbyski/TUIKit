@@ -198,7 +198,18 @@ func makeLayoutTab() -> TUIView {
         }
     }
 
-    root.addSubview(pinnedHeight(group("Ribbon — grouped toolbar, placed like any view", [ribbon]), 5))
+    // Phase 16: Toolbox — an exclusive tool palette.
+    let toolLabel = Label("tool: Select")
+    let toolbox = Toolbox(axis: .horizontal, tools: [
+        .init(glyph: "↖", caption: "Select"), .init(glyph: "✎", caption: "Pen"),
+        .init(glyph: "▭", caption: "Rect"), .init(glyph: "◯", caption: "Ellipse"),
+    ])
+    toolbox.onSelectionChanged = { toolLabel.text = "tool: \(toolbox.tools[$0].caption)" }
+
+    root.addSubview(pinnedHeight(row([
+        group("Ribbon — grouped toolbar, placed like any view", [ribbon]),
+        group("Toolbox — one tool at a time", [toolbox, toolLabel]),
+    ]), 5))
     root.addSubview(pinnedHeight(row([
         group("FlowStack — tags wrap to the width", [tags]),
         group("Form — Section headers, one label column", [sectioned]),
