@@ -15,11 +15,16 @@ public final class StatusBarSegment {
     /// Zero-percentage segments stay at their minimum width.
     public var percentage: Int
 
-    init(content: TUIView, minimumWidth: Int?, maximumWidth: Int?, percentage: Int) {
+    /// What gives way when the bar is too narrow: the LOWEST priority loses
+    /// width first (ties: trailing segments first). Default 0.
+    public var priority: Int
+
+    init(content: TUIView, minimumWidth: Int?, maximumWidth: Int?, percentage: Int, priority: Int) {
         self.content = content
         self.minimumWidth = minimumWidth
         self.maximumWidth = maximumWidth
         self.percentage = max(0, percentage)
+        self.priority = priority
     }
 }
 
@@ -63,6 +68,66 @@ public final class StatusBar: TUIView {
     // them into its border (┴ where the bar sits on the bottom row).
     private var separators: [Divider] = []
 
+    /// The message currently flashed over the segments, if any.
+    public private(set) var flashText: String?
+
+    // Cancels the pending flash expiry.
+    private var cancelFlashExpiry: (() -> Void)?
+
+    // How an expiry is scheduled — the app's timer by default, or a test's
+    // hand-cranked stand-in. Returns the cancel.
+    var scheduleFlash: ((Duration, @escaping @MainActor () -> Void) -> (() -> Void))?
+
+    /// Shows a message across the whole bar for a while, then restores the
+    /// segments — "Saved", "Copied 3 items", "Connection lost".
+    ///
+    /// A new flash replaces a running one. The wait rides the app's timer;
+    /// with no running `App` (a bare test window) the message stays until
+    /// `clearFlash()`.
+    ///
+    /// - Parameters:
+    ///   - text: The message.
+    ///   - duration: How long it shows. Defaults to three seconds.
+    public func flash(_ text: String, for duration: Duration = .seconds(3)) {
+        cancelFlashExpiry?()
+        cancelFlashExpiry = nil
+        flashText = text
+        setNeedsLayout()
+        setNeedsDisplay()
+
+        let scheduler = scheduleFlash ?? appScheduler
+
+        cancelFlashExpiry = scheduler?(duration) { [weak self] in
+            self?.cancelFlashExpiry = nil
+            self?.clearFlash()
+        }
+    }
+
+    /// Removes a flashed message early and restores the segments.
+    public func clearFlash() {
+        cancelFlashExpiry?()
+        cancelFlashExpiry = nil
+
+        guard flashText != nil else {
+            return
+        }
+
+        flashText = nil
+        setNeedsLayout()
+        setNeedsDisplay()
+    }
+
+    private var appScheduler: ((Duration, @escaping @MainActor () -> Void) -> (() -> Void))? {
+        guard let app = owningWindow?.app else {
+            return nil
+        }
+
+        return { delay, body in
+            let timer = app.schedule(after: delay, body)
+            return { timer.cancel() }
+        }
+    }
+
     /// Creates an empty status bar.
     public init() {
         super.init(frame: .zero)
@@ -77,19 +142,23 @@ public final class StatusBar: TUIView {
     ///   - maximumWidth: Largest width, when limited.
     ///   - percentage: Weight for sharing leftover width. Defaults to 0
     ///     (fixed at the minimum).
+    ///   - priority: What gives way first when too narrow — lowest loses
+    ///     first. Defaults to 0.
     /// - Returns: The created segment.
     @discardableResult
     public func addSegment(
         _ content: TUIView,
         minimumWidth: Int? = nil,
         maximumWidth: Int? = nil,
-        percentage: Int = 0
+        percentage: Int = 0,
+        priority: Int = 0
     ) -> StatusBarSegment {
         let segment = StatusBarSegment(
             content: content,
             minimumWidth: minimumWidth,
             maximumWidth: maximumWidth,
-            percentage: percentage
+            percentage: percentage,
+            priority: priority
         )
 
         segments.append(segment)
@@ -102,7 +171,12 @@ public final class StatusBar: TUIView {
     /// segments, so it reads as one strip like the menu bar. Segment controls
     /// that should blend in carry the header style too (see the demo).
     public override func draw(_ painter: Painter) {
-        painter.fill(bounds, with: TerminalCell(character: " ", style: effectiveTheme.header))
+        let header = effectiveTheme.header
+        painter.fill(bounds, with: TerminalCell(character: " ", style: header))
+
+        if let flashText {
+            painter.write(" " + Label.truncated(flashText, width: max(0, bounds.size.width - 1)), at: .zero, style: header)
+        }
     }
 
     /// One row at the sum of the minimum widths.
@@ -114,6 +188,21 @@ public final class StatusBar: TUIView {
 
     /// Resolves segment widths and positions the hosted controls.
     public override func layoutSubviews() {
+        // A flash owns the whole row: segments and separators step aside.
+        let flashing = flashText != nil
+
+        for segment in segments {
+            segment.content.isHidden = flashing
+        }
+
+        if flashing {
+            for divider in separators {
+                divider.isHidden = true
+            }
+
+            return
+        }
+
         guard !segments.isEmpty else {
             return
         }
@@ -150,11 +239,16 @@ public final class StatusBar: TUIView {
                 }
             }
         } else if leftover < 0 {
-            // Too narrow: shrink from the trailing end, honoring nothing —
-            // better truncated than overlapping.
+            // Too narrow: the lowest-priority segments give up width first,
+            // trailing ones first among equals — better truncated than
+            // overlapping.
             var deficit = -leftover
+            let order = segments.indices.sorted { a, b in
+                let (pa, pb) = (segments[a].priority, segments[b].priority)
+                return pa != pb ? pa < pb : a > b
+            }
 
-            for index in stride(from: widths.count - 1, through: 0, by: -1) where deficit > 0 {
+            for index in order where deficit > 0 {
                 let cut = min(widths[index], deficit)
                 widths[index] -= cut
                 deficit -= cut

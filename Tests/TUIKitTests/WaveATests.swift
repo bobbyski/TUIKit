@@ -156,3 +156,104 @@ private func click(_ window: Window, x: Int, y: Int = 0) {
     window.route(key(.enter))
     #expect(pasted == ["hello"])
 }
+
+// MARK: - Slider ticks + RangeSlider (16.3)
+
+@Test @MainActor func sliderTicksDrawAndSnapAndArrowsWalkThem() {
+    let slider = Slider(value: 0, in: 0...100)
+    slider.tickMarks = 5
+    let window = host(slider, width: 22)
+
+    // Five ticks at 0/25/50/75/100; the handle covers the one it rests on.
+    #expect(lines(window)[0].filter { $0 == "┼" }.count == 4)
+
+    slider.snapsToTicks = true
+    slider.setValue(30)
+    #expect(slider.value == 25, "programmatic values snap to the nearest tick")
+
+    window.makeFirstResponder(slider)
+    window.route(key(.right))
+    #expect(slider.value == 50, "arrows walk tick to tick, not by step")
+    window.route(key(.left))
+    window.route(key(.left))
+    #expect(slider.value == 0)
+}
+
+@Test @MainActor func rangeSliderMovesTheActiveThumbAndKeepsTheGap() {
+    let slider = RangeSlider(lower: 20, upper: 60, in: 0...100, minimumGap: 10)
+    let window = host(slider, width: 22)
+    var spans: [ClosedRange<Int>] = []
+    slider.onValuesChanged = { spans.append($0) }
+
+    #expect(lines(window)[0].filter { $0 == "█" }.count == 2)
+    #expect(lines(window)[0].contains("━"), "the span between the thumbs is drawn")
+
+    window.makeFirstResponder(slider)
+    window.route(key(.right))
+    #expect(slider.values == 21...60)
+
+    window.route(key(.character(" ")))   // switch to the upper thumb
+    window.route(key(.left))
+    #expect(slider.values == 21...59)
+    #expect(spans.count == 2)
+
+    slider.setValues(55...60)
+    #expect(slider.values == 55...65, "the upper value yields to keep the gap")
+
+    window.route(key(.home))   // upper thumb: as low as the gap allows — already there
+    #expect(slider.values == 55...65)
+    #expect(spans.count == 2, "no change, no report")
+}
+
+@Test @MainActor func rangeSliderMouseGrabsTheNearestThumb() {
+    let slider = RangeSlider(lower: 20, upper: 80, in: 0...100)
+    let window = host(slider, width: 22)
+    window.makeFirstResponder(slider)
+
+    click(window, x: 19)   // near the right end → the upper thumb moves
+    #expect(slider.activeThumb == .upper)
+    #expect(slider.upperValue > 90 && slider.lowerValue == 20)
+
+    click(window, x: 2)    // near the left → the lower thumb
+    #expect(slider.activeThumb == .lower)
+    #expect(slider.lowerValue < 10)
+}
+
+// MARK: - StatusBar flash + priority (16.8)
+
+@Test @MainActor func statusBarFlashOwnsTheRowThenRestoresTheSegments() {
+    let bar = StatusBar()
+    bar.addSegment(Label("Ready"), percentage: 100)
+    bar.addSegment(Label("UTF-8"))
+    let window = host(bar, width: 30)
+
+    var expire: (@MainActor () -> Void)?
+    bar.scheduleFlash = { _, body in
+        expire = body
+        return {}
+    }
+
+    #expect(lines(window)[0].contains("Ready") && lines(window)[0].contains("UTF-8"))
+
+    bar.flash("Saved 3 files")
+    let flashed = lines(window)[0]
+    #expect(flashed.contains("Saved 3 files"))
+    #expect(!flashed.contains("Ready") && !flashed.contains("UTF-8"), "segments step aside")
+    #expect(bar.flashText == "Saved 3 files")
+
+    expire?()
+    #expect(bar.flashText == nil)
+    #expect(lines(window)[0].contains("Ready") && lines(window)[0].contains("UTF-8"), "and come back")
+}
+
+@Test @MainActor func statusBarLowestPriorityGivesWayFirstWhenNarrow() {
+    let bar = StatusBar()
+    bar.showsSeparators = false
+    let keep = bar.addSegment(Label("KEEPME"), minimumWidth: 6, priority: 1)
+    let drop = bar.addSegment(Label("DROPME"), minimumWidth: 6, priority: 0)
+    let window = host(bar, width: 8)
+    _ = lines(window)
+
+    #expect(keep.content.frame.size.width == 6, "the higher priority keeps its width")
+    #expect(drop.content.frame.size.width == 2, "the lower one takes the whole deficit")
+}

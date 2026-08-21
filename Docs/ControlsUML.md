@@ -778,9 +778,38 @@ classDiagram
         +paste()
     }
 
+    class RangeSlider {
+        +lowerValue : Int
+        +upperValue : Int
+        +values : ClosedRange~Int~
+        +range : ClosedRange~Int~
+        +step : Int
+        +minimumGap : Int
+        +activeThumb : Thumb
+        +onValuesChanged : (ClosedRange~Int~) -> Void
+        +setValues(ClosedRange~Int~, notify)
+        +activate(Thumb)
+    }
+
+    class Slider {
+        +tickMarks : Int
+        +snapsToTicks : Bool
+    }
+
+    class StatusBar {
+        +flashText : String?
+        +flash(String, for)
+        +clearFlash()
+    }
+
+    class StatusBarSegment {
+        +priority : Int
+    }
+
     TUIView <|-- SearchField
     TUIView <|-- Link
     TUIView <|-- PasteButton
+    TUIView <|-- RangeSlider
     SearchField *-- TextField : editing
     PasteButton *-- Button : pressing
 ```

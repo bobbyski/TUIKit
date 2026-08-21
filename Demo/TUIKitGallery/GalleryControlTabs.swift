@@ -111,7 +111,16 @@ func makeInputsTab(app: App) -> TUIView {
 
     root.addSubview(pinnedHeight(group("Text & Choices", [row([field, combo, popUp])]), 4))
     root.addSubview(pinnedHeight(group("Search & Paste", [row([search, paste]), searchResult]), 5))
+    // Phase 16: tick marks (snapping walks them) and the two-thumb range.
+    let ticked = Slider(value: 50, in: 0...100)
+    ticked.tickMarks = 5
+    ticked.snapsToTicks = true
+    let span = RangeSlider(lower: 20, upper: 60, in: 0...100, minimumGap: 10)
+    let spanLabel = Label("20…60 — Space switches thumbs")
+    span.onValuesChanged = { spanLabel.text = "\($0.lowerBound)…\($0.upperBound) — Space switches thumbs" }
+
     root.addSubview(pinnedHeight(group("Values", [row(spacing: 3, [slider, stepper, level])]), 4))
+    root.addSubview(pinnedHeight(group("Sliders — ticks that snap, and a range", [row(spacing: 3, [ticked, span, spanLabel])]), 4))
     root.addSubview(group("Progress (the spinner rides an App timer)", [row(spacing: 3, [bar, spinner])]))
 
     return root

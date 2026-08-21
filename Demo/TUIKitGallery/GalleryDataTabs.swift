@@ -173,7 +173,17 @@ func makeLayoutTab() -> TUIView {
         ToolbarItem("Redo", icon: ToolbarIcon(glyph: "↷")),
     ])
 
+    // Phase 16: StatusBar flash (a timed message owning the row) and
+    // priority (the hint gives way first when the bar is narrow).
+    let status = StatusBar()
+    status.showsSeparators = false   // a connected separator would weld into the group's title row
+    status.addSegment(Label("Ready"), minimumWidth: 8, priority: 2)
+    status.addSegment(Label("low-priority hint — narrows first"), percentage: 100, priority: 0)
+    status.addSegment(Label("Ln 12, Col 4"), priority: 1)
+    let flash = Button("&Flash") { [weak status] in status?.flash("Saved 3 files — back in 3 seconds") }
+
     root.addSubview(pinnedHeight(group("Ribbon — grouped toolbar, placed like any view", [ribbon]), 5))
+    root.addSubview(pinnedHeight(group("StatusBar — flash and priority", [status, row([pinnedHeight(flash, 1)])]), 5))
     root.addSubview(row(spacing: 1, [
         // Button and split as siblings: nesting them in their own stack
         // would give the pair a fit-content intrinsic and starve the split.

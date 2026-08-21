@@ -61,6 +61,27 @@ public final class Slider: TUIView {
     /// Amount one arrow step moves the value.
     public var step: Int
 
+    /// Evenly spaced marks drawn on the track, ends included; fewer than 2
+    /// draws none. With `snapsToTicks`, the value only ever rests on one.
+    public var tickMarks: Int = 0 {
+        didSet {
+            if tickMarks != oldValue {
+                setNeedsDisplay()
+            }
+        }
+    }
+
+    /// Whether the value snaps to the nearest tick — and the arrows walk
+    /// tick to tick rather than by `step`.
+    public var snapsToTicks = false {
+        didSet {
+            if snapsToTicks, !oldValue {
+                value = snapped(value)
+                setNeedsDisplay()
+            }
+        }
+    }
+
     /// Called when the value changes through interaction or
     /// `setValue(_:notify:)`.
     public var onValueChanged: (Int) -> Void = { _ in }
@@ -107,7 +128,7 @@ public final class Slider: TUIView {
     ///   - newValue: Desired value.
     ///   - notify: Whether `onValueChanged` fires. Defaults to silent.
     public func setValue(_ newValue: Int, notify: Bool = false) {
-        let clampedValue = clamped(newValue)
+        let clampedValue = snapped(clamped(newValue))
 
         guard clampedValue != value else {
             return
@@ -155,6 +176,11 @@ public final class Slider: TUIView {
             painter.set(TerminalCell(character: line, style: theme.border), at: point(along: offset))
         }
 
+        // Ticks sit on the track; the handle draws over the one it rests on.
+        for tick in tickValues {
+            painter.set(TerminalCell(character: junctions.cross, style: theme.border), at: point(along: offset(forValue: tick)))
+        }
+
         var handleStyle = theme.border
 
         // Same surface guard as the dividers: a full-block handle recolored
@@ -174,11 +200,11 @@ public final class Slider: TUIView {
 
         switch key.key {
         case .left where orientation == .horizontal, .down where orientation == .vertical:
-            change(to: value - step)
+            change(to: snapsToTicks ? (tickValues.last { $0 < value } ?? value) : value - step)
             return true
 
         case .right where orientation == .horizontal, .up where orientation == .vertical:
-            change(to: value + step)
+            change(to: snapsToTicks ? (tickValues.first { $0 > value } ?? value) : value + step)
             return true
 
         case .home:
@@ -228,6 +254,11 @@ public final class Slider: TUIView {
 
     // Where the handle sits along the track.
     private var handleOffset: Int {
+        offset(forValue: value)
+    }
+
+    // Track offset for a value.
+    private func offset(forValue candidate: Int) -> Int {
         let inner = max(1, trackLength - 2)
         let span = range.upperBound - range.lowerBound
 
@@ -235,7 +266,26 @@ public final class Slider: TUIView {
             return 1
         }
 
-        return 1 + (value - range.lowerBound) * (inner - 1) / span
+        return 1 + (candidate - range.lowerBound) * (inner - 1) / span
+    }
+
+    // The values the tick marks stand on, lowest first.
+    private var tickValues: [Int] {
+        guard tickMarks >= 2 else {
+            return []
+        }
+
+        let span = range.upperBound - range.lowerBound
+        return (0..<tickMarks).map { range.lowerBound + ($0 * span + (tickMarks - 1) / 2) / (tickMarks - 1) }
+    }
+
+    // The nearest tick when snapping; otherwise the value itself.
+    private func snapped(_ candidate: Int) -> Int {
+        guard snapsToTicks, !tickValues.isEmpty else {
+            return candidate
+        }
+
+        return tickValues.min { abs($0 - candidate) < abs($1 - candidate) } ?? candidate
     }
 
     // Value for an offset along the track (rounded).
@@ -270,7 +320,7 @@ public final class Slider: TUIView {
     }
 
     private func change(to newValue: Int) {
-        let clampedValue = clamped(newValue)
+        let clampedValue = snapped(clamped(newValue))
 
         guard clampedValue != value else {
             return
