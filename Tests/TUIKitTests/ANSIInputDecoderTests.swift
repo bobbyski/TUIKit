@@ -340,4 +340,38 @@ private let esc: UInt8 = 0x1B
         // If 0x9F started a control string, the "a" would vanish too.
         #expect(events == [.key(KeyInput(key: .character("a")))])
     }
+
+    @Test("a control string whose terminator never comes cannot deafen the keyboard forever")
+    func aTerminatorlessControlStringSelfHealsAtTheCap() {
+        // The lockup shape: an APC opener whose ST is lost (dropped byte,
+        // terminal dying mid-reply, reordered chunks). Without a cap the
+        // decoder swallows every keystroke for the rest of the session —
+        // an app that renders but cannot be quit.
+        var decoder = ANSIInputDecoder()
+        var events = decoder.feed(Array("\u{1b}_VTG;frameStarted".utf8))
+
+        let flood = [UInt8](repeating: UInt8(ascii: "x"),
+                            count: ANSIInputDecoder.controlStringCap + 1)
+        events += decoder.feed(flood)
+
+        // Payload swallows up to the cap; whatever spills past it types as
+        // garbage — the accepted price, a fraction of the flood at most.
+        #expect(events.allSatisfy { $0 == .key(KeyInput(key: .character("x"))) })
+        #expect(events.count < 32, "almost everything should still be swallowed")
+
+        // Past the cap the decoder is idle again: keys decode.
+        let after = decoder.feed(Array("q".utf8))
+        #expect(after == [.key(KeyInput(key: .character("q")))],
+                "the keyboard must come back after the cap")
+    }
+
+    @Test("a real-sized control string is nowhere near the cap")
+    func ordinaryRepliesAreUntouchedByTheCap() {
+        var decoder = ANSIInputDecoder()
+        let payload = String(repeating: "p", count: 2048)
+        let events = decoder.feed(Array("\u{1b}_VTG;\(payload)\u{1b}\\z".utf8))
+
+        #expect(events == [.key(KeyInput(key: .character("z")))],
+                "a large-but-legal reply still terminates normally")
+    }
 }

@@ -33,13 +33,25 @@ public struct ANSIInputDecoder: Sendable {
         ///
         /// The payload is arbitrary text addressed to the *terminal*, not to
         /// the application, and is swallowed whole. `acceptsBEL` is set for
-        /// OSC, the one form xterm also lets BEL terminate.
-        case controlString(acceptsBEL: Bool)
+        /// OSC, the one form xterm also lets BEL terminate. `length` counts
+        /// payload bytes toward ``controlStringCap``.
+        case controlString(acceptsBEL: Bool, length: Int)
 
         /// Saw ESC inside a control string; `\` ends it, anything else is
         /// still payload.
-        case controlStringEscape(acceptsBEL: Bool)
+        case controlStringEscape(acceptsBEL: Bool, length: Int)
     }
+
+    /// The longest control-string payload the decoder will swallow.
+    ///
+    /// Real replies (VTG frame acks, OSC colour answers) are tens of bytes.
+    /// This cap is the keyboard's lifeline: a control string whose
+    /// terminator is lost — a dropped byte, a terminal dying mid-reply —
+    /// would otherwise swallow every subsequent keystroke FOREVER, which
+    /// reads as "the app locked up" while it still renders happily. Past
+    /// the cap the decoder abandons the string and returns to idle; the
+    /// stray tail may type a little garbage, but garbage beats deafness.
+    static let controlStringCap = 4096
 
     private var state: State = .idle
 
@@ -102,11 +114,11 @@ public struct ANSIInputDecoder: Sendable {
             state = .idle
             return ss3Key(byte).map { [.key(KeyInput(key: $0))] } ?? []
 
-        case .controlString(let acceptsBEL):
-            return consumeControlString(byte, acceptsBEL: acceptsBEL)
+        case .controlString(let acceptsBEL, let length):
+            return consumeControlString(byte, acceptsBEL: acceptsBEL, length: length)
 
-        case .controlStringEscape(let acceptsBEL):
-            return consumeControlStringEscape(byte, acceptsBEL: acceptsBEL)
+        case .controlStringEscape(let acceptsBEL, let length):
+            return consumeControlStringEscape(byte, acceptsBEL: acceptsBEL, length: length)
 
         case .utf8(let remaining, let bytes):
             return consumeUTF8(byte, remaining: remaining, collected: bytes)
@@ -178,11 +190,12 @@ public struct ANSIInputDecoder: Sendable {
     /// Swallows a control-string payload, watching for its terminator.
     private mutating func consumeControlString(
         _ byte: UInt8,
-        acceptsBEL: Bool
+        acceptsBEL: Bool,
+        length: Int
     ) -> [TerminalInput] {
         switch byte {
         case 0x1B:
-            state = .controlStringEscape(acceptsBEL: acceptsBEL)
+            state = .controlStringEscape(acceptsBEL: acceptsBEL, length: length)
 
         case 0x9C:
             // ST in its single-byte C1 form.
@@ -192,7 +205,14 @@ public struct ANSIInputDecoder: Sendable {
             state = .idle
 
         default:
-            break
+            guard length < Self.controlStringCap else {
+                // Terminator lost. Abandon the string rather than staying
+                // deaf; this byte is stale payload, so drop it too.
+                state = .idle
+                return []
+            }
+
+            state = .controlString(acceptsBEL: acceptsBEL, length: length + 1)
         }
 
         return []
@@ -202,11 +222,12 @@ public struct ANSIInputDecoder: Sendable {
     /// payload that happened to contain an ESC.
     private mutating func consumeControlStringEscape(
         _ byte: UInt8,
-        acceptsBEL: Bool
+        acceptsBEL: Bool,
+        length: Int
     ) -> [TerminalInput] {
         state = byte == UInt8(ascii: "\\")
             ? .idle
-            : .controlString(acceptsBEL: acceptsBEL)
+            : .controlString(acceptsBEL: acceptsBEL, length: length + 1)
 
         return []
     }
@@ -233,11 +254,11 @@ public struct ANSIInputDecoder: Sendable {
         // focus: `VTG;frameStarted,id=tuikit-chrome,timeout=250` appearing in a
         // text field is this bug, not the terminal misbehaving.
         case UInt8(ascii: "_"), UInt8(ascii: "P"), UInt8(ascii: "^"), UInt8(ascii: "X"):
-            state = .controlString(acceptsBEL: false)
+            state = .controlString(acceptsBEL: false, length: 0)
             return []
 
         case UInt8(ascii: "]"):
-            state = .controlString(acceptsBEL: true)
+            state = .controlString(acceptsBEL: true, length: 0)
             return []
 
         case 0x20...0x7E:

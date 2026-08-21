@@ -40,6 +40,17 @@ public actor ANSIDriver: TerminalDriver {
     private var decoder = ANSIInputDecoder()
     private var readSource: (any DispatchSourceRead)?
     private var resizeSource: (any DispatchSourceSignal)?
+
+    // Ordered hand-off from the read source to the decoder. Chunks are
+    // yielded into this stream ON the serial input queue and consumed by
+    // ONE long-lived task, so they decode strictly in arrival order.
+    // (The earlier shape — an unstructured `Task { consume(bytes) }` per
+    // read event — had no ordering guarantee between tasks: two reordered
+    // chunks could feed a control-string terminator before its opener,
+    // parking the decoder in the payload-swallowing state and leaving the
+    // app deaf to every key after it.)
+    private var inputChunks: AsyncStream<[UInt8]>.Continuation?
+    private var decodeTask: Task<Void, Never>?
     private var continuations: [Int: AsyncStream<TerminalInput>.Continuation] = [:]
     private var nextContinuationID = 0
     private var currentSize = Size(width: 80, height: 24)
@@ -164,8 +175,7 @@ public actor ANSIDriver: TerminalDriver {
             return
         }
 
-        readSource?.cancel()
-        readSource = nil
+        stopReadSource()
         resizeSource?.cancel()
         resizeSource = nil
 
@@ -220,8 +230,7 @@ public actor ANSIDriver: TerminalDriver {
     /// Safe to call unconditionally, including after a failed `begin()`.
     public func end() async {
         StopTrace.log("ANSIDriver.end(): sources cancelling")
-        readSource?.cancel()
-        readSource = nil
+        stopReadSource()
         resizeSource?.cancel()
         resizeSource = nil
 
@@ -681,6 +690,15 @@ public actor ANSIDriver: TerminalDriver {
 
     // Starts the dispatch source that feeds decoder input.
     private func startReadSource() {
+        let (chunks, continuation) = AsyncStream<[UInt8]>.makeStream()
+        inputChunks = continuation
+
+        decodeTask = Task { [weak self] in
+            for await bytes in chunks {
+                await self?.consume(bytes)
+            }
+        }
+
         let source = DispatchSource.makeReadSource(
             fileDescriptor: inputDescriptor,
             queue: inputQueue
@@ -688,7 +706,7 @@ public actor ANSIDriver: TerminalDriver {
 
         let descriptor = inputDescriptor
 
-        source.setEventHandler { [weak self] in
+        source.setEventHandler {
             var bytes: [UInt8] = []
             var chunk = [UInt8](repeating: 0, count: 512)
 
@@ -706,13 +724,23 @@ public actor ANSIDriver: TerminalDriver {
                 return
             }
 
-            Task { [weak self] in
-                await self?.consume(bytes)
-            }
+            // Yielded on the serial input queue; the stream's FIFO buffer
+            // preserves this order for the single decode task.
+            continuation.yield(bytes)
         }
 
         source.activate()
         readSource = source
+    }
+
+    // Stops the read pipeline started by `startReadSource()`.
+    private func stopReadSource() {
+        readSource?.cancel()
+        readSource = nil
+        inputChunks?.finish()
+        inputChunks = nil
+        decodeTask?.cancel()
+        decodeTask = nil
     }
 
     // Decodes a chunk and publishes its events.
