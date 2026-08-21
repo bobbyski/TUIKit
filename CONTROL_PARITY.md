@@ -31,9 +31,9 @@ is the showcase — PLAN rule: every new control gets a gallery spot.
 | AUIButton | Push button | `Button` | ✅ | Plus `onLongPress`, `contextMenu`, theme button slot |
 | controlSize | One size property across native controls | — | ➖ | Cells have one size; density is the theme's business |
 | AUIToggle | Checkbox bound to a Bool | `Checkbox`, `ToggleButton` | ✅ | Both bindable (`Binding`) |
-| AUIPasteButton | Button that reads the clipboard and hands it over | `Button` + `Pasteboard` | 🟡 | Assemble in two lines; no dedicated control. Cheap to add |
+| AUIPasteButton | Button that reads the clipboard and hands it over | `PasteButton` | ✅ | Wave A (16.10): wraps a `Button`; `onPaste` / `onEmpty` |
 | AUIShape | Circles, capsules, rounded rects as views | `ChromeSurface` (rect/circle/polygon/sector) | 🟡 | Vector shapes exist **under VTG only**, and only inside a `draw()`. No shape *view*, no cell-mode rendering |
-| AUICanvas | Draw-it-yourself view (Core Graphics) | `TUIView.draw(_:)` with `Painter` + `ChromeSurface` | 🟡 | Needs a subclass; no closure-driven `Canvas { painter in … }` view. Cheap to add |
+| AUICanvas | Draw-it-yourself view (Core Graphics) | `Canvas` | ✅ | Wave A (16.9): `drawCells` / `drawChrome` closures; chrome-only canvases show the framed "VTG graphics required" placeholder on plain terminals |
 | AUIBezierPath | Chained path — lines, curves, arcs | `ChromeCommand.polyline/.polygon/.sector` | 🟡 | Polylines/polygons/sectors only; no general curve path, VTG only. (VTG protocol has `path` with cubics — `ChromeSectorPath` already emits it) |
 | AUIGradientRing | Animated gradient border with blurred glow | `verticalGradient` chrome | ➖ | Decorative; no animation story in chrome. Skip |
 | AUIImageView | Images and symbols, scaled/tinted/framed | `ChromeImageAsset`, `chrome.image`/sprites (VTG) | 🟡 | Pixels exist as chrome under VTG; no `ImageView` control, no cell fallback (half-block art) |
@@ -44,7 +44,7 @@ is the showcase — PLAN rule: every new control gets a gallery spot.
 | AUIActivitySpinner | Small spinner for unmeasured work | `ProgressIndicator` (indeterminate) | ✅ | |
 | Drawn controls | Twelve drawn twins so a theme can replace native chrome | every TUIKit control | ➖ | Everything in TUIKit is drawn and themed already — this page is TUIKit's default condition |
 | AUITextField | Single-line text with commit + key reporting | `TextField` | ✅ | `onCommit`; placeholder; clipboard editing |
-| AUISearchField | Magnifier, cancel button, two reports | `TextField` | 🟡 | No search idiom (glyph, clear-on-Esc, live vs committed reports). Cheap to add |
+| AUISearchField | Magnifier, cancel button, two reports | `SearchField` | ✅ | Wave A (16.2): `⌕`, `✕`/Esc clear, live `onSearch` (optional debounce), `onCommit` |
 | AUITokenField | Committed text becomes removable tokens | — | ❌ | |
 | AUIComboBox | Text field with a suggestion list | `ComboBox` | ✅ | |
 | AUICompletionList | Floating suggestion list that follows a field | `PopUpList` (internal, used by `ComboBox`) | 🟡 | Not public, not attachable to an arbitrary field. Editors want this |
@@ -54,14 +54,14 @@ is the showcase — PLAN rule: every new control gets a gallery spot.
 | AUISegmentedControl | Inline segments | `SegmentedControl` | ✅ | |
 | AUIDatePicker | Date/time as stepper field or calendar | `DatePicker` (+ internal `CalendarView`) | ✅ | |
 | AUIStepper | Increment/decrement with or without value | `Stepper` | ✅ | |
-| AUISlider | Range value, ticks, snapping, two-thumb variant | `Slider` | 🟡 | Single thumb, `step` snapping, H/V. **No tick marks, no two-thumb** |
-| AUIRangeSlider | Two thumbs bounding a span | — | ❌ | |
+| AUISlider | Range value, ticks, snapping, two-thumb variant | `Slider`, `RangeSlider` | ✅ | Wave A (16.3): `tickMarks` + `snapsToTicks`; the two-thumb variant is `RangeSlider` |
+| AUIRangeSlider | Two thumbs bounding a span | `RangeSlider` | ✅ | Wave A (16.3): `minimumGap`, Space switches thumbs; horizontal only |
 | AUIColorWell | Swatch that opens the colour panel | `ColorPicker` | ✅ | Inline chooser over all `TerminalColor` families rather than swatch + panel |
 | AUILabel | Static text | `Label` | ✅ | Plus `RichText` runs |
 | AUITextEditor | Multi-line editable text, rich text, line limit | `TextView` (+ `TextEditBuffer`) | 🟡 | Plain text with wrap; `RichText` is display-only. No rich editing, no grow-to-line-limit |
-| AUILink | Clickable link opening a URL | — | ❌ | Terminals support OSC 8 hyperlinks; `Label` + `open(1)` is the whole job. Cheap |
+| AUILink | Clickable link opening a URL | `Link` | ✅ | Wave A (16.7): `onOpen` or the platform opener. OSC 8 hyperlinks deferred (need a cell-level URL attribute) |
 | AUIShareLink | System share sheet | — | ➖ | |
-| AUIHelpLink | Round `?` opening help at an anchor | — | 🟡 | Would be `Link` with a fixed glyph once `Link` exists |
+| AUIHelpLink | Round `?` opening help at an anchor | `Link.help(anchor:baseURL:)` | ✅ | Wave A (16.7): the `(?)` dress of `Link` |
 | AUIPathControl | File path as clickable components | `PathControl` | ✅ | Breadcrumb bar |
 
 ## Layout, navigation & chrome
@@ -72,17 +72,17 @@ is the showcase — PLAN rule: every new control gets a gallery spot.
 | AUIControlGroup | Related controls banded with one label | `Ribbon` groups, `Panel` + `HStack` | 🟡 | Ribbon bands are toolbar-only; no general labelled band for arbitrary controls |
 | AUIToolbar | NSToolbar — items, overflow, customization | `Toolbar` | ✅ | Items, flexible views, overflow `»`, display modes, long-press. User customization ➖ |
 | AUIToolbox | Tool palette — radio group with pictures, docked | — | 🟡 | `Toolbar`/`Ribbon` with toggle items approximates; no exclusive-tool palette control |
-| AUIStatusBar | Readouts, priority truncation, flashed messages | `StatusBar` (+ `StatusBarSegment`) | 🟡 | Segments with min/max/percentage widths. **No priority truncation order, no flashed (timed) messages** |
+| AUIStatusBar | Readouts, priority truncation, flashed messages | `StatusBar` (+ `StatusBarSegment`) | ✅ | Wave A (16.8): `flash(_:for:)`, `priority` decides what narrows first |
 | AUIStatusItem | Menu bar extra | — | ➖ | No system menu bar in a terminal |
 | AUIGrid | Aligned columns, spanning cells, adaptive count | `GridView` (+ `GridBuilder`, spans) | ✅ | Row/column spans. Adaptive column count: not checked/likely ❌ |
 | AUISplitView | User-resizable panes | `SplitView` | ✅ | Settable axis, draggable divider |
-| AUIViewThatFits | First child that fits | — | ❌ | Natural for terminals (80 vs 200 columns). Cheap |
+| AUIViewThatFits | First child that fits | `ViewThatFits` | ✅ | Wave A (16.4): axis horizontal / vertical / both |
 | AUIForm | Labelled rows, shared label column, sections | `Form` (+ `FormBuilder`, `Field`) | 🟡 | Labelled rows with shared column. **Sections: none** |
 | AUITabView | Tabbed content | `TabView` | ✅ | Folder tabs |
 | AUIMasterDetailView | Master list driving a detail page, adaptive | `SplitView` + `ListView` | 🟡 | Assemble; no adaptive push-vs-tile behaviour for narrow terminals |
 | AUISidebarList | Source list — icon, title, wrapping subtitle rows | `ListView`, `TreeView` | 🟡 | Title rows only; no icon/subtitle row layout |
 | AUISidebar | THE sidebar — list + content + chrome, one API | `SlideOut` + `SplitView` | 🟡 | `SlideOut` is the edge-attached panel; no one-call sidebar assembly |
-| AUINavigator | Push/pop stack with a title per level | — | ❌ | Most-missed structural piece for phone-width terminals and wizards |
+| AUINavigator | Push/pop stack with a title per level | `Navigator` | ✅ | Wave A (16.1): `◂ Back` header, Esc/Backspace/Enter pops, focus follows the top |
 | AUIFolderPanel | Tabbed document strip | `TabView` | ✅ | Literally the folder-tab container |
 | AUIMatrix | Grid of cells behaving as one control (radio/highlight) | `GridView` of `Button`s | 🟡 | No single-control matrix with radio/highlight modes |
 | AUIScrollView | Scrolling with pinch magnification | `ScrollView` | ✅ | Both axes; scrollbars. Magnification ➖ |
@@ -99,8 +99,8 @@ is the showcase — PLAN rule: every new control gets a gallery spot.
 | AUIView | The root every control inherits | `TUIView` | ✅ | |
 | AUIBox | Titled group box | `Panel` | ✅ | |
 | AUIWizard | Multi-step flows, validation, branching | — | ❌ | Installer/setup TUIs want exactly this; builds on Navigator |
-| AUIPageView | Paged content — dots, arrows, swipe | — | ❌ | Cheap on top of `ZStack` |
-| AUIAccordion | Titled sections opening one at a time or sharing | `DisclosureGroup` | 🟡 | One collapsible section; **no group coordination** (exclusive open / space sharing) |
+| AUIPageView | Paged content — dots, arrows, swipe | `PageView` | ✅ | Wave A (16.5): dots + arrows, ←/→, PageUp/Down, click |
+| AUIAccordion | Titled sections opening one at a time or sharing | `Accordion` | ✅ | Wave A (16.6): `.exclusive` / `.shared` over `DisclosureGroup`s |
 | AUIZStack | Layered children | `ZStack` | ✅ | |
 | AUIStack | Rows/columns that wrap, distribute, align | `HStack`, `VStack`, `StackView`, `AbsoluteLayout` | 🟡 | Alignment and distribution. **No wrapping (flow) layout** |
 
@@ -141,9 +141,9 @@ the theme/CSS system (`Theme`, `StyleSheet`, contexts) and the VTG chrome layer
 
 | | Count |
 |---|---|
-| ✅ equivalent | 33 |
-| 🟡 partial / assemble | 31 |
-| ❌ missing | 11 |
+| ✅ equivalent | 45 |
+| 🟡 partial / assemble | 24 |
+| ❌ missing | 6 |
 | ➖ not applicable | 6 |
 
 (Two catalog pages — AUICanvas/AUIBezierPath and AUIImageViewer — appear in
@@ -151,16 +151,20 @@ both the Controls and Companions groups above and are counted once; AUIScroller 
 
 ### Missing outright (❌)
 
-AUITokenField · AUIRangeSlider · AUILink · AUIImageViewer · AUIViewThatFits ·
-AUINavigator · AUIPreferences · AUIWizard · AUIPageView · AUIDiagramView ·
+AUITokenField · AUIImageViewer · AUIPreferences · AUIWizard · AUIDiagramView ·
 AUIBoardView · (AUIScroller as a public control)
+
+Wave A (PLAN 16.1–16.10, shipped 2026-08-21) closed RangeSlider, Link,
+ViewThatFits, Navigator, PageView outright and upgraded SearchField, Slider,
+HelpLink, PasteButton, StatusBar, Accordion and Canvas from partial to
+equivalent.
 
 ### Suggested order, if we add
 
 Ranked by how much a *terminal* app wants it, against build cost. Nothing here
 is decided — this is the menu.
 
-**Small, obviously useful (a day or less each, cells-first like everything else)**
+**Small, obviously useful — ✅ all shipped as Wave A (2026-08-21)**
 
 1. **Navigator** — push/pop view stack with a title per level. Unblocks phone-width layouts, wizards, settings drill-downs. The one structural piece almost every TUI reinvents.
 2. **SearchField** — `TextField` plus magnifier glyph, Esc-to-clear, live and committed reports.
@@ -173,7 +177,7 @@ is decided — this is the menu.
 9. **Canvas view** — `TUIView` that takes a draw closure (`Painter` and optional `ChromeSurface`), so apps draw without subclassing.
 10. **PasteButton** — `Button` + `Pasteboard`, for symmetry.
 
-**Medium, high showcase value**
+**Medium, high showcase value — Wave B (PLAN 16.11–16.25)**
 
 11. **Wizard** — steps, validation, branching, on top of Navigator. Installer and setup TUIs are a core terminal use case.
 12. **Gauge** — ring/dial under VTG (sectors already exist), bar in cells; thresholds shared with LevelIndicator.
