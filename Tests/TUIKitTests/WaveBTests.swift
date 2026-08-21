@@ -397,3 +397,121 @@ private let tinyPNG = Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAABgAAAAQCAIAA
     let second = Preferences(store: .file(url))
     #expect(second.string(forKey: "theme") == "ambiance" && second.integer(forKey: "tabs") == 3)
 }
+
+// MARK: - CollectionView (16.23)
+
+@Test @MainActor func collectionViewLaysOutSectionsAndWalksTheSelection() {
+    let collection = CollectionView(sections: [
+        .init(title: "Recent", items: ["a", "b", "c", "d", "e"]),
+        .init(title: "Shared", items: ["x", "y"]),
+    ]) { Label($0) }
+    collection.itemWidth = 10
+    let window = host(collection, width: 30, height: 6)   // three columns
+    var picks: [CollectionView.IndexPath?] = []
+    var activated: [CollectionView.IndexPath] = []
+    collection.onSelectionChanged = { picks.append($0) }
+    collection.onActivate = { activated.append($0) }
+
+    let text = lines(window)
+    #expect(text[0].hasPrefix("Recent"))
+    #expect(text[1].contains("▸ a") && text[1].contains("b") && text[1].contains("c"), "first row, first item selected")
+    #expect(text[2].contains("d") && text[2].contains("e"))
+    #expect(text[3].hasPrefix("Shared") && text[4].contains("x"))
+    #expect(collection.intrinsicContentSize?.height == 5)
+
+    window.makeFirstResponder(collection)
+    window.route(key(.right))
+    window.route(key(.down))   // b → e (row below, same column)
+    #expect(collection.selection == .init(section: 0, item: 4))
+    window.route(key(.down))   // into Shared, column 1 → y
+    #expect(collection.selection == .init(section: 1, item: 1))
+    window.route(key(.enter))
+    #expect(activated == [.init(section: 1, item: 1)])
+
+    click(window, x: 22, y: 1)   // third column, first row → c
+    #expect(collection.selection == .init(section: 0, item: 2))
+    #expect(picks.count == 4)
+}
+
+// MARK: - MarkdownView edit mode + MarkdownHighlighter (16.24)
+
+@Test func markdownHighlighterSeesStructure() {
+    var state = HighlightState.initial
+    let lexer = MarkdownHighlighter()
+
+    #expect(lexer.highlight(line: "# Title", state: &state).first?.kind == .keyword)
+    let bullet = lexer.highlight(line: "- item with `code` and **bold**", state: &state)
+    #expect(bullet.map(\.kind) == [.tag, .string, .attributeName])
+    let link = lexer.highlight(line: "see [docs](https://x)", state: &state)
+    #expect(link.map(\.kind) == [.entity, .regex])
+
+    _ = lexer.highlight(line: "```swift", state: &state)
+    #expect(state.rawValue == 1, "inside a fence")
+    #expect(lexer.highlight(line: "let x = 1", state: &state).first?.kind == .string)
+    _ = lexer.highlight(line: "```", state: &state)
+    #expect(state.rawValue == 0)
+    #expect(SyntaxHighlighters.builtIn(for: "md") is MarkdownHighlighter)
+}
+
+@Test @MainActor func markdownViewFlipsToASourceEditorAndBack() {
+    let view = MarkdownView(markdown: "# Hello\n\nsome *text*")
+    let window = host(view, width: 30, height: 6)
+    var sources: [String] = []
+    view.onSourceChanged = { sources.append($0) }
+
+    #expect(lines(window)[0].contains("Hello"), "rendered: the heading text")
+    #expect(view.editor == nil)
+
+    view.isEditing = true
+    #expect(lines(window).joined().contains("# Hello"), "editing: the raw source shows")
+    #expect(window.firstResponder === view.editor, "the editor takes the focus")
+
+    window.route(key(.end))
+    window.route(key(.character("!")))
+    #expect(view.markdown.hasPrefix("# Hello!"))
+    #expect(sources.last?.hasPrefix("# Hello!") == true)
+
+    view.toggleEditing()
+    #expect(!view.isEditing && lines(window)[0].contains("Hello!"), "back to rendering, with the edit")
+}
+
+// MARK: - DocumentController (16.25)
+
+@Test @MainActor func documentControllerTracksDirtyTitleSavesAndOpens() throws {
+    let app = App(driver: HeadlessDriver(size: Size(width: 40, height: 10)))
+    var content = "hello"
+    var titles: [String] = []
+    let document = DocumentController(app: app,
+        read: { data in content = String(decoding: data, as: UTF8.self) },
+        write: { Data(content.utf8) })
+    document.onTitleChanged = { titles.append($0) }
+    document.recentsStore = Preferences.ephemeral()
+
+    #expect(document.title == "Untitled")
+    document.markDirty()
+    #expect(document.title == "Untitled •" && document.isDirty)
+
+    let file = FileManager.default.temporaryDirectory.appendingPathComponent("tuikit-doc-\(UUID().uuidString).txt").path
+    defer { try? FileManager.default.removeItem(atPath: file) }
+
+    // No path yet: save() would present Save As; open(_:) and a direct
+    // write path are the headless-provable pieces.
+    #expect(document.open("/definitely/not/here.txt") == false)
+
+    try Data("from disk".utf8).write(to: URL(fileURLWithPath: file))
+    #expect(document.open(file))
+    #expect(content == "from disk" && !document.isDirty)
+    #expect(document.title == (file as NSString).lastPathComponent)
+    #expect(document.recents == [file])
+    #expect(document.recentsStore?.string(forKey: "recentDocuments") == file)
+
+    content = "edited"
+    document.markDirty()
+    document.save()
+    #expect(!document.isDirty && String(decoding: FileManager.default.contents(atPath: file)!, as: UTF8.self) == "edited")
+    #expect(titles.last == (file as NSString).lastPathComponent)
+
+    var closed = 0
+    document.close { closed += 1 }
+    #expect(closed == 1, "clean: closes straight through")
+}

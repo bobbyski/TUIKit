@@ -120,6 +120,8 @@ public enum SyntaxHighlighters {
 
         case "css":
             return CSSHighlighter()
+        case "markdown", "md":
+            return MarkdownHighlighter()
 
         default:
             return nil

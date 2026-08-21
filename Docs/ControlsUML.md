@@ -1026,11 +1026,58 @@ classDiagram
         +ephemeral()$ Preferences
     }
 
+    class CollectionView {
+        +sections : [Section]
+        +builder : (String) -> TUIView
+        +itemWidth : Int
+        +itemHeight : Int
+        +selection : IndexPath?
+        +columns : Int
+        +onSelectionChanged : (IndexPath?) -> Void
+        +onActivate : (IndexPath) -> Void
+        +reload()
+        +select(IndexPath?, notify)
+    }
+
+    class MarkdownView {
+        +isEditing : Bool
+        +editor : SyntaxTextView?
+        +onSourceChanged : (String) -> Void
+        +toggleEditing()
+    }
+
+    class MarkdownHighlighter {
+        +highlight(line, state) [HighlightSpan]
+    }
+
+    class DocumentController {
+        +path : String?
+        +isDirty : Bool
+        +title : String
+        +recents : [String]
+        +recentsStore : Preferences?
+        +onTitleChanged : (String) -> Void
+        +onStateChanged : () -> Void
+        +onError : (String) -> Void
+        +markDirty()
+        +markClean()
+        +new(reset)
+        +open(String) Bool
+        +open()
+        +save(then)
+        +saveAs(then)
+        +close(then)
+    }
+
     TUIView <|-- Wizard
     TUIView <|-- Gauge
     TUIView <|-- FlowStack
     TUIView <|-- Matrix
+    TUIView <|-- CollectionView
     TUIView <|-- SidebarList
+    MarkdownView *-- SyntaxTextView : editor
+    DocumentController --> FileDialog : presents
+    DocumentController --> Dialog : confirms
     TUIView <|-- Sidebar
     TUIView <|-- ImageView
     FloatingWindow <|-- ImageViewer

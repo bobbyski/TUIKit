@@ -66,7 +66,18 @@ func makeListsTab() -> TUIView {
     }
 
     root.addSubview(pinnedHeight(group("PathControl · TUIFavorites", [row(spacing: 2, [path, favorites])]), 4))
-    root.addSubview(pinnedHeight(group("Sidebar — list + detail; pushes below 60 columns", [sidebar]), 8))
+    // Phase 16: CollectionView — sections of uniform items, a selection,
+    // arrows that walk the grid.
+    let files = CollectionView(sections: [
+        .init(title: "Recent", items: ["report.pdf", "notes.md", "photo.png", "deck.key", "todo.txt"]),
+        .init(title: "Shared", items: ["budget.xlsx", "plan.md", "logo.svg"]),
+    ]) { Label($0) }
+    files.itemWidth = 16
+
+    root.addSubview(pinnedHeight(row([
+        group("Sidebar — list + detail; pushes below 60 columns", [sidebar]),
+        group("CollectionView — arrows walk the grid", [files]),
+    ]), 8))
 
     return root
 }
@@ -119,8 +130,16 @@ func makeTextTab() -> TUIView {
         group("TextView", [text]),
     ])
 
+    // Phase 16.24: Edit flips the same pane to highlighted source and back.
+    let editToggle = Button("&Edit source") {}
+    editToggle.onActivate = { [weak markdown, weak editToggle] in
+        guard let markdown else { return }
+        markdown.toggleEditing()
+        editToggle?.title = markdown.isEditing ? "&Render" : "&Edit source"
+    }
+
     let bottom = row(spacing: 1, [
-        group("MarkdownView", [markdown]),
+        group("MarkdownView — Edit flips to the source editor", [pinnedHeight(editToggle, 1), markdown]),
         group("RichText", [rich]),
     ])
 

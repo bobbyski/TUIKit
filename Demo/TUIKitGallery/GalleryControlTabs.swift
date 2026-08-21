@@ -64,13 +64,44 @@ func makeButtonsTab(app: App) -> TUIView {
         dialog.sizeToFit(in: app.desktop.bounds.size)
     }
 
+    // Phase 16.25: a document window — DocumentController owns Open/Save/
+    // Save As/Close, the dirty marker in the title, and the close confirm.
+    let openDocument = Button("Document…") { [weak app] in
+        guard let app else { return }
+        let window = FloatingWindow(title: "Untitled", frame: Rect(x: 6, y: 3, width: 64, height: 16))
+        let editor = TextView(text: "Type here, then File-style buttons below: the title shows • while dirty.")
+        let document = DocumentController(app: app, types: [.init(title: "Text", patterns: ["*.txt", "*.md"])],
+            read: { data in editor.setText(String(decoding: data, as: UTF8.self)) },
+            write: { Data(editor.text.utf8) })
+        document.onTitleChanged = { [weak window] in window?.title = $0 }
+        editor.onChanged = { _ in document.markDirty() }
+
+        let bar = HStack(spacing: 1)
+        bar.addSubview(Button("&Open…") { document.open() })
+        bar.addSubview(Button("&Save") { document.save() })
+        bar.addSubview(Button("Save &As…") { document.saveAs() })
+        bar.addSubview(Button("&Close") { [weak window, weak app] in
+            document.close { if let window, let app { app.dismiss(window) } }
+        })
+        window.onCloseRequest = { [weak window, weak app] in
+            document.close { if let window, let app { app.dismiss(window) } }
+        }
+
+        let column = VStack(spacing: 0)
+        column.addSubview(pinnedHeight(bar, 1))
+        column.addSubview(editor)
+        column.anchors = .fill()
+        window.content.addSubview(column)
+        app.present(window)
+    }
+
     root.addSubview(pinnedHeight(group("Roles & Styles", [row([ok, danger, plain, bordered])]), 4))
     root.addSubview(pinnedHeight(group("Long-press (hold a fresh press ~600 ms)", [
         row([hold, menuButton]),
         holdResult,
     ]), 5))
     root.addSubview(pinnedHeight(group("State", [row([toggle, check])]), 4))
-    root.addSubview(pinnedHeight(group("Dialogs", [row([showDialog, openFile]), dialogResult]), 5))
+    root.addSubview(pinnedHeight(group("Dialogs · Document window (16.25)", [row([showDialog, openFile, openDocument]), dialogResult]), 5))
     root.addSubview(group("Choice", [row(spacing: 3, [radios, segments])]))
 
     return root

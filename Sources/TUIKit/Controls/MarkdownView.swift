@@ -21,12 +21,70 @@ public final class MarkdownView: TUIView {
     /// First visible wrapped row.
     public private(set) var scrollOffset = 0
 
+    /// Whether the pane shows the source in an editor instead of the
+    /// rendering. Not WYSIWYG by decision (Phase 16.24): over SSH, flipping
+    /// between a highlighted source and the RichSwift rendering is the
+    /// honest editor — set it, type, set it back.
+    public var isEditing = false {
+        didSet {
+            guard isEditing != oldValue else {
+                return
+            }
+
+            if isEditing {
+                let editor = ensureEditor()
+                editor.setText(markdown)
+                editor.isHidden = false
+                owningWindow?.makeFirstResponder(editor)
+            } else if let editor {
+                setMarkdown(editor.text)
+                editor.isHidden = true
+                owningWindow?.makeFirstResponder(self)
+            }
+
+            setNeedsLayout()
+            setNeedsDisplay()
+        }
+    }
+
+    /// The source editor, once editing has been entered.
+    public private(set) var editor: SyntaxTextView?
+
+    /// Called with the new source as it is edited.
+    public var onSourceChanged: (String) -> Void = { _ in }
+
     /// Creates a markdown view.
     ///
     /// - Parameter markdown: Markdown source text.
     public init(markdown: String = "") {
         self.markdown = markdown
         super.init(frame: .zero)
+    }
+
+    /// Flips between rendering and editing.
+    public func toggleEditing() {
+        isEditing.toggle()
+    }
+
+    // The editor is built on first use, hidden while rendering.
+    private func ensureEditor() -> SyntaxTextView {
+        if let editor {
+            return editor
+        }
+
+        let editor = SyntaxTextView(text: markdown, language: "markdown")
+        editor.onChanged = { [weak self] text in
+            self?.markdown = text
+            self?.onSourceChanged(text)
+        }
+        addSubview(editor)
+        self.editor = editor
+        return editor
+    }
+
+    /// The editor fills the pane while editing.
+    public override func layoutSubviews() {
+        editor?.frame = bounds
     }
 
     /// Replaces the document and scrolls back to the top.
@@ -40,9 +98,10 @@ public final class MarkdownView: TUIView {
         setNeedsDisplay()
     }
 
-    /// Markdown views take keyboard focus to own the scroll keys.
+    /// Markdown views take keyboard focus to own the scroll keys (the
+    /// editor takes it instead while editing).
     public override var acceptsFirstResponder: Bool {
-        true
+        !isEditing
     }
 
     /// Draws the visible wrapped slice and the overflow indicator.
@@ -50,8 +109,8 @@ public final class MarkdownView: TUIView {
         let height = bounds.size.height
         let width = bounds.size.width
 
-        guard height > 0, width > 0 else {
-            return
+        guard height > 0, width > 0, !isEditing else {
+            return   // editing: the editor subview draws
         }
 
         let lines = wrappedLines()

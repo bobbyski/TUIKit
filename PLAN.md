@@ -45,7 +45,7 @@ Phase 12 · TUIBuilder (declarative)   █████████████�
 Phase 13 · TUIView base rename        ██████████████████████████  100%  ✅ Done — base class View → TUIView (SwiftUI coexistence)
 Phase 14 · Data In / Out (binding)    ██████████████████████████  100%  🔄 Code complete — value/named/dict + typed binding + load/save/live + @Bound macro
 Phase 15 · TUICodeEditor              ████████████████░░░░░░░░░░   62%  🔄 E1–E5/E8 code complete — stateful colouring, banded gutter, OmegaCLIDE swapped over; E6 folding, E7 diff/merge, E9 perf remain
-Phase 16 · Control Parity             ████████████████████░░░░░░   79%  🔄 Wave B underway — 16.11–16.22 shipped; 16.23–16.25 next; 28 items in 3 waves (CONTROL_PARITY.md)
+Phase 16 · Control Parity             ███████████████████████░░░   89%  🔄 Waves A+B complete (16.1–16.25, 2026-08-21); Wave C siblings remain — 28 items in 3 waves (CONTROL_PARITY.md)
 ```
 
 **Status key:** ✅ Done &nbsp;|&nbsp; 🔄 In Progress &nbsp;|&nbsp; ⏳ Pending &nbsp;|&nbsp; 🚫 Blocked
@@ -492,7 +492,7 @@ SwiftyCodeEditor is not restructured by this plan; no split is forced on it.
 Full plan and parity matrix: **`Docs/CodeEditorPlan.md`**.
 `SyntaxTextView` stays for plain-text duty; the IDE swaps editors at E8.
 
-## Phase 16 — Control Parity (ActiveUI gap fill) 🔄 79%
+## Phase 16 — Control Parity (ActiveUI gap fill) 🔄 89%
 
 Source: **`CONTROL_PARITY.md`** — every ActiveUI catalog page mapped to its
 TUIKit twin (33 ✅ / 31 🟡 / 11 ❌ / 6 ➖ as of 2026-08-21). This phase is the
@@ -538,7 +538,7 @@ Dependencies: 16.11 Wizard and 16.19 Sidebar build on 16.1 Navigator;
 | 16.9 | `Canvas` | ✅ Done (2026-08-21; the first "VTG graphics required" placeholder) | `Canvas { painter, chrome in … }` — draw closure, no subclassing. Cell form: if the app gives `cellDraw` it runs; otherwise the framed "VTG graphics required" placeholder. VTG form: the chrome closure draws. First user of the placeholder pattern. |
 | 16.10 | `PasteButton` | ✅ Done (2026-08-21) | `Button` that reads `Pasteboard` on activate and hands the text to `onPaste`; disabled look when empty. |
 
-### Wave B — medium
+### Wave B — medium ✅ complete 2026-08-21
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
@@ -554,9 +554,9 @@ Dependencies: 16.11 Wizard and 16.19 Sidebar build on 16.1 Navigator;
 | 16.20 | `ImageView` + `ImageViewer` | ✅ Done (2026-08-21; card + menu in cells, pixels under VTG) | **Placeholder + menu.** Cells: framed card `🖼 logo.png · 640×480 · PNG` with context menu Open in Viewer / Copy / Paste (paste replaces the image from the pasteboard path or data). VTG: `chrome.image` fitted/filled/centred, tint ignored. `ImageViewer` = `FloatingWindow` hosting an `ImageView` with zoom/pan (VTG) or the card (cells). Absorbs 11.3. |
 | 16.21 | `Scroller` (public) | ✅ Done (2026-08-21) | The border scrollbar as a standalone control driving any `ScrollSpan`; `onScroll`. |
 | 16.22 | `Preferences` | ✅ Done (2026-08-21; UserDefaults / JSON file / ephemeral; `TUIFavorites` move left for later) | Thin typed store over `UserDefaults` (Apple) / a JSON file in `XDG_CONFIG_HOME` (Linux); `@Bound`-compatible so forms bind straight to it. `TUIFavorites` moves onto it. |
-| 16.23 | `CollectionView` | ⏳ Pending | Selection model, sections with headers, arrow navigation and `onActivate` over a `GridView` in a `ScrollView`; item views supplied by a closure. No recycling until a demo needs it. |
-| 16.24 | `MarkdownView` edit mode | ⏳ Pending | `isEditing` flips the pane between RichSwift rendering and a `SyntaxTextView` with a new `MarkdownHighlighter` (headings, emphasis, code, links); `onSourceChanged`; toolbar/accelerator to toggle. Not WYSIWYG by decision. |
-| 16.25 | `Document` model | ⏳ Pending | `DocumentController`: open/save/save-as via `FileDialog`, dirty tracking, recents, window title `•` marker, close-confirm `Dialog`. OmegaCLIDE and the browser both reinvent this today. |
+| 16.23 | `CollectionView` | ✅ Done (2026-08-21; no recycling) | Selection model, sections with headers, arrow navigation and `onActivate` over a `GridView` in a `ScrollView`; item views supplied by a closure. No recycling until a demo needs it. |
+| 16.24 | `MarkdownView` edit mode | ✅ Done (2026-08-21; `isEditing` flips to a `SyntaxTextView` with `MarkdownHighlighter`) | `isEditing` flips the pane between RichSwift rendering and a `SyntaxTextView` with a new `MarkdownHighlighter` (headings, emphasis, code, links); `onSourceChanged`; toolbar/accelerator to toggle. Not WYSIWYG by decision. |
+| 16.25 | `Document` model | ✅ Done (2026-08-21; `DocumentController`) | `DocumentController`: open/save/save-as via `FileDialog`, dirty tracking, recents, window title `•` marker, close-confirm `Dialog`. OmegaCLIDE and the browser both reinvent this today. |
 
 ### Wave C — sibling packages (own repos under `UILess/Code`, consume TUIKit by path like `TUIWebBrowser`)
 
