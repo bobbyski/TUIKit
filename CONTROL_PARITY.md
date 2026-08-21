@@ -7,6 +7,8 @@ TUI side does *not* have, so the next additions are a decision rather than a
 guess. Each entry names the TUIKit equivalent where one exists, how close it
 is, and what the gap is.
 
+**The fill plan is PLAN.md → Phase 16** (28 items in three waves; design principles decided 2026-08-21). This document stays the audit; the phase table carries status.
+
 Statuses:
 
 | Mark | Meaning |

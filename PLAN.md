@@ -26,7 +26,7 @@ builder over the controls — core implemented, see Phase 12), `Docs/DataBinding
 ## Dashboard
 
 ```
-Overall Progress  ███████████████████████████░░░░░  83%   (73 / 88 items)
+Overall Progress  ████████████████████░░░░░░░░░░░░  63%   (73 / 116 items)
 
 Phase 1 · Package Scaffold & Docs     ██████████████████████████  100%  ✅ Complete
 Phase 2 · Terminal Drivers            ██████████████████████████  100%  ✅ Complete (44 tests green 2026-07-01; interactive demo check pending)
@@ -45,6 +45,7 @@ Phase 12 · TUIBuilder (declarative)   █████████████�
 Phase 13 · TUIView base rename        ██████████████████████████  100%  ✅ Done — base class View → TUIView (SwiftUI coexistence)
 Phase 14 · Data In / Out (binding)    ██████████████████████████  100%  🔄 Code complete — value/named/dict + typed binding + load/save/live + @Bound macro
 Phase 15 · TUICodeEditor              ████████████████░░░░░░░░░░   62%  🔄 E1–E5/E8 code complete — stateful colouring, banded gutter, OmegaCLIDE swapped over; E6 folding, E7 diff/merge, E9 perf remain
+Phase 16 · Control Parity             ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Plan ready (2026-08-21) — 28 items in 3 waves from CONTROL_PARITY.md; TUITerminal is the first sibling (OmegaCLIDE needs it)
 ```
 
 **Status key:** ✅ Done &nbsp;|&nbsp; 🔄 In Progress &nbsp;|&nbsp; ⏳ Pending &nbsp;|&nbsp; 🚫 Blocked
@@ -412,14 +413,14 @@ real VectorTerminal is still pending — everything below is headless-proven.
 
 ## Phase 11 — Controls v3 ⏳ 0% (rev 2)
 
-**Rev 2 — after 1.0**, alongside the VTG work.
+**Rev 2 — after 1.0**, alongside the VTG work. 11.1/11.3/11.4 folded into Phase 16 (control parity), where their design is now specified; 11.2 Sheets and 11.5 Tooltips stay here.
 
 | # | Item | Status | Notes |
 |---|------|--------|-------|
-| 11.1 | `SearchField` | ⏳ Pending | TextField variant: hint icon, clear affordance, incremental `onSearch` as you type, Esc clears. |
+| 11.1 | `SearchField` | → 16.2 | TextField variant: hint icon, clear affordance, incremental `onSearch` as you type, Esc clears. |
 | 11.2 | Sheets | ⏳ Pending | Window-attached modal: a dialog that anchors to (and visually hangs from) a specific window's title bar instead of centering on screen; blocks only that window in a non-modal stack. |
-| 11.3 | `ImageView` | ⏳ Pending | Raster display: cell-art/braille approximation in plain terminals; real raster via the VTG layer (Phase 10) when the terminal supports it. |
-| 11.4 | `TokenField` | ⏳ Pending | Tag pills inside a text field: typing + Return mints a token, Backspace removes, tokens navigable with ←/→; `onTokensChanged`. |
+| 11.3 | `ImageView` | → 16.20 | Raster display: cell-art/braille approximation in plain terminals; real raster via the VTG layer (Phase 10) when the terminal supports it. |
+| 11.4 | `TokenField` | → 16.15 | Tag pills inside a text field: typing + Return mints a token, Backspace removes, tokens navigable with ←/→; `onTokensChanged`. |
 | 11.5 | Tooltips | ⏳ Pending | Hover text after a delay (mouse-move events already decoded; uses the 6B.6 timer story); per-view `toolTip` property; renders as a small floating panel that never takes focus. |
 
 ## Phase 12 — TUIBuilder (declarative layer) 🔄 33%
@@ -490,6 +491,85 @@ clean library the GUI editor *could* adopt later to collapse the duplication.
 SwiftyCodeEditor is not restructured by this plan; no split is forced on it.
 Full plan and parity matrix: **`Docs/CodeEditorPlan.md`**.
 `SyntaxTextView` stays for plain-text duty; the IDE swaps editors at E8.
+
+## Phase 16 — Control Parity (ActiveUI gap fill) ⏳ 0% (plan ready)
+
+Source: **`CONTROL_PARITY.md`** — every ActiveUI catalog page mapped to its
+TUIKit twin (33 ✅ / 31 🟡 / 11 ❌ / 6 ➖ as of 2026-08-21). This phase is the
+fill plan for the 🟡 and ❌ columns. Decided (Bobby, 2026-08-21):
+
+- **Basic usability, not parity.** Each control ships the shape and the 80%
+  use. Missing filters, modes and options are acceptable — name them in the
+  class doc comment so nobody hunts for them.
+- **Cells first, always render something.** Where cells genuinely cannot do
+  the job, the cell form is an *honest placeholder* — a framed
+  "VTG graphics required" notice (Canvas is the prime example) — never a
+  blank, never a crash. Under VTG it is the real thing. Existing
+  `suppressesVectorChrome` gallery pattern shows both side by side.
+- **Placeholder + menu** (ImageView is the model): the cell form is a framed
+  card (name, dimensions, format) with a context menu — Open in Viewer,
+  Copy, Paste — so the control is *usable* over SSH; the VTG form draws the
+  pixels.
+- **Big subsystems are sibling packages**, like `TUIWebBrowser`:
+  `TUITerminal` first (OmegaCLIDE needs it), `TUIDiagram` and `TUIBoards`
+  later if wanted.
+- **Editors lean on what exists.** `MarkdownView` keeps RichSwift rendering;
+  Edit flips the same pane to `SyntaxTextView` source (with a Markdown
+  highlighter) and back. Not WYSIWYG — "you're on SSH, good enough".
+- Every item: gallery spot in the same commit (Maintenance Rules), headless
+  tests, CSS slots for any new colour, `Docs/ControlsUML.md` updated.
+
+Dependencies: 16.11 Wizard and 16.19 Sidebar build on 16.1 Navigator;
+16.20 ImageViewer follows ImageView; 16.7 HelpLink is Link with a glyph;
+16.12 Gauge shares threshold colouring with the LevelIndicator upgrade.
+
+### Wave A — small, in-package (one sitting each; closes most of the 🟡 column)
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| 16.1 | `Navigator` | ⏳ Pending | Push/pop stack of views, title per level, header row `◂ Back  Title`, Esc/Backspace pops, `push(_:title:)`/`pop()`/`popToRoot()`, `onDepthChanged`. The piece phone-width terminals, drill-down settings and wizards all need. |
+| 16.2 | `SearchField` | ⏳ Pending | `TextField` subclass: `⌕` glyph, Esc clears (and reports), `onSearch` live as you type + `onCommit` on Return; `debounce` via the App timer (default 0 = live). Absorbs 11.1. |
+| 16.3 | `RangeSlider` + `Slider` ticks | ⏳ Pending | Two thumbs, `minimumGap`, Tab moves between thumbs, `lowerValue`/`upperValue` bindings. `Slider` gains `tickMarks: Int` (drawn as `┼` on the track) and `snapsToTicks`. |
+| 16.4 | `ViewThatFits` | ⏳ Pending | Container that lays out the first child whose intrinsic size fits the bounds (axis: `.horizontal`/`.vertical`/`.both`); re-picks on resize. 80 vs 250 columns makes this more useful than on desktop. |
+| 16.5 | `PageView` | ⏳ Pending | `ZStack` + `●○○` dots + `◂ ▸` arrows, ←/→ keys, `onPageChanged`. |
+| 16.6 | `Accordion` | ⏳ Pending | Coordinates existing `DisclosureGroup`s: `.exclusive` (one open) or `.shared` (open ones split the space). No new section control. |
+| 16.7 | `Link` + `HelpLink` | ⏳ Pending | Underlined label emitting OSC 8 hyperlinks on terminals that render them; Enter/click calls `onOpen(url)` or, when nil, opens via `open`/`xdg-open`. `HelpLink` = `Link` with a `?` glyph and an anchor. |
+| 16.8 | `StatusBar` flash + priority | ⏳ Pending | `flash(_ text:, for:)` timed message that temporarily replaces the lowest-priority segments; `StatusBarSegment.priority` decides truncation order when narrow. Finishes the existing control. |
+| 16.9 | `Canvas` | ⏳ Pending | `Canvas { painter, chrome in … }` — draw closure, no subclassing. Cell form: if the app gives `cellDraw` it runs; otherwise the framed "VTG graphics required" placeholder. VTG form: the chrome closure draws. First user of the placeholder pattern. |
+| 16.10 | `PasteButton` | ⏳ Pending | `Button` that reads `Pasteboard` on activate and hands the text to `onPaste`; disabled look when empty. |
+
+### Wave B — medium
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| 16.11 | `Wizard` | ⏳ Pending | Steps with titles on a `Navigator`; `Back`/`Next`/`Finish` footer; per-step `validate() -> String?` blocks Next with the message in the footer; `next(from:) -> StepID` for branching; progress `Step 2 of 5`. In-package (ActiveUI's is a sibling; here it is small once Navigator exists). |
+| 16.12 | `Gauge` + `LevelIndicator` thresholds | ⏳ Pending | Styles `.bar` (cells + VTG), `.ring`/`.dial` (VTG via sectors; cells fall back to `.bar` with the value — no placeholder needed, a bar *is* the honest form). `warningThreshold`/`criticalThreshold` colour bands, shared with `LevelIndicator` (new `warningAccent`-style slots already exist). |
+| 16.13 | `Matrix` | ⏳ Pending | Grid of cells as one control: `.radio` (one selected) / `.highlight` (many); arrows move, Space toggles; `onSelectionChanged`. Keyboard navigation is the work. |
+| 16.14 | `Toolbox` | ⏳ Pending | Exclusive tool palette docked to an edge: `ToolbarItem`s in `.radio` mode, vertical or horizontal, icon+caption. Built on `Toolbar`. |
+| 16.15 | `TokenField` | ⏳ Pending | Return mints a token from typed text, Backspace on an empty tail removes the last, ←/→ walk tokens, `onTokensChanged`; optional `completions` from 16.16. Absorbs 11.4. |
+| 16.16 | `CompletionList` (public) | ⏳ Pending | Promote the internal `PopUpList`: attach to any `TextField`/`TextView`/`SyntaxTextView`, items + filter, ↑/↓/Return/Esc; the code editor's completion UI lands on it. |
+| 16.17 | `FlowStack` | ⏳ Pending | Wrapping stack (the missing `AUIStack` mode): rows fill then wrap, `spacing`/`lineSpacing`, alignment. Tag clouds, button rows that reflow. |
+| 16.18 | `Form` sections | ⏳ Pending | `Section("Title") { … }` in `FormBuilder` and `form.addSection(_:)`; header row styled on the header slot; label column still shared across sections. |
+| 16.19 | `Sidebar` / `MasterDetail` | ⏳ Pending | One-call assembly over `SplitView` + `ListView`/`TreeView` + detail; `adaptive` below a width threshold pushes the detail on a `Navigator` instead of tiling. Rows gain icon + title + subtitle (`SidebarList` row style). |
+| 16.20 | `ImageView` + `ImageViewer` | ⏳ Pending | **Placeholder + menu.** Cells: framed card `🖼 logo.png · 640×480 · PNG` with context menu Open in Viewer / Copy / Paste (paste replaces the image from the pasteboard path or data). VTG: `chrome.image` fitted/filled/centred, tint ignored. `ImageViewer` = `FloatingWindow` hosting an `ImageView` with zoom/pan (VTG) or the card (cells). Absorbs 11.3. |
+| 16.21 | `Scroller` (public) | ⏳ Pending | The border scrollbar as a standalone control driving any `ScrollSpan`; `onScroll`. |
+| 16.22 | `Preferences` | ⏳ Pending | Thin typed store over `UserDefaults` (Apple) / a JSON file in `XDG_CONFIG_HOME` (Linux); `@Bound`-compatible so forms bind straight to it. `TUIFavorites` moves onto it. |
+| 16.23 | `CollectionView` | ⏳ Pending | Selection model, sections with headers, arrow navigation and `onActivate` over a `GridView` in a `ScrollView`; item views supplied by a closure. No recycling until a demo needs it. |
+| 16.24 | `MarkdownView` edit mode | ⏳ Pending | `isEditing` flips the pane between RichSwift rendering and a `SyntaxTextView` with a new `MarkdownHighlighter` (headings, emphasis, code, links); `onSourceChanged`; toolbar/accelerator to toggle. Not WYSIWYG by decision. |
+| 16.25 | `Document` model | ⏳ Pending | `DocumentController`: open/save/save-as via `FileDialog`, dirty tracking, recents, window title `•` marker, close-confirm `Dialog`. OmegaCLIDE and the browser both reinvent this today. |
+
+### Wave C — sibling packages (own repos under `UILess/Code`, consume TUIKit by path like `TUIWebBrowser`)
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| 16.26 | **`TUITerminal`** | ⏳ Pending — first | A terminal emulator as a TUIKit view, for OmegaCLIDE's build/run and shell panes. Engine decision like 15/E0: Bobby already owns a Swift emulator core — `SwiftTerm` in `~/AIResearch/GraphicalTerminal/Code/SwiftTerm` (`HeadlessTerminal.swift`, parser, buffers, `LocalProcess` pty) — so **depend on or port its headless core** (no AppKit), render its buffer into cells, forward TUIKit key/mouse input as bytes, resize → `TIOCSWINSZ`, scrollback, OSC 52 passthrough, `onProcessExited`. Nested VTG is out of scope (the inner app sees a plain xterm). |
+| 16.27 | `TUIDiagram` | ⏳ Later | Nodes + edges; VTG polylines/rounded rects draw it, cells use box-drawing and `─►`; layout (layered/force) is the project. Mirrors `ActiveUIDiagram`. |
+| 16.28 | `TUIBoards` | ⏳ Later | Kanban over `SplitView` columns + `ListView` cards + the existing drag machinery; limits, collapse. Mirrors `ActiveUIBoards`. |
+
+**Out of scope** (➖ in the parity doc): StatusItem, VisualEffectView,
+ShareLink, GradientRing, controlSize, Drawn controls (TUIKit's default
+condition), ScrollView magnification, NSToolbar user customization, an
+animated anything.
 
 ## Testing Rules
 
