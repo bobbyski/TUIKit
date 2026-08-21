@@ -451,9 +451,13 @@ private func click(_ window: Window, x: Int, y: Int = 0) {
     let dialog = Dialog(title: "Sure?", message: "Really.")
     dialog.theme = .turbo
     dialog.frame = Rect(x: 0, y: 0, width: 30, height: 6)
-    let dialogText = SceneRenderer(root: dialog).render(size: Size(width: 30, height: 6)).textLines()
+    var dialogText = SceneRenderer(root: dialog).render(size: Size(width: 30, height: 6)).textLines()
 
-    #expect(dialogText[0].hasPrefix("╔"), "a dialog is a window: it wears the double frame")
+    #expect(dialogText[0].hasPrefix("┌"), "a dialog belongs to a window: single by default")
+
+    dialog.borderStyle = .double   // the rare dialog that belongs to no window
+    dialogText = SceneRenderer(root: dialog).render(size: Size(width: 30, height: 6)).textLines()
+    #expect(dialogText[0].hasPrefix("╔"))
     #expect(BorderStyle.double.inner == .single && BorderStyle.rounded.inner == .rounded)
 }
 

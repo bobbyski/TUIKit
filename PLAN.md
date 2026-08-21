@@ -588,11 +588,13 @@ animated anything.
   `NEEDS_HUMAN.md` with an alert to Bobby.
 - Every public symbol gets a documentation comment; classes get use-case
   summaries with ASCII diagrams where they help.
-- **Border weight (Bobby, 2026-08-21): double lines are reserved for the
-  frames of windows whose parent is the desktop, and for dialogs. Every
-  border nested inside a window — group boxes, placeholders, calendars,
-  tick marks — draws single.** `BorderStyle.inner` is the mapping; `Panel`
-  applies it automatically unless it is a window's chrome.
+- **Border weight (Bobby, 2026-08-21): double lines mean TOP LEVEL — the
+  frames of windows whose parent is the desktop. Every border nested
+  inside a window — group boxes, placeholders, calendars, tick marks —
+  draws single, and so do dialogs (a dialog belongs to a window; only the
+  rare dialog that belongs to none sets `.double` itself).**
+  `BorderStyle.inner` is the mapping; `Panel` applies it automatically
+  unless it is a window's frame; Turbo's `modalWindows` context is single.
 - **Every new control gets a gallery spot, in the same commit.**
   `swift run TUIKitGallery` (Demo/TUIKitGallery) is the control showroom:
   folder tabs group the controls, the Theme menu proves them under every

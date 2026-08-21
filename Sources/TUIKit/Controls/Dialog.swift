@@ -41,11 +41,10 @@ open class Dialog: Window {
 
     /// Border variant for the dialog frame.
     ///
-    /// `nil` (the default) follows the theme's window frame — a dialog is a
-    /// window whose parent is the desktop, so under Turbo it wears the
-    /// double frame like every top-level window (house rule: double for
-    /// desktop-level windows and dialogs, single for everything nested).
-    /// Set it to pin a specific look.
+    /// `nil` (the default) follows the theme's dialog look, which is a
+    /// single frame: double marks a top-level window, and a dialog belongs
+    /// to one. The rare dialog that belongs to no specific window may set
+    /// `.double` to read as top level itself.
     public var borderStyle: BorderStyle? {
         didSet {
             panel.borderStyleOverride = borderStyle
@@ -100,7 +99,7 @@ open class Dialog: Window {
         themeContext = .modalWindows   // the theme's dialog look (Turbo: double frame); apps may override
 
         panel.isWindowChrome = true   // wears the vector titlebar on VTG terminals
-        panel.borderStyleOverride = borderStyle   // nil: the theme's window frame
+        panel.borderStyleOverride = borderStyle   // nil: the theme's dialog frame (single)
         panel.anchors = .fill()
         addSubview(panel)
 

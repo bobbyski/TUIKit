@@ -402,17 +402,21 @@ extension Theme {
         desktop.background = .rgb(red: 85, green: 85, blue: 255)     // light blue backdrop
         desktop.foreground = .rgb(red: 255, green: 255, blue: 255)   // white
 
-        // Dialogs are gray (base) but, being floating windows, wear a double
-        // frame — the only override they need over base.
-        var dialog = ThemePalette()
-        dialog.borderStyle = .double
+        // Secondary windows are gray (base) but, being top-level windows,
+        // wear the double frame. Dialogs are gray too and keep a SINGLE
+        // frame: double marks top level, and a dialog belongs to a window —
+        // the rare dialog that belongs to none sets `Dialog.borderStyle =
+        // .double` itself.
+        var secondary = ThemePalette()
+        secondary.borderStyle = .double
+        let dialog = ThemePalette()
 
         return Theme(
             name: "Turbo",
             base: base,
             desktop: desktop,
             contentWindow: content,
-            secondaryWindows: dialog,
+            secondaryWindows: secondary,
             modalWindows: dialog
         )
     }()
