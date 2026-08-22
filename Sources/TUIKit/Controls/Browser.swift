@@ -172,7 +172,7 @@ public final class Browser: TUIView {
             return
         }
 
-        let vertical = (theme.borderStyle.characters ?? BorderStyle.single.characters!).vertical
+        let vertical = (theme.borderStyle.inner.characters ?? BorderStyle.single.characters!).vertical
         let start = firstVisibleColumn
         let end = min(columns.count, start + columnsThatFit)
 

@@ -144,8 +144,8 @@ public final class RangeSlider: TUIView {
         }
 
         let theme = effectiveTheme
-        let characters = theme.borderStyle.characters ?? BorderStyle.single.characters!
-        let junctions = theme.borderStyle.junctions ?? BorderStyle.single.junctions!
+        let characters = theme.borderStyle.inner.characters ?? BorderStyle.single.characters!
+        let junctions = theme.borderStyle.inner.junctions ?? BorderStyle.single.junctions!
 
         painter.set(TerminalCell(character: junctions.teeLeft, style: theme.border), at: .zero)
         painter.set(TerminalCell(character: junctions.teeRight, style: theme.border), at: Point(x: length - 1, y: 0))

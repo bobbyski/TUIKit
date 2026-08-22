@@ -461,7 +461,7 @@ private func click(_ window: Window, x: Int, y: Int = 0) {
     #expect(BorderStyle.double.inner == .single && BorderStyle.rounded.inner == .rounded)
 }
 
-@Test @MainActor func sliderTicksAreSingleLineEvenOnADoubleTrack() {
+@Test @MainActor func sliderTracksAndTicksAreSingleLineEvenWhereFramesAreDouble() {
     let slider = Slider(value: 0, in: 0...100)
     slider.tickMarks = 3
     slider.theme = .turbo
@@ -469,6 +469,12 @@ private func click(_ window: Window, x: Int, y: Int = 0) {
     let window = host(slider, width: 22)
     let row = lines(window)[0]
 
-    #expect(row.contains("═"), "Turbo's track is double")
-    #expect(row.contains("┼") && !row.contains("╬"), "its ticks are not")
+    #expect(row.contains("─") && !row.contains("═"), "an interior line: single, whatever the frame: \(row)")
+    #expect(row.contains("┼") && !row.contains("╬"), "and so are its ticks")
+
+    let span = RangeSlider(lower: 20, upper: 60)
+    span.theme = .turbo
+    span.themeContext = .contentWindow
+    let spanRow = lines(host(span, width: 22))[0]
+    #expect(spanRow.hasPrefix("├") && !spanRow.contains("═"))
 }

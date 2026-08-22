@@ -151,12 +151,12 @@ public final class Slider: TUIView {
         }
 
         let theme = effectiveTheme
-        let characters = theme.borderStyle.characters ?? BorderStyle.single.characters!
-        let junctions = theme.borderStyle.junctions ?? BorderStyle.single.junctions!
+        let characters = theme.borderStyle.inner.characters ?? BorderStyle.single.characters!
+        let junctions = theme.borderStyle.inner.junctions ?? BorderStyle.single.junctions!
 
-        // The theme's own glyphs, both ways: a track drawn from a private
-        // table stops matching the frame around it the moment a style is
-        // added or a theme changes its border.
+        // The theme's glyphs at their INNER weight: a track is an interior
+        // line, never a window frame, so a double-framed theme still draws
+        // it single (rule one: double lines are almost never the choice).
         let (startCap, endCap, line): (Character, Character, Character)
 
         switch orientation {
