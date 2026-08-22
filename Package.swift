@@ -96,6 +96,13 @@ let package = Package(
             dependencies: ["TUIKit"],
             path: "Demo/TUIKitGallery"
         ),
+        // `swift run TUIKitInlineDemo` — the inline presentation: a few rows
+        // at the cursor asking for parameters, the shell continuing below.
+        .executableTarget(
+            name: "TUIKitInlineDemo",
+            dependencies: ["TUIKit"],
+            path: "Demo/TUIKitInlineDemo"
+        ),
         // The tutorial's runnable milestones (Docs/Tutorial/): a library so
         // the anti-rot tests can render every chapter headlessly. Uses ONLY
         // public TUIKit API (no @testable) — the tutorial can't quietly rely

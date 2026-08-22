@@ -119,8 +119,31 @@ public actor ANSIDriver: TerminalDriver {
         }
     }
 
+    /// How the app occupies the terminal.
+    public enum Presentation: Hashable, Sendable {
+        /// The alternate screen: the whole terminal, restored on exit.
+        case fullScreen
+
+        /// The next `rows` lines at the cursor, inside the normal scrolling
+        /// screen — a quick parameter prompt for a utility. The lines stay
+        /// on screen when the app ends, and the cursor is left on the line
+        /// BELOW the last one drawn, so the shell continues right under it.
+        /// Cells only: no alternate screen, no VTG chrome.
+        case inline(rows: Int)
+    }
+
+    /// Full screen, or inline at the cursor.
+    public let presentation: Presentation
+
+    // Terminal row (0-based) where the app's row 0 lands; 0 when full screen.
+    private var inlineOrigin = 0
+
     /// Creates an ANSI driver bound to standard input and output.
-    public init() {}
+    ///
+    /// - Parameter presentation: Full screen (the default) or inline.
+    public init(presentation: Presentation = .fullScreen) {
+        self.presentation = presentation
+    }
 
     // MARK: - TerminalDriver
 
@@ -157,18 +180,41 @@ public actor ANSIDriver: TerminalDriver {
         isActive = true
         presentedLines = nil
 
-        // Alternate screen, hidden cursor, SGR mouse reporting.
-        await write("\u{1B}[?1049h\u{1B}[?25l\u{1B}[?1002h\u{1B}[?1006h\u{1B}[2J\u{1B}[H")
+        switch presentation {
+        case .fullScreen:
+            // Alternate screen, hidden cursor, SGR mouse reporting.
+            await write("\u{1B}[?1049h\u{1B}[?25l\u{1B}[?1002h\u{1B}[?1006h\u{1B}[2J\u{1B}[H")
 
-        // Probe AFTER switching to the alternate screen: it reflects the full
-        // window, whereas a probe on a normal screen with heavy scrollback can
-        // report a reduced content area.
-        currentSize = Self.probeSize(descriptor: outputDescriptor) ?? currentSize
+            // Probe AFTER switching to the alternate screen: it reflects the full
+            // window, whereas a probe on a normal screen with heavy scrollback can
+            // report a reduced content area.
+            currentSize = Self.probeSize(descriptor: outputDescriptor) ?? currentSize
 
-        // Probe for VectorTerminal Graphics BEFORE the read source starts —
-        // the probe reads its own APC responses from stdin, and a running
-        // read source would consume them (Phase 10.1).
-        graphicsDetected = await probeGraphics()
+            // Probe for VectorTerminal Graphics BEFORE the read source starts —
+            // the probe reads its own APC responses from stdin, and a running
+            // read source would consume them (Phase 10.1).
+            graphicsDetected = await probeGraphics()
+
+        case .inline(let rows):
+            // Stay on the normal screen: hidden cursor and mouse reporting
+            // only. Find the cursor, make room below it (scrolling if the
+            // prompt would run off the bottom), and claim those rows.
+            await write("\u{1B}[?25l\u{1B}[?1002h\u{1B}[?1006h")
+            let terminalSize = Self.probeSize(descriptor: outputDescriptor) ?? currentSize
+            let report = await readCursorReport() ?? (row: terminalSize.height, column: 1)
+            let placement = Self.inlinePlacement(
+                cursorRow: report.row, cursorColumn: report.column,
+                terminalRows: terminalSize.height, rows: rows
+            )
+
+            if placement.newlines > 0 {
+                await write(String(repeating: "\n", count: placement.newlines))
+            }
+
+            inlineOrigin = placement.origin
+            currentSize = Size(width: terminalSize.width, height: placement.height)
+            graphicsDetected = false   // cells only, by design
+        }
 
         startReadSource()
         startResizeSource()
@@ -262,8 +308,27 @@ public actor ANSIDriver: TerminalDriver {
         }
 
         if isActive {
-            // Disable mouse, show cursor, leave the alternate screen.
-            await write("\u{1B}[?1006l\u{1B}[?1002l\u{1B}[?25h\u{1B}[?1049l")
+            switch presentation {
+            case .fullScreen:
+                // Disable mouse, show cursor, leave the alternate screen.
+                await write("\u{1B}[?1006l\u{1B}[?1002l\u{1B}[?25h\u{1B}[?1049l")
+
+            case .inline:
+                // Leave the prompt on screen; park the cursor on the line
+                // BELOW the last drawn row (scrolling one line when that row
+                // was the terminal's last), reset attributes, restore modes.
+                let terminalRows = Self.probeSize(descriptor: outputDescriptor)?.height ?? currentSize.height
+                let below = inlineOrigin + currentSize.height
+                let row = min(below, terminalRows - 1)
+                var sequence = "\u{1B}[\(row + 1);1H\u{1B}[0m"
+
+                if below >= terminalRows {
+                    sequence += "\n"
+                }
+
+                await write(sequence + "\u{1B}[?1006l\u{1B}[?1002l\u{1B}[?25h")
+            }
+
             StopTrace.log("ANSIDriver.end(): restore sequence written")
         }
 
@@ -292,7 +357,7 @@ public actor ANSIDriver: TerminalDriver {
     /// - Parameter buffer: Composed cells to display.
     public func present(_ buffer: CellBuffer) async {
         let lines = ANSIEncoder.encode(buffer)
-        let frame = ANSIEncoder.frame(lines: lines, previous: presentedLines)
+        let frame = ANSIEncoder.frame(lines: lines, previous: presentedLines, originRow: inlineOrigin)
         presentedLines = lines
 
         guard !frame.isEmpty else {
@@ -306,7 +371,7 @@ public actor ANSIDriver: TerminalDriver {
     ///
     /// - Parameter cursor: Cursor position and visibility.
     public func setCursor(_ cursor: TerminalCursor) async {
-        var sequence = "\u{1B}[\(cursor.position.y + 1);\(cursor.position.x + 1)H"
+        var sequence = "\u{1B}[\(inlineOrigin + cursor.position.y + 1);\(cursor.position.x + 1)H"
         sequence += cursor.isVisible ? "\u{1B}[?25h" : "\u{1B}[?25l"
         await write(sequence)
     }
@@ -792,9 +857,137 @@ public actor ANSIDriver: TerminalDriver {
     }
 
     private func publish(_ event: TerminalInput) {
+        var event = event
+
+        // Inline: mouse rows arrive in terminal coordinates; the app's row 0
+        // is `inlineOrigin`. Clicks outside the prompt are not its business.
+        if case .inline = presentation, case .mouse(var mouse) = event {
+            let row = mouse.position.y - inlineOrigin
+
+            guard row >= 0, row < currentSize.height else {
+                return
+            }
+
+            mouse.position = Point(x: mouse.position.x, y: row)
+            event = .mouse(mouse)
+        }
+
         for continuation in continuations.values {
             continuation.yield(event)
         }
+    }
+
+    // Asks the terminal where the cursor is (CPR) and reads the answer on the
+    // output queue with a short deadline — before the read source exists, so
+    // the reply is ours. `nil` when the terminal does not answer in time.
+    private func readCursorReport() async -> (row: Int, column: Int)? {
+        let input = inputDescriptor
+        let output = outputDescriptor
+
+        return await withCheckedContinuation { (continuation: CheckedContinuation<(row: Int, column: Int)?, Never>) in
+            outputQueue.async {
+                let query = Array("\u{1B}[6n".utf8)
+                _ = query.withUnsafeBytes { pointer in
+                    #if canImport(Darwin)
+                    Darwin.write(output, pointer.baseAddress, pointer.count)
+                    #else
+                    Glibc.write(output, pointer.baseAddress, pointer.count)
+                    #endif
+                }
+
+                var collected: [UInt8] = []
+                var chunk = [UInt8](repeating: 0, count: 64)
+                let deadline = Date().addingTimeInterval(0.3)
+
+                while Date() < deadline {
+                    var descriptorSet = pollfd(fd: input, events: Int16(POLLIN), revents: 0)
+                    let remaining = Int32(max(1, deadline.timeIntervalSinceNow * 1000))
+
+                    guard poll(&descriptorSet, 1, remaining) > 0 else {
+                        break
+                    }
+
+                    let count = read(input, &chunk, chunk.count)
+
+                    guard count > 0 else {
+                        continue
+                    }
+
+                    collected.append(contentsOf: chunk[0..<count])
+
+                    if let report = Self.parseCursorReport(collected) {
+                        continuation.resume(returning: report)
+                        return
+                    }
+                }
+
+                continuation.resume(returning: Self.parseCursorReport(collected))
+            }
+        }
+    }
+
+    /// Parses a cursor position report (`ESC [ row ; col R`) out of bytes
+    /// that may carry other input around it. 1-based, as the terminal says.
+    static func parseCursorReport(_ bytes: [UInt8]) -> (row: Int, column: Int)? {
+        var index = 0
+
+        while index + 1 < bytes.count {
+            if bytes[index] == 0x1B, bytes[index + 1] == UInt8(ascii: "[") {
+                var cursor = index + 2
+                var digits = ""
+
+                while cursor < bytes.count {
+                    let byte = bytes[cursor]
+
+                    if byte == UInt8(ascii: "R") {
+                        let parts = digits.split(separator: ";").compactMap { Int($0) }
+
+                        if parts.count == 2 {
+                            return (parts[0], parts[1])
+                        }
+
+                        break
+                    }
+
+                    guard byte == UInt8(ascii: ";") || (0x30...0x39).contains(byte) else {
+                        break
+                    }
+
+                    digits.append(Character(UnicodeScalar(byte)))
+                    cursor += 1
+                }
+            }
+
+            index += 1
+        }
+
+        return nil
+    }
+
+    /// Where an inline prompt lands.
+    ///
+    /// The prompt starts on the cursor's line — or the next one, when the
+    /// cursor sits mid-line after a partial prompt — and needs `rows` lines
+    /// (at most the terminal's height). When that runs past the bottom, the
+    /// terminal is scrolled by `newlines` so the prompt ends on the last row.
+    ///
+    /// - Returns: The 0-based origin row, the rows claimed, and the newlines
+    ///   to emit first.
+    static func inlinePlacement(cursorRow: Int, cursorColumn: Int, terminalRows: Int, rows: Int) -> (origin: Int, height: Int, newlines: Int) {
+        let height = max(1, min(rows, terminalRows))
+        var start = max(0, cursorRow - 1)
+
+        if cursorColumn > 1 {
+            start += 1   // finish the partial line; the prompt begins below it
+        }
+
+        let overflow = start + height - terminalRows
+
+        guard overflow > 0 else {
+            return (start, height, 0)
+        }
+
+        return (terminalRows - height, height, overflow)
     }
 
     private func removeContinuation(_ id: Int) {
@@ -820,7 +1013,21 @@ public actor ANSIDriver: TerminalDriver {
     }
 
     private func handleResize() {
-        guard let size = Self.probeSize(descriptor: outputDescriptor), size != currentSize else {
+        guard let terminalSize = Self.probeSize(descriptor: outputDescriptor) else {
+            return
+        }
+
+        var size = terminalSize
+
+        if case .inline(let rows) = presentation {
+            // Inline keeps its rows, clamped to the terminal; the origin
+            // slides up when the terminal got shorter than the prompt.
+            let height = max(1, min(rows, terminalSize.height))
+            inlineOrigin = min(inlineOrigin, max(0, terminalSize.height - height))
+            size = Size(width: terminalSize.width, height: height)
+        }
+
+        guard size != currentSize else {
             return
         }
 

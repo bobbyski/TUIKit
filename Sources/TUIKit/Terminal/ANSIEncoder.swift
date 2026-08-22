@@ -87,8 +87,10 @@ public enum ANSIEncoder {
     /// - Parameters:
     ///   - lines: This frame's encoded rows, from ``encode(_:)``.
     ///   - previous: The rows last presented, or `nil` to force a full paint.
+    ///   - originRow: Terminal row (0-based) where row 0 lands — non-zero
+    ///     for an inline presentation that starts partway down the screen.
     /// - Returns: The bytes to write — possibly empty.
-    public static func frame(lines: [String], previous: [String]?) -> String {
+    public static func frame(lines: [String], previous: [String]?, originRow: Int = 0) -> String {
         var output = ""
 
         for (row, line) in lines.enumerated() {
@@ -96,7 +98,7 @@ public enum ANSIEncoder {
                 continue
             }
 
-            output += "\u{1B}[\(row + 1);1H" + line
+            output += "\u{1B}[\(originRow + row + 1);1H" + line
         }
 
         return output
