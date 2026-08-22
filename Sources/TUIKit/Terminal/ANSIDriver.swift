@@ -514,7 +514,7 @@ public actor ANSIDriver: TerminalDriver {
                         on: canvas,
                         mapper: mapper,
                         uploaded: &uploaded,
-                        supportsSprites: state.capabilities?.supportsSprites ?? false
+                        capabilities: state.capabilities ?? .baseline
                     )
                 }
 
@@ -532,9 +532,16 @@ public actor ANSIDriver: TerminalDriver {
         on canvas: VectorTerminalCanvas,
         mapper: CellPixelMapper,
         uploaded: inout Set<String>,
-        supportsSprites: Bool
+        capabilities: GraphicsCapabilities
     ) {
-        let layer = command.layer == .underText ? VTGLayer.underText : VTGLayer.defaultOverlay
+        // Raster goes where the terminal can draw it, which is not always
+        // the plane the view asked for (a Metal VectorTerminal draws no
+        // images under the text). Shapes go exactly where they were sent.
+        let plane: ChromeLayer = switch command.shape {
+        case .image, .sprite: capabilities.rasterLayer(requested: command.layer)
+        default: command.layer
+        }
+        let layer = plane == .underText ? VTGLayer.underText : VTGLayer.defaultOverlay
 
         switch command.shape {
         case .sprite(let rect, let asset):
@@ -544,7 +551,9 @@ public actor ANSIDriver: TerminalDriver {
             // way, from the same bytes. An asset must never be the reason
             // something does not appear — that is the blank-region failure
             // capabilities exist to prevent.
-            guard supportsSprites else {
+            guard capabilities.supportsSprites else {
+                var plain = capabilities
+                plain.supportsSprites = false
                 draw(
                     ChromeCommand(
                         id: command.id,
@@ -554,7 +563,7 @@ public actor ANSIDriver: TerminalDriver {
                     on: canvas,
                     mapper: mapper,
                     uploaded: &uploaded,
-                    supportsSprites: false
+                    capabilities: plain
                 )
                 return
             }

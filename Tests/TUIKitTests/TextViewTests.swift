@@ -126,3 +126,128 @@ private func render(_ view: TUIView, size: Size) -> [String] {
     let lines = render(view, size: Size(width: 8, height: 2))
     #expect(!lines[0].hasPrefix("one"), "scrolled past the first visual row")
 }
+
+// MARK: - Selection replaces (Bobby, 2026-08-22: "if I select text and start
+// typing it should replace it — on all text fields")
+
+@Test @MainActor func textViewShiftArrowSelectsAndTypingReplacesTheSelection() {
+    let view = TextView(text: "the quick brown fox")
+    view.frame = Rect(x: 0, y: 0, width: 30, height: 3)
+    _ = render(view, size: Size(width: 30, height: 3))
+
+    for _ in 0..<4 {
+        _ = view.keyDown(KeyInput(key: .right, modifiers: .shift))
+    }
+
+    #expect(view.selectedText == "the ")
+
+    _ = view.keyDown(KeyInput(key: .character("A")))
+
+    #expect(view.text == "Aquick brown fox")
+    #expect(view.selection == nil)
+    #expect(view.cursorPosition == Point(x: 1, y: 0))
+}
+
+@Test @MainActor func textViewDoubleClickSelectsAWordAndTypingReplacesIt() {
+    let view = TextView(text: "the quick brown fox")
+    view.frame = Rect(x: 0, y: 0, width: 30, height: 3)
+    _ = render(view, size: Size(width: 30, height: 3))
+
+    _ = view.mouseEvent(MouseInput(position: Point(x: 6, y: 0), action: .press, button: .left))
+    _ = view.mouseEvent(MouseInput(position: Point(x: 6, y: 0), action: .click, button: .left, clickCount: 2))
+    #expect(view.selectedText == "quick")
+
+    _ = view.keyDown(KeyInput(key: .character("s")))
+    _ = view.keyDown(KeyInput(key: .character("l")))
+    _ = view.keyDown(KeyInput(key: .character("o")))
+    _ = view.keyDown(KeyInput(key: .character("w")))
+
+    #expect(view.text == "the slow brown fox")
+}
+
+@Test @MainActor func textViewBackspaceDeleteAndEnterConsumeTheSelection() {
+    let view = TextView(text: "one two\nthree")
+    view.frame = Rect(x: 0, y: 0, width: 30, height: 3)
+    _ = render(view, size: Size(width: 30, height: 3))
+
+    // Select across the line break: "two\nth".
+    _ = view.keyDown(KeyInput(key: .end))
+    for _ in 0..<3 {
+        _ = view.keyDown(KeyInput(key: .left))
+    }
+    for _ in 0..<6 {
+        _ = view.keyDown(KeyInput(key: .right, modifiers: .shift))
+    }
+    #expect(view.selectedText == "two\nth")
+
+    _ = view.keyDown(KeyInput(key: .backspace))
+    #expect(view.text == "one ree", "backspace removes only what was selected")
+    #expect(view.cursorPosition == Point(x: 4, y: 0))
+
+    view.selectAll()
+    _ = view.keyDown(KeyInput(key: .delete))
+    #expect(view.text == "")
+
+    view.setText("ab")
+    view.selectAll()
+    _ = view.keyDown(KeyInput(key: .enter))
+    #expect(view.text == "\n", "Enter replaces the selection with a line break")
+}
+
+@Test @MainActor func textViewPlainArrowsCollapseTheSelectionWithoutEditing() {
+    let view = TextView(text: "the quick")
+    view.frame = Rect(x: 0, y: 0, width: 30, height: 3)
+    _ = render(view, size: Size(width: 30, height: 3))
+
+    for _ in 0..<3 {
+        _ = view.keyDown(KeyInput(key: .right, modifiers: .shift))
+    }
+    _ = view.keyDown(KeyInput(key: .left))
+
+    #expect(view.selection == nil)
+    #expect(view.cursorPosition == .zero, "left collapses to the selection's start")
+    #expect(view.text == "the quick")
+
+    for _ in 0..<3 {
+        _ = view.keyDown(KeyInput(key: .right, modifiers: .shift))
+    }
+    _ = view.keyDown(KeyInput(key: .right))
+    #expect(view.cursorPosition == Point(x: 3, y: 0), "right collapses to the selection's end")
+}
+
+@Test @MainActor func textViewPasteReplacesTheSelection() {
+    let app = App(driver: HeadlessDriver(size: Size(width: 30, height: 3)))
+    let window = Window(frame: Rect(x: 0, y: 0, width: 30, height: 3))
+    let view = TextView(text: "the quick fox")
+    view.frame = window.bounds
+    window.addSubview(view)
+    app.present(window)
+    window.makeFirstResponder(view)
+    app.pasteboard.copy("slow")
+
+    _ = view.mouseEvent(MouseInput(position: Point(x: 5, y: 0), action: .press, button: .left))
+    _ = view.mouseEvent(MouseInput(position: Point(x: 5, y: 0), action: .click, button: .left, clickCount: 2))
+    #expect(view.selectedText == "quick")
+
+    view.paste()
+    #expect(view.text == "the slow fox")
+}
+
+@Test @MainActor func textViewControlCCopiesTheSelectionWhenThereIsOne() {
+    let app = App(driver: HeadlessDriver(size: Size(width: 30, height: 3)))
+    let window = Window(frame: Rect(x: 0, y: 0, width: 30, height: 3))
+    let view = TextView(text: "the quick fox")
+    view.frame = window.bounds
+    window.addSubview(view)
+    app.present(window)
+    window.makeFirstResponder(view)
+
+    _ = view.keyDown(KeyInput(key: .character("c"), modifiers: .control))
+    #expect(app.pasteboard.string == "the quick fox", "nothing selected: the whole text")
+
+    for _ in 0..<3 {
+        _ = view.keyDown(KeyInput(key: .right, modifiers: .shift))
+    }
+    _ = view.keyDown(KeyInput(key: .character("c"), modifiers: .control))
+    #expect(app.pasteboard.string == "the")
+}

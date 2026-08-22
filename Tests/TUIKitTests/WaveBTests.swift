@@ -556,3 +556,26 @@ private let tinyPNG = Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAABgAAAAQCAIAA
     let after = SceneRenderer(root: dialog).render(size: Size(width: 50, height: 10)).textLines()
     #expect(after.joined().contains("the network body"))
 }
+
+// MARK: - ImageView placement (2026-08-22: a square logo came out as a tall strip)
+
+@Test @MainActor func aSquarePictureTakesTwiceAsManyColumnsAsRows() {
+    // A PNG header is enough: signature, then IHDR with a 1024x1024 size.
+    var header: [UInt8] = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]
+    header += [0, 0, 4, 0, 0, 0, 4, 0, 8, 6, 0, 0, 0]
+    let view = ImageView(data: Data(header), caption: "logo")
+    #expect(view.pixelSize?.width == 1024)
+
+    // 80 columns by 23 rows: height-bound, so 23 rows tall and — cells
+    // being about 2:1 — 46 columns wide, centred.
+    let placed = view.placement(in: ChromeRect(x: 0, y: 0, width: 80, height: 23))
+    #expect(placed.height == 23)
+    #expect(placed.width == 46)
+    #expect(placed.x == 17)
+
+    // Width-bound: 20 columns by 40 rows gives 20 wide, 10 tall.
+    let narrow = view.placement(in: ChromeRect(x: 0, y: 0, width: 20, height: 40))
+    #expect(narrow.width == 20)
+    #expect(narrow.height == 10)
+    #expect(narrow.y == 15)
+}

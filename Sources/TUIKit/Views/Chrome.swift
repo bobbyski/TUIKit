@@ -258,8 +258,10 @@ public enum ChromeLayer: Hashable, Sendable {
     /// all chrome belongs — the text stays crisp native text on top.
     case underText
 
-    /// The default overlay plane *above* the text (reserved for future
-    /// effects; overlays cover glyphs).
+    /// The default overlay plane *above* the text. Overlays cover glyphs, so
+    /// shapes rarely belong here — but raster does when the terminal cannot
+    /// draw it under the text (see `GraphicsCapabilities.rasterLayer`), and
+    /// an image view blanks its cells, so nothing is covered that matters.
     case overlay
 }
 

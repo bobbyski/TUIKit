@@ -296,3 +296,39 @@ private func renderedBuffer(_ view: TUIKit.TUIView, size: TUIKit.Size) -> CellBu
     let lines = SceneRenderer(root: window).render(size: TUIKit.Size(width: 20, height: 6)).textLines()
     #expect(lines[0].contains("line 25"), "dragging to the bottom scrolls to the end")
 }
+
+// MARK: - Selection replaces (2026-08-22)
+
+@Test @MainActor func syntaxTextViewTypingReplacesAKeyboardSelection() {
+    let editor = SyntaxTextView(text: "let value = 1", language: "swift")
+    editor.frame = Rect(x: 0, y: 0, width: 30, height: 3)
+
+    for _ in 0..<3 {
+        _ = editor.keyDown(KeyInput(key: .right, modifiers: .shift))
+    }
+    #expect(editor.selectedText == "let")
+
+    _ = editor.keyDown(KeyInput(key: .character("v")))
+    _ = editor.keyDown(KeyInput(key: .character("a")))
+    _ = editor.keyDown(KeyInput(key: .character("r")))
+
+    #expect(editor.text == "var value = 1")
+    #expect(editor.hasSelection == false)
+}
+
+@Test @MainActor func syntaxTextViewTypingReplacesAMouseDragSelection() {
+    let editor = SyntaxTextView(text: "let value = 1", language: "swift")
+    editor.frame = Rect(x: 0, y: 0, width: 30, height: 3)
+    let row = SceneRenderer(root: editor).render(size: Size(width: 30, height: 3)).textLines()[0]
+
+    // Wherever the gutter put it, "value" starts where the cells say it does.
+    let column = row.distance(from: row.startIndex, to: row.range(of: "value")!.lowerBound)
+    _ = editor.mouseEvent(MouseInput(position: Point(x: column, y: 0), action: .press, button: .left))
+    _ = editor.mouseEvent(MouseInput(position: Point(x: column + 5, y: 0), action: .drag, button: .left))
+    _ = editor.mouseEvent(MouseInput(position: Point(x: column + 5, y: 0), action: .release, button: .left))
+    #expect(editor.selectedText == "value")
+
+    _ = editor.keyDown(KeyInput(key: .character("x")))
+
+    #expect(editor.text == "let x = 1")
+}

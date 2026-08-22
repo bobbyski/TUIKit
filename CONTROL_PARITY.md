@@ -36,7 +36,7 @@ is the showcase — PLAN rule: every new control gets a gallery spot.
 | AUICanvas | Draw-it-yourself view (Core Graphics) | `Canvas` | ✅ | Wave A (16.9): `drawCells` / `drawChrome` closures; chrome-only canvases show the framed "VTG graphics required" placeholder on plain terminals |
 | AUIBezierPath | Chained path — lines, curves, arcs | `ChromeCommand.polyline/.polygon/.sector` | 🟡 | Polylines/polygons/sectors only; no general curve path, VTG only. (VTG protocol has `path` with cubics — `ChromeSectorPath` already emits it) |
 | AUIGradientRing | Animated gradient border with blurred glow | `verticalGradient` chrome | ➖ | Decorative; no animation story in chrome. Skip |
-| AUIImageView | Images and symbols, scaled/tinted/framed | `ImageView` | ✅ | Wave B (16.20): card + menu in cells, pixels under VTG |
+| AUIImageView | Images and symbols, scaled/tinted/framed | `ImageView` | ✅ | Wave B (16.20): card + menu in cells, pixels under VTG (overlay plane where the terminal cannot draw raster under text) |
 | AUIImageViewer | Zoom/pan image view with drop | `ImageViewer` | ✅ | Wave B (16.20): zoom/pan keys under VTG |
 | AUIGauge | Dial, ring, bar or needle gauge | `Gauge` | ✅ | Wave B (16.12): bar in cells, ring/dial under VTG, thresholds |
 | AUIProgressBar | Determinate + indeterminate + spinner | `ProgressIndicator` | ✅ | Determinate and indeterminate styles |

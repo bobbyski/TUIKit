@@ -62,3 +62,21 @@ private struct OldDriverSimulation: TerminalDriver {
     #expect(await OldDriverSimulation(hasPlane: false).graphicsCapabilities == nil)
     #expect(await OldDriverSimulation(hasPlane: true).graphicsCapabilities == .baseline)
 }
+
+// MARK: - Where raster goes (2026-08-22: the gallery's ImageView was a black
+// box on VectorTerminal — its Metal build draws no images under the text)
+
+@Test func rasterUnderTheTextMovesToTheOverlayUnlessTheTerminalDrawsItThere() {
+    let metal = GraphicsCapabilities(rasterFormats: [.png], supportsUnderTextRaster: false)
+    #expect(metal.rasterLayer(requested: .underText) == .overlay, "a picture nobody draws is worse than one above the text")
+    #expect(metal.rasterLayer(requested: .overlay) == .overlay)
+
+    let full = GraphicsCapabilities(rasterFormats: [.png], supportsUnderTextRaster: true)
+    #expect(full.rasterLayer(requested: .underText) == .underText)
+}
+
+@Test func theBaselineAssumesNoUnderTextRaster() {
+    // The one build observed so far does not draw it; the overlay always does.
+    #expect(GraphicsCapabilities.baseline.supportsUnderTextRaster == false)
+    #expect(GraphicsCapabilities.baseline.rasterLayer(requested: .underText) == .overlay)
+}

@@ -35,6 +35,16 @@ public struct GraphicsCapabilities: Equatable, Sendable {
     /// Whether the terminal can hit-test regions for the app.
     public var supportsHitRegions: Bool
 
+    /// Whether raster (images and sprites) draws on the plane UNDER the text.
+    ///
+    /// VectorTerminal's Metal build renders layer `-1` with a narrow native
+    /// pass — shapes only — and says so in its capability reply; images sent
+    /// there are accepted, retained, and never drawn. A black box where a
+    /// picture should be. Its overlay planes draw the full primitive set, so
+    /// when this is `false` the driver lifts raster to the overlay instead:
+    /// see ``rasterLayer(requested:)``.
+    public var supportsUnderTextRaster: Bool
+
     /// Creates a capability set.
     ///
     /// Every flag defaults to off, which is the honest default for a
@@ -44,13 +54,15 @@ public struct GraphicsCapabilities: Equatable, Sendable {
         supportsSprites: Bool = false,
         supportsLayerScroll: Bool = false,
         supportsClipping: Bool = false,
-        supportsHitRegions: Bool = false
+        supportsHitRegions: Bool = false,
+        supportsUnderTextRaster: Bool = false
     ) {
         self.rasterFormats = rasterFormats
         self.supportsSprites = supportsSprites
         self.supportsLayerScroll = supportsLayerScroll
         self.supportsClipping = supportsClipping
         self.supportsHitRegions = supportsHitRegions
+        self.supportsUnderTextRaster = supportsUnderTextRaster
     }
 
     /// What a VectorTerminal is assumed to do before anything is asked.
@@ -66,6 +78,19 @@ public struct GraphicsCapabilities: Equatable, Sendable {
     /// - Parameter format: The raster format.
     public func accepts(_ format: ChromeCommand.ImageFormat) -> Bool {
         rasterFormats.contains(format)
+    }
+
+    /// The plane a raster command actually goes to.
+    ///
+    /// Under-text raster that the terminal cannot draw natively moves to the
+    /// overlay, where every terminal draws it. The picture covers its cells
+    /// either way — an image view blanks them — so nothing is lost by
+    /// sitting above the text rather than beneath it.
+    ///
+    /// - Parameter requested: The plane the view asked for.
+    /// - Returns: The plane to send.
+    public func rasterLayer(requested: ChromeLayer) -> ChromeLayer {
+        requested == .underText && !supportsUnderTextRaster ? .overlay : requested
     }
 }
 
@@ -93,7 +118,11 @@ extension GraphicsCapabilities {
             supportsSprites: !reported.sprites.isEmpty,
             supportsLayerScroll: reported.layerScroll == true,
             supportsClipping: reported.clip != nil,
-            supportsHitRegions: reported.hit != nil
+            supportsHitRegions: reported.hit != nil,
+            // Read STRICTLY, unlike the rest: the question is not "may I
+            // send this" but "where will it show", and the overlay is the
+            // answer that draws on every build.
+            supportsUnderTextRaster: reported.underTextPrimitives.contains("image")
         )
     }
 }

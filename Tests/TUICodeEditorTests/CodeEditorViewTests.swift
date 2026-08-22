@@ -469,3 +469,22 @@ private func styles(_ editor: CodeEditorView, row: Int, width: Int = 44, height:
     #expect(ground(atColumn: 10) == green)
     #expect(ground(atColumn: 18) == green)
 }
+
+// MARK: - Selection replaces (2026-08-22)
+
+@Test @MainActor func typingReplacesTheSelection() {
+    let editor = CodeEditorView(text: "let value = 1", language: "swift")
+    _ = render(editor)
+
+    for _ in 0..<3 {
+        _ = editor.keyDown(KeyInput(key: .right, modifiers: .shift))
+    }
+    #expect(editor.hasSelection)
+
+    _ = editor.keyDown(KeyInput(key: .character("v")))
+    _ = editor.keyDown(KeyInput(key: .character("a")))
+    _ = editor.keyDown(KeyInput(key: .character("r")))
+
+    #expect(editor.text == "var value = 1")
+    #expect(editor.hasSelection == false)
+}

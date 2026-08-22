@@ -237,8 +237,11 @@ public final class ImageView: TUIView {
             return rect
         }
 
-        // Cells are about twice as tall as wide: aspect in cell units.
-        let aspect = Double(pixelSize.width) / Double(pixelSize.height) / 2
+        // Cells are about twice as tall as wide, so a picture needs twice as
+        // many columns as rows to keep its shape: aspect in CELL units is the
+        // pixel aspect times two. (Dividing here is the 4:1 squash that made
+        // a square logo a tall strip.)
+        let aspect = Double(pixelSize.width) / Double(pixelSize.height) * 2
         let byWidth = (width: rect.width, height: rect.width / aspect)
         let byHeight = (width: rect.height * aspect, height: rect.height)
         let chosen = scaling == .fit

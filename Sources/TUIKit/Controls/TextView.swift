@@ -273,7 +273,7 @@ public final class TextView: TUIView {
                 return true
 
             case "c":
-                copyAll()
+                copy()
                 return true
 
             default:
@@ -281,60 +281,68 @@ public final class TextView: TUIView {
             }
         }
 
-        guard key.modifiers.isEmpty else {
+        // Shift extends the selection from wherever it was anchored; a plain
+        // move collapses it, the way every other editor does.
+        let extending = key.modifiers == .shift
+
+        guard key.modifiers.isEmpty || extending else {
             return false
         }
 
         switch key.key {
         case .up:
-            moveCursorVisually(rowDelta: -1)
+            moveCursorVisually(rowDelta: -1, extending: extending)
             return true
 
         case .down:
-            moveCursorVisually(rowDelta: 1)
+            moveCursorVisually(rowDelta: 1, extending: extending)
             return true
 
         case .left:
-            if cursor.x > 0 {
-                moveCursor(line: cursor.y, column: cursor.x - 1)
+            if !extending, let selection, !selection.isEmpty {
+                moveCursor(line: selection.start.y, column: selection.start.x)   // collapse to the left edge
+            } else if cursor.x > 0 {
+                moveCursor(line: cursor.y, column: cursor.x - 1, extending: extending)
             } else if cursor.y > 0 {
-                moveCursor(line: cursor.y - 1, column: lines[cursor.y - 1].count)
+                moveCursor(line: cursor.y - 1, column: lines[cursor.y - 1].count, extending: extending)
             }
             return true
 
         case .right:
-            if cursor.x < lines[cursor.y].count {
-                moveCursor(line: cursor.y, column: cursor.x + 1)
+            if !extending, let selection, !selection.isEmpty {
+                moveCursor(line: selection.end.y, column: selection.end.x)   // collapse to the right edge
+            } else if cursor.x < lines[cursor.y].count {
+                moveCursor(line: cursor.y, column: cursor.x + 1, extending: extending)
             } else if cursor.y < lines.count - 1 {
-                moveCursor(line: cursor.y + 1, column: 0)
+                moveCursor(line: cursor.y + 1, column: 0, extending: extending)
             }
             return true
 
         case .home:
-            moveCursor(line: cursor.y, column: 0)
+            moveCursor(line: cursor.y, column: 0, extending: extending)
             return true
 
         case .end:
-            moveCursor(line: cursor.y, column: lines[cursor.y].count)
+            moveCursor(line: cursor.y, column: lines[cursor.y].count, extending: extending)
             return true
 
         case .pageUp:
-            moveCursorVisually(rowDelta: -max(1, bounds.size.height - 1))
+            moveCursorVisually(rowDelta: -max(1, bounds.size.height - 1), extending: extending)
             return true
 
         case .pageDown:
-            moveCursorVisually(rowDelta: max(1, bounds.size.height - 1))
+            moveCursorVisually(rowDelta: max(1, bounds.size.height - 1), extending: extending)
             return true
 
-        case .enter where isEditable:
+        case .enter where isEditable && !extending:
             splitLine()
             return true
 
-        case .backspace where isEditable:
+        case .backspace where isEditable && !extending:
             deleteBackward()
             return true
 
-        case .delete where isEditable:
+        case .delete where isEditable && !extending:
             deleteForward()
             return true
 
@@ -456,7 +464,19 @@ public final class TextView: TUIView {
         }
     }
 
-    /// Copies the whole text — this view has a cursor, not a selection.
+    /// Copies the selection, or the whole text when nothing is selected.
+    ///
+    /// A transcript with no selection still copies with ^C — the whole thing,
+    /// which for a log is what people want.
+    public func copy() {
+        if let selectedText {
+            resolvedPasteboard?.copy(selectedText)
+        } else {
+            copyAll()
+        }
+    }
+
+    /// Copies the whole text regardless of any selection.
     public func copyAll() {
         guard !text.isEmpty else {
             return
@@ -468,6 +488,8 @@ public final class TextView: TUIView {
     // MARK: - Editing
 
     private func insert(_ string: String) {
+        deleteSelection()
+
         var line = lines[cursor.y]
         line.insert(contentsOf: string, at: line.index(line.startIndex, offsetBy: cursor.x))
         lines[cursor.y] = line
@@ -476,6 +498,8 @@ public final class TextView: TUIView {
     }
 
     private func splitLine() {
+        deleteSelection()
+
         let line = lines[cursor.y]
         let split = line.index(line.startIndex, offsetBy: cursor.x)
 
@@ -486,6 +510,11 @@ public final class TextView: TUIView {
     }
 
     private func deleteBackward() {
+        if deleteSelection() {
+            contentsChanged()
+            return
+        }
+
         if cursor.x > 0 {
             var line = lines[cursor.y]
             line.remove(at: line.index(line.startIndex, offsetBy: cursor.x - 1))
@@ -501,6 +530,11 @@ public final class TextView: TUIView {
     }
 
     private func deleteForward() {
+        if deleteSelection() {
+            contentsChanged()
+            return
+        }
+
         let line = lines[cursor.y]
 
         if cursor.x < line.count {
@@ -512,6 +546,34 @@ public final class TextView: TUIView {
             lines[cursor.y] = line + lines.remove(at: cursor.y + 1)
             contentsChanged()
         }
+    }
+
+    // Removes the selected text and leaves the cursor where it began. Every
+    // edit goes through here first: typing, Enter, Backspace, Delete and
+    // paste all REPLACE a selection rather than landing next to it.
+    //
+    // - Returns: Whether anything was selected.
+    @discardableResult
+    private func deleteSelection() -> Bool {
+        guard let selection, !selection.isEmpty else {
+            return false
+        }
+
+        self.selection = nil
+
+        let start = selection.start
+        let end = selection.end
+
+        guard start.y < lines.count, end.y < lines.count else {
+            return false
+        }
+
+        let head = Array(lines[start.y]).prefix(min(max(0, start.x), lines[start.y].count))
+        let tail = Array(lines[end.y]).dropFirst(min(max(0, end.x), lines[end.y].count))
+
+        lines.replaceSubrange(start.y...end.y, with: [String(head) + String(tail)])
+        cursor = Point(x: head.count, y: start.y)
+        return true
     }
 
     private func contentsChanged() {
@@ -620,26 +682,36 @@ public final class TextView: TUIView {
         setNeedsDisplay()
     }
 
-    private func moveCursor(line: Int, column: Int) {
+    // Moves the cursor; extending keeps (or starts) a selection anchored where
+    // the cursor was, a plain move drops whatever was selected.
+    private func moveCursor(line: Int, column: Int, extending: Bool = false) {
         let clampedLine = min(max(0, line), lines.count - 1)
         let clampedColumn = min(max(0, column), lines[clampedLine].count)
+        let target = Point(x: clampedColumn, y: clampedLine)
 
-        guard Point(x: clampedColumn, y: clampedLine) != cursor else {
+        if extending {
+            let anchor = selection?.anchor ?? cursor
+            selection = anchor == target ? nil : Selection(anchor: anchor, head: target)
+        } else {
+            selection = nil
+        }
+
+        guard target != cursor else {
             return
         }
 
-        cursor = Point(x: clampedColumn, y: clampedLine)
+        cursor = target
         ensureCursorVisible()
         setNeedsDisplay()
     }
 
     // Moves the cursor up/down by visual rows, keeping its visual column.
-    private func moveCursorVisually(rowDelta: Int) {
+    private func moveCursorVisually(rowDelta: Int, extending: Bool = false) {
         let rows = layout().rows
         let position = visualPosition(line: cursor.y, column: cursor.x, in: rows)
         let target = min(max(0, position.row + rowDelta), rows.count - 1)
         let logical = logicalPosition(row: target, column: position.column, in: rows)
-        moveCursor(line: logical.line, column: logical.column)
+        moveCursor(line: logical.line, column: logical.column, extending: extending)
     }
 
     private func ensureCursorVisible() {
