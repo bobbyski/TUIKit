@@ -245,11 +245,20 @@ public struct Painter {
         )
     }
 
-    /// Derives a painter whose `.standard` colors resolve to a new base.
+    /// A painter writing over the terminal's DEFAULT background instead of
+    /// the theme's — the door vector chrome shows through.
     ///
-    /// - Parameter newBase: Theme base colors for the subtree.
-    /// - Returns: Painter with the same translation and clip.
-    func withBase(_ newBase: CellStyle) -> Painter {
+    /// Chrome on a VectorTerminal renders *under* the text and is visible
+    /// only where a cell keeps the terminal's default background. A view
+    /// that draws chrome fills the region it wants transparent with
+    /// `withBase(CellStyle()).fill(rect, with: .blank)` first, then draws its
+    /// text on top; the charts, `Canvas`, and the sibling packages (diagrams)
+    /// all do exactly this.
+    ///
+    /// - Parameter base: The base style the new painter substitutes for
+    ///   `.standard`; `CellStyle()` means the terminal's own colours.
+    /// - Returns: A painter over the same target with that base.
+    public func withBase(_ newBase: CellStyle) -> Painter {
         Painter(
             target: target,
             origin: origin,
