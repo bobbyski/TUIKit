@@ -110,7 +110,7 @@ is the showcase — PLAN rule: every new control gets a gallery spot.
 |---|---|---|---|---|
 | AUIMarkdownEditor | Markdown editor — ribbon, ruler, source pane | `MarkdownView` (`isEditing`) | ✅ | Wave B (16.24): flips to a highlighted source editor; not WYSIWYG by decision |
 | AUISourceEditor | Code editor — gutter, syntax, folding, diff, merge | `TUICodeEditor.CodeEditorView`, `DiffView`, gutter bands | ✅ | Phase 15: folding (E6) and merge (E7) still open per PLAN |
-| AUITerminal | Terminal emulator running a real shell | `App.suspended {}` hands the TTY to a child | 🟡 | Different shape: hand-over, not an embedded pane. An in-window pty widget is a large build |
+| AUITerminal | Terminal emulator running a real shell | `TUITerminal` (sibling package) | ✅ | 16.26: `TerminalView` over SwiftTerm headless; plain xterm inside, no nested VTG. `App.suspended {}` remains the hand-over form |
 | AUICanvas / AUIBezierPath | (see Controls) | | | |
 | AUIImageViewer | (see Controls) | | | |
 | AUIOutlineView | Disclosure tree, any view per row | `TreeView`, `DirectoryTree` | 🟡 | Title rows; no arbitrary view per row |
@@ -141,8 +141,8 @@ the theme/CSS system (`Theme`, `StyleSheet`, contexts) and the VTG chrome layer
 
 | | Count |
 |---|---|
-| ✅ equivalent | 65 |
-| 🟡 partial / assemble | 8 |
+| ✅ equivalent | 66 |
+| 🟡 partial / assemble | 7 |
 | ❌ missing | 2 |
 | ➖ not applicable | 6 |
 
@@ -152,7 +152,7 @@ both the Controls and Companions groups above and are counted once; AUIScroller 
 ### Missing outright (❌)
 
 AUIDiagramView · AUIBoardView — both planned as sibling packages (PLAN 16.27,
-16.28), alongside AUITerminal (16.26, partial today via `App.suspended`).
+16.28). AUITerminal shipped as the `TUITerminal` sibling (16.26).
 
 Wave A (PLAN 16.1–16.10) and Wave B (16.11–16.25), both shipped 2026-08-21,
 closed every in-package gap; what remains 🟡 is either assembled from parts
