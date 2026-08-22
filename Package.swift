@@ -85,6 +85,13 @@ let package = Package(
             name: "TUIKitTests",
             dependencies: ["TUIKit"]
         ),
+        // `swift run TUIKitGallery` — a launcher that execs the real gallery in
+        // the TUIGallery sibling package (it cannot live here: it shows the
+        // siblings, which depend on TUIKit).
+        .executableTarget(
+            name: "TUIKitGallery",
+            path: "Demo/TUIKitGalleryLauncher"
+        ),
         // `swift run TUIKitInlineDemo` — the inline presentation: a few rows
         // at the cursor asking for parameters, the shell continuing below.
         .executableTarget(
