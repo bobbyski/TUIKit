@@ -98,6 +98,17 @@ public final class Menu {
     ///
     /// - Parameter title: Item text; a `▸` is drawn after it.
     /// - Returns: The new child menu, empty.
+    /// Appends an item built elsewhere — one carrying a submenu, a disabled
+    /// state, or anything else the title-and-action form cannot say.
+    ///
+    /// This is the seam a declarative menu builder needs: it assembles real
+    /// `MenuItem`s (and whole submenus) first and hands them over.
+    ///
+    /// - Parameter item: The item to append.
+    public func addItem(_ item: MenuItem) {
+        items.append(item)
+    }
+
     @discardableResult
     public func addSubmenu(_ title: String) -> Menu {
         let child = Menu(title)

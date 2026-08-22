@@ -427,3 +427,23 @@ private func screenRows(_ window: Window) -> [String] {
     let borderRow = lines[row - 2]
     #expect(borderRow.contains("┌") && !borderRow.contains("╔"), "single-line menu frame: \(borderRow)")
 }
+
+@Test @MainActor func aPrebuiltItemCanBeAppendedToAMenu() {
+    // The seam a declarative menu builder needs: items (and submenus) are
+    // assembled first, then handed to the menu whole.
+    let recent = Menu("Recent")
+    recent.addItem("a.txt")
+
+    let item = MenuItem("Open Recent")
+    item.submenu = recent
+    item.isEnabled = false
+
+    let file = Menu("File")
+    file.addItem("Open…")
+    file.addItem(item)
+
+    #expect(file.items.count == 2)
+    #expect(file.items[1] === item)
+    #expect(file.items[1].submenu === recent)
+    #expect(file.items[1].isEnabled == false)
+}

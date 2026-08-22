@@ -46,6 +46,7 @@ Phase 13 · TUIView base rename        █████████████�
 Phase 14 · Data In / Out (binding)    ██████████████████████████  100%  🔄 Code complete — value/named/dict + typed binding + load/save/live + @Bound macro
 Phase 15 · TUICodeEditor              ████████████████░░░░░░░░░░   62%  🔄 E1–E5/E8 code complete — stateful colouring, banded gutter, OmegaCLIDE swapped over; E6 folding, E7 diff/merge, E9 perf remain
 Phase 16 · Control Parity             ██████████████████████████  100%  ✅ Complete 2026-08-21 — Waves A+B in-package, Wave C siblings TUITerminal (no nested VTG), TUIDiagram, TUIBoards; plus 16.29 PreferencesDialog and the inline presentation (2.5)
+Phase 17 · Declarative Screens        ██████████████████████████  100%  ✅ v1 2026-08-22 — sibling `Code/TUIDeclarativeKit`: `Screen` → one real Window, pull-based providers, MenuBar/Toolbar/StatusBar/Preferences/Wizard/Dialog builders, `TUIDeclarativeWatch` (Watcher → pull). Not reactive. Plan: its `TUIKIT_DECLARATIVE.md` (D8 gallery page, D9 more providers pending)
 ```
 
 **Status key:** ✅ Done &nbsp;|&nbsp; 🔄 In Progress &nbsp;|&nbsp; ⏳ Pending &nbsp;|&nbsp; 🚫 Blocked
@@ -572,6 +573,30 @@ Dependencies: 16.11 Wizard and 16.19 Sidebar build on 16.1 Navigator;
 ShareLink, GradientRing, controlSize, Drawn controls (TUIKit's default
 condition), ScrollView magnification, NSToolbar user customization, an
 animated anything.
+
+## Phase 17 — Declarative Screens (sibling `TUIDeclarativeKit`) ✅ v1
+
+Bobby, 2026-08-22: *"Create a declarative pattern to define TUIKit screens.
+It should not prevent the traditional approach … follow the example of
+ActiveUI in supporting and intermixing both approaches. This does not imply
+reactive, but Watcher should be able to be used to add this if needed."*
+
+Lives in its own repo, `Code/TUIDeclarativeKit` (TUIKit by path; Watcher by
+path from `~/AIResearch/Watcher`). The design, API, intermixing rules and the
+item-level dashboard are in **`TUIDeclarativeKit/TUIKIT_DECLARATIVE.md`** —
+that file is the plan; this section is the pointer.
+
+| Layer | What | Where |
+|-------|------|-------|
+| `Screen` | `body`/`menuBar`/`toolbar`/`statusBar`/`title`/`configure(_:)` declared once → `makeWindow() -> ScreenWindow`; `App.present(screen)`/`run(screen)` | `Sources/TUIDeclarativeKit/Screen.swift` |
+| Providers | closure-valued content (`Label { model.title }`, `.items { }`, `.enabled { }`, `.hidden { }`, `onPull`) re-run by `TUIView.pull()` — named so because `refresh()` here means redraw | `Providers.swift`, `ProviderModifiers.swift` |
+| Chrome builders | `MenuBar{}`/`Menu{}`/`MenuItem(key:)`, `Toolbar{}`, `StatusBar{}`+`Segment`, `PreferencesDialog{}`+`PreferencePage`, `Wizard{}`+`Wizard.Step(…){}`, `Dialog(…){}.buttons{}`, `App.show` — all emit the same TUIKit objects the imperative path makes | `*Builder(s).swift` |
+| `TUIDeclarativeWatch` | `view.onChange(of: model)` → `pull()`; separate product so Watcher's macro plugin is never built by an app that pulls by hand | `Sources/TUIDeclarativeWatch/` |
+
+TUIKit changes made for it: `Menu.addItem(_ item: MenuItem)` (16.x menus
+could only append by title). Requests still open against TUIKit are in the
+kit's plan §10 (`Dialog.preferredSize` counting body content; a `TUIView`
+deinit hook for exact watch teardown).
 
 ## Testing Rules
 
