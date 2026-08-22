@@ -54,31 +54,6 @@ func makeListsTab() -> TUIView {
         group("Browser — Miller columns", [browser]),
     ]))
     root.addSubview(pinnedHeight(group("PathControl · TUIFavorites", [row(spacing: 2, [path, favorites])]), 4))
-    // Phase 16: CollectionView — sections of uniform items, a selection,
-    // arrows that walk the grid.
-    let files = CollectionView(sections: [
-        .init(title: "Recent", items: ["report.pdf", "notes.md", "photo.png", "deck.key", "todo.txt"]),
-        .init(title: "Shared", items: ["budget.xlsx", "plan.md", "logo.svg"]),
-    ]) { Label($0) }
-    files.itemWidth = 16
-
-    // MasterDetail — a list driving a detail pane (NOT a sidebar: the
-    // sidebar is the window's SlideOut). Below 60 columns it pushes.
-    let folders = [
-        SidebarItem(icon: "✉", title: "Inbox", subtitle: "12 unread"),
-        SidebarItem(icon: "★", title: "Starred", subtitle: "3 flagged"),
-        SidebarItem(icon: "✎", title: "Drafts", subtitle: "1 draft"),
-        SidebarItem(icon: "⌫", title: "Trash", subtitle: "empty"),
-    ]
-    let masterDetail = MasterDetail(items: folders) { index in
-        Label("  \(folders[index].title): \(folders[index].subtitle ?? "") — the detail pane for this folder")
-    }
-
-    root.addSubview(pinnedHeight(row([
-        group("MasterDetail — list drives detail; pushes below 60 columns", [masterDetail]),
-        group("CollectionView — arrows walk the grid", [files]),
-    ]), 8))
-
     return root
 }
 

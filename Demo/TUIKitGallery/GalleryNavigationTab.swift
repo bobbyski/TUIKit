@@ -68,23 +68,7 @@ func makeNavigationTab() -> TUIView {
         }, 1))
     }
 
-    // Wizard: three steps, the middle one validates, the first can branch.
-    let wizardName = TextField(placeholder: "user name (required)")
-    let expressSkip = Checkbox("Express — skip the account step")
-    let welcome = VStack(spacing: 0)
-    welcome.addSubview(pinnedHeight(Label("Welcome to the setup wizard."), 1))
-    welcome.addSubview(pinnedHeight(expressSkip, 1))
-    let wizardDone = Label("setup has not finished yet")
-    let wizard = Wizard(steps: [
-        .init(id: "welcome", title: "Welcome", view: welcome, next: { expressSkip.isChecked ? "done" : nil }),
-        .init(id: "account", title: "Account", view: wizardName,
-              validate: { wizardName.text.isEmpty ? "Choose a user name to continue." : nil }),
-        .init(id: "done", title: "All set", view: Label("Press Finish to complete the setup."))
-    ])
-    wizard.onFinish = { wizardDone.text = "setup finished for \(wizardName.text.isEmpty ? "(express)" : wizardName.text)" }
-
     root.addSubview(pinnedHeight(row([group("ViewThatFits — wide", [saveChoices()]), narrow]), 4))
-    root.addSubview(pinnedHeight(group("Wizard — validation blocks Next; Express branches past a step", [wizard, wizardDone]), 8))
     root.addSubview(pinnedHeight(row([
         group("PageView", [pages, pageLabel]),
         group("Navigator — drill in, Esc back", [navigator, depthLabel]),

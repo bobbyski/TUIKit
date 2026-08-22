@@ -146,39 +146,9 @@ func makeInputsTab(app: App) -> TUIView {
         spinner?.advance()
     }
 
-    // Phase 16: SearchField (live + committed reports, Esc/✕ clear) and
-    // PasteButton (the app pasteboard, or an honest "nothing to paste").
-    let searchResult = Label("search reports here")
-    let search = SearchField()
-    search.onSearch = { searchResult.text = $0.isEmpty ? "search cleared" : "searching: \($0)" }
-    search.onCommit = { searchResult.text = "committed: \($0)" }
-    let paste = PasteButton { searchResult.text = "pasted: \($0)" }
-    paste.onEmpty = { searchResult.text = "nothing to paste — copy something first (^C in a field)" }
-
-    // Phase 16: TokenField (Return mints, Backspace/× remove) with a
-    // CompletionList following its tail; a second list on a plain field.
-    let recipients = TokenField(tokens: ["ops"], placeholder: "add a team, Return mints")
-    let teamCompletions = CompletionList(for: recipients.field)
-    teamCompletions.items = ["ops", "dev", "design", "docs", "qa", "security"]
-    teamCompletions.onAccept = { [weak recipients] in recipients?.mint($0) }
-    let themeField = TextField(placeholder: "type a theme name…")
-    let themeCompletions = CompletionList(for: themeField)
-    themeCompletions.items = TUIKit.Theme.builtIn.map(\.name)
-
     root.addSubview(pinnedHeight(group("Text & Choices", [row([field, combo, popUp])]), 4))
-    root.addSubview(pinnedHeight(group("Search & Paste", [row([search, paste]), searchResult]), 5))
-    root.addSubview(pinnedHeight(group("TokenField + CompletionList — type 'd', ↓, Return", [row([recipients, themeField])]), 4))
-
-    // Phase 16: tick marks (snapping walks them) and the two-thumb range.
-    let ticked = Slider(value: 50, in: 0...100)
-    ticked.tickMarks = 5
-    ticked.snapsToTicks = true
-    let span = RangeSlider(lower: 20, upper: 60, in: 0...100, minimumGap: 10)
-    let spanLabel = Label("20…60 — Space switches thumbs")
-    span.onValuesChanged = { spanLabel.text = "\($0.lowerBound)…\($0.upperBound) — Space switches thumbs" }
 
     root.addSubview(pinnedHeight(group("Values", [row(spacing: 3, [slider, stepper, level])]), 4))
-    root.addSubview(pinnedHeight(group("Sliders — ticks that snap, and a range", [row(spacing: 3, [ticked, span, spanLabel])]), 4))
     root.addSubview(group("Progress (the spinner rides an App timer)", [row(spacing: 3, [bar, spinner])]))
 
     return root

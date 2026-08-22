@@ -164,9 +164,46 @@ public enum ChromeSectorPath {
         return pieces.joined(separator: " ")
     }
 
+    /// The widest single subpath emitted: a quarter turn.
+    ///
+    /// VectorTerminal's Metal renderer fills a path by fanning from its
+    /// first vertex, which is only correct for a CONVEX polygon — a pie
+    /// slice past 180° overdraws its chord and a 93% gauge shows a sliver
+    /// instead of a wedge. So a sector is emitted as quarter-turn pieces,
+    /// each convex, inside one path (one retained id); pieces overlap by
+    /// a hair so no antialiased seam shows between them.
+    static let maximumPieceSweep = Double.pi / 2
+    static let pieceOverlap = 0.02
+
     /// The full closed sector path: outer arc clockwise, then either back
-    /// along the inner arc (a donut ring) or to the center (a pie slice).
+    /// along the inner arc (a donut ring) or to the center (a pie slice) —
+    /// as one subpath per quarter turn, so every subpath is convex.
     public static func payload(
+        centerX: Double, centerY: Double,
+        radius: Double, innerRadius: Double,
+        start: Double, end: Double
+    ) -> String {
+        let sweep = end - start
+        let pieces = max(1, Int((abs(sweep) / maximumPieceSweep - 1e-9).rounded(.up)))
+        let step = sweep / Double(pieces)
+        var subpaths: [String] = []
+
+        for piece in 0..<pieces {
+            let pieceStart = start + step * Double(piece)
+            var pieceEnd = pieceStart + step
+
+            if piece < pieces - 1 {
+                pieceEnd += step >= 0 ? pieceOverlap : -pieceOverlap   // under the next piece
+            }
+
+            subpaths.append(subpath(centerX: centerX, centerY: centerY, radius: radius, innerRadius: innerRadius, start: pieceStart, end: pieceEnd))
+        }
+
+        return subpaths.joined(separator: " ")
+    }
+
+    // One closed, convex piece of a sector.
+    private static func subpath(
         centerX: Double, centerY: Double,
         radius: Double, innerRadius: Double,
         start: Double, end: Double

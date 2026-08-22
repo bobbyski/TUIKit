@@ -44,12 +44,17 @@ func makeGalleryWindow(index: Int, app: App, settings: GallerySettings) -> Galle
     let tabs = TabView()
     let pages: [(title: String, summary: String, content: TUIView)] = [
         ("Buttons", "roles, long-press, dialogs", makeButtonsTab(app: app, settings: settings)),
-        ("Inputs", "fields, sliders, tokens", makeInputsTab(app: app)),
+        ("Inputs", "fields, values, progress", makeInputsTab(app: app)),
+        ("Fields", "search, tokens, completion", makeFieldsTab(app: app)),
         ("Pickers", "dates, colours, matrix", makePickersTab()),
         ("Lists", "lists, trees, tables", makeListsTab()),
+        ("Data", "master–detail, collection", makeDataTab()),
         ("Text", "editors and markdown", makeTextTab()),
         ("Layout", "stacks, splits, forms", makeLayoutTab()),
-        ("Navigation", "wizard, pages, accordion", makeNavigationTab()),
+        ("Nav", "pages, navigator, accordion", makeNavigationTab()),
+        ("Wizard", "steps, validation, branching", makeWizardTab()),
+        ("Gauges", "ring, dial, bar, levels", makeGaugesTab()),
+        ("Drawing", "canvas and images", makeDrawingTab()),
         ("Charts", "cells and VTG", makeChartsTab()),
     ]
 

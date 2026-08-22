@@ -646,6 +646,21 @@ private func chromeRendered(_ view: TUIView, width: Int, height: Int, theme: The
     #expect(!donut.contains("L 200 200"), "and never touches the center")
 }
 
+@Test func wideSectorsSplitIntoConvexQuarterPieces() {
+    // A 93% gauge fill (335°): fanned as one polygon it overdraws its
+    // chord on the terminal's renderer, so it ships as four convex
+    // quarter-turn subpaths under one id, each closing through the center.
+    let wide = ChromeSectorPath.payload(centerX: 200, centerY: 200, radius: 100, innerRadius: 0, start: 0, end: 2 * Double.pi * 0.93)
+    let pieces = wide.components(separatedBy: "M ").filter { !$0.isEmpty }
+
+    #expect(pieces.count == 4, "335° → 4 pieces: \(pieces.count)")
+    #expect(pieces.allSatisfy { $0.contains("L 200 200 Z") }, "every piece is a pie slice of its own")
+
+    // Full turn: 4 pieces; a quarter: still 1.
+    #expect(ChromeSectorPath.payload(centerX: 0, centerY: 0, radius: 10, innerRadius: 0, start: 0, end: 2 * Double.pi).components(separatedBy: "M ").filter { !$0.isEmpty }.count == 4)
+    #expect(ChromeSectorPath.payload(centerX: 0, centerY: 0, radius: 10, innerRadius: 0, start: 0, end: Double.pi / 2).components(separatedBy: "M ").filter { !$0.isEmpty }.count == 1)
+}
+
 @Test func scatterMarkersAreSingleWidth() {
     for marker in ScatterChart.markers {
         #expect(DisplayWidth.of(marker) == 1, "marker \(marker) must be single-width")
