@@ -597,8 +597,11 @@ animated anything.
   rare dialog that belongs to none sets `.double` itself).**
   `BorderStyle.inner` is the mapping; `Panel` applies it automatically
   unless it is a window's frame; Turbo's `modalWindows` context is single.
-- **Every new control gets a gallery spot, in the same commit.**
-  `swift run TUIKitGallery` (Demo/TUIKitGallery) is the control showroom:
+- **Every new control gets a gallery spot, in the same change.**
+  The showroom is the sibling package `Code/TUIGallery`
+  (`swift run --package-path ../TUIGallery TUIKitGallery`) — its own package
+  because it also shows TUIBoards, TUIDiagram and TUITerminal, which depend
+  on TUIKit and could never be imported by a gallery living here. It is the control showroom:
   folder tabs group the controls, the Theme menu proves them under every
   theme, and anything with a VTG rendering shows its VTG and ANSI forms
   side by side (via `suppressesVectorChrome`), the way the Charts tab
