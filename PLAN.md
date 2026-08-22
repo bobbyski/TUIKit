@@ -45,7 +45,7 @@ Phase 12 · TUIBuilder (declarative)   █████████████�
 Phase 13 · TUIView base rename        ██████████████████████████  100%  ✅ Done — base class View → TUIView (SwiftUI coexistence)
 Phase 14 · Data In / Out (binding)    ██████████████████████████  100%  🔄 Code complete — value/named/dict + typed binding + load/save/live + @Bound macro
 Phase 15 · TUICodeEditor              ████████████████░░░░░░░░░░   62%  🔄 E1–E5/E8 code complete — stateful colouring, banded gutter, OmegaCLIDE swapped over; E6 folding, E7 diff/merge, E9 perf remain
-Phase 16 · Control Parity             ████████████████████████░░   93%  🔄 Waves A+B complete; Wave C: 16.26 TUITerminal shipped (no nested VTG), 16.27/16.28 remain — 28 items in 3 waves (CONTROL_PARITY.md)
+Phase 16 · Control Parity             ██████████████████████████  100%  ✅ Complete 2026-08-21 — Waves A+B in-package, Wave C siblings TUITerminal (no nested VTG), TUIDiagram, TUIBoards; plus 16.29 PreferencesDialog and the inline presentation (2.5)
 ```
 
 **Status key:** ✅ Done &nbsp;|&nbsp; 🔄 In Progress &nbsp;|&nbsp; ⏳ Pending &nbsp;|&nbsp; 🚫 Blocked
@@ -493,7 +493,7 @@ SwiftyCodeEditor is not restructured by this plan; no split is forced on it.
 Full plan and parity matrix: **`Docs/CodeEditorPlan.md`**.
 `SyntaxTextView` stays for plain-text duty; the IDE swaps editors at E8.
 
-## Phase 16 — Control Parity (ActiveUI gap fill) 🔄 89%
+## Phase 16 — Control Parity (ActiveUI gap fill) ✅ 100%
 
 Source: **`CONTROL_PARITY.md`** — every ActiveUI catalog page mapped to its
 TUIKit twin (33 ✅ / 31 🟡 / 11 ❌ / 6 ➖ as of 2026-08-21). This phase is the
@@ -565,8 +565,8 @@ Dependencies: 16.11 Wizard and 16.19 Sidebar build on 16.1 Navigator;
 | # | Item | Status | Notes |
 |---|------|--------|-------|
 | 16.26 | **`TUITerminal`** | ✅ Done (2026-08-21) — sibling repo `Code/TUITerminal`; **no nested VTG** (Bobby: too risky for now) — the child sees a plain xterm-256color, probes unanswered, VTG output swallowed. Engine: SwiftTerm fork headless (`Terminal` + `LocalProcess`) by local path; `TerminalSession` bridges onto the main actor; `TerminalView` paints cells, sizes the pty, encodes keys/mouse. Scrollback browsing and OmegaCLIDE adoption tracked in its PLAN | A terminal emulator as a TUIKit view, for OmegaCLIDE's build/run and shell panes. Engine decision like 15/E0: Bobby already owns a Swift emulator core — `SwiftTerm` in `~/AIResearch/GraphicalTerminal/Code/SwiftTerm` (`HeadlessTerminal.swift`, parser, buffers, `LocalProcess` pty) — so **depend on or port its headless core** (no AppKit), render its buffer into cells, forward TUIKit key/mouse input as bytes, resize → `TIOCSWINSZ`, scrollback, OSC 52 passthrough, `onProcessExited`. **Nested VTG is planned, not out of scope** — Bobby is adding a nested mode to the VTG protocol; the TUIKit-side proposal is `Docs/VTGNestedMode.md` (context object `nest`/`nestMove`/`nestDelete`, wrapped commands `nested,id=P;…`, wrapped replies). Host prerequisites, buildable against a fake before the terminal lands: `ChromeCommand.Shape.nested` + `ChromeSurface.nested`, driver surfaces `nested,…` replies as a `TerminalInput` event (today every APC is swallowed), glyph metrics/capabilities exposed to views. Fallback if the protocol lags: parse the child's VTG with SwiftTerm's `VectorTerminalGraphicsParser` and redraw it as `ChromeCommand`s (child layers collapse, no child scroll/alpha/viewport). |
-| 16.27 | `TUIDiagram` | ⏳ Later | Nodes + edges; VTG polylines/rounded rects draw it, cells use box-drawing and `─►`; layout (layered/force) is the project. Mirrors `ActiveUIDiagram`. |
-| 16.28 | `TUIBoards` | ⏳ Later | Kanban over `SplitView` columns + `ListView` cards + the existing drag machinery; limits, collapse. Mirrors `ActiveUIBoards`. |
+| 16.27 | `TUIDiagram` | ✅ Done (2026-08-21) — sibling repo `Code/TUIDiagram`: `DiagramLayout` (layered, barycenter, centred; cycle-safe) + `DiagramView` (box-drawing + `▼` connectors in cells, rounded rects + polylines under VTG; selection walks layers) | Nodes + edges; VTG polylines/rounded rects draw it, cells use box-drawing and `─►`; layout (layered/force) is the project. Mirrors `ActiveUIDiagram`. |
+| 16.28 | `TUIBoards` | ✅ Done (2026-08-21) — sibling repo `Code/TUIBoards`: `BoardView` — columns, cards, WIP limits, collapse; keyboard pick-up/drop and mouse drag | Kanban over `SplitView` columns + `ListView` cards + the existing drag machinery; limits, collapse. Mirrors `ActiveUIBoards`. |
 
 **Out of scope** (➖ in the parity doc): StatusItem, VisualEffectView,
 ShareLink, GradientRing, controlSize, Drawn controls (TUIKit's default

@@ -117,9 +117,9 @@ is the showcase — PLAN rule: every new control gets a gallery spot.
 | AUIBrowser | Miller columns | `Browser` (+ `FileSystemBrowserDataSource`) | ✅ | |
 | AUIChart | Bars, lines, areas, sectors against shared axes | `BarChart`, `LineChart` (areas), `PieChart`, `ScatterChart`, `TimelineChart`, `Sparkline` | ✅ | Cells + VTG for every chart. Annotation marks (rule/rect/annotated) ❌; one-chart-many-marks composition ❌ (one class per shape) |
 | AUIWebBrowser | Browser — chrome, tabs, find, zoom | `TUIWebBrowser` (sibling repo) | ✅ | Separate package by design |
-| AUIDiagramView | Nodes and edges, auto-placed | — | ❌ | Large; VTG polylines make it drawable, layout is the work |
+| AUIDiagramView | Nodes and edges, auto-placed | `TUIDiagram` (sibling package) | ✅ | 16.27: layered layout, box-drawing/VTG connectors |
 | AUICollectionView | Scrolling grid of uniform items, sections | `CollectionView` | ✅ | Wave B (16.23): sections, selection; no recycling |
-| AUIBoardView | Kanban — draggable cards, limits, collapse | — | ❌ | |
+| AUIBoardView | Kanban — draggable cards, limits, collapse | `TUIBoards` (sibling package) | ✅ | 16.28: keyboard pick-up/drop, mouse drag, limits, collapse |
 | AUIDocument | Document type — open/save/registration | `DocumentController` | ✅ | Wave B (16.25): open/save/save-as, dirty title, close confirm, recents |
 
 ## TUIKit controls with no ActiveUI page
@@ -141,9 +141,9 @@ the theme/CSS system (`Theme`, `StyleSheet`, contexts) and the VTG chrome layer
 
 | | Count |
 |---|---|
-| ✅ equivalent | 66 |
+| ✅ equivalent | 68 |
 | 🟡 partial / assemble | 7 |
-| ❌ missing | 2 |
+| ❌ missing | 0 |
 | ➖ not applicable | 6 |
 
 (Two catalog pages — AUICanvas/AUIBezierPath and AUIImageViewer — appear in
@@ -151,8 +151,8 @@ both the Controls and Companions groups above and are counted once; AUIScroller 
 
 ### Missing outright (❌)
 
-AUIDiagramView · AUIBoardView — both planned as sibling packages (PLAN 16.27,
-16.28). AUITerminal shipped as the `TUITerminal` sibling (16.26).
+None. AUITerminal, AUIDiagramView and AUIBoardView shipped as the `TUITerminal`,
+`TUIDiagram` and `TUIBoards` sibling packages (16.26–16.28).
 
 Wave A (PLAN 16.1–16.10) and Wave B (16.11–16.25), both shipped 2026-08-21,
 closed every in-package gap; what remains 🟡 is either assembled from parts
