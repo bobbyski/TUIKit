@@ -109,8 +109,19 @@ public final class ImageView: TUIView {
 
         if let data, let format, let chrome = painter.chrome, chrome.covers(bounds),
            bounds.size.width >= 2, bounds.size.height >= 1 {
-            painter.withBase(CellStyle()).fill(bounds, with: .blank)
-            chrome.image("pixels", placement(in: ChromeRect(bounds)), data: data, format: format)
+            // Pixels above, the caption in cells on the last row (when there
+            // is room) — the picture is never a mute box, and a terminal
+            // whose renderer cannot show images still says what it is.
+            let captionRows = bounds.size.height >= 3 ? 1 : 0
+            let pictureRect = Rect(x: 0, y: 0, width: bounds.size.width, height: bounds.size.height - captionRows)
+            painter.withBase(CellStyle()).fill(pictureRect, with: .blank)
+            chrome.image("pixels", placement(in: ChromeRect(pictureRect)), data: data, format: format)
+
+            if captionRows > 0 {
+                let text = Label.truncated("🖼 " + (caption.isEmpty ? "image" : caption) + "  " + detailLine, width: bounds.size.width)
+                painter.write(text, at: Point(x: 0, y: bounds.size.height - 1), style: theme.placeholder)
+            }
+
             return
         }
 
