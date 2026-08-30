@@ -16,7 +16,13 @@ import TUIKit
 /// engine reports. That split is why the behaviour is testable without a
 /// terminal and why a GUI editor could reuse the same brain.
 @MainActor
-public final class CodeEditorView: TUIView, BorderScrollable {
+/// Subclassable on purpose. A language whose columns mean something —
+/// fixed-format COBOL — needs to draw its own chrome, and the GUI editor this
+/// is modelled on solves that by letting a language supply its own surface
+/// rather than by forking the editor. `open` is what makes the same answer
+/// available here: everything an editor already knows is inherited, and the
+/// subclass adds one thing.
+open class CodeEditorView: TUIView, BorderScrollable {
     // MARK: - State
 
     private var engine: CodeEditorEngine
@@ -680,7 +686,7 @@ public final class CodeEditorView: TUIView, BorderScrollable {
 // stays a table of contents rather than a wall of painting code.
 
     /// Paints the gutter, the text, and any interior scrollbars.
-    public override func draw(_ painter: Painter) {
+    open override func draw(_ painter: Painter) {
         let theme = effectiveTheme
         painter.fill(bounds, with: TerminalCell(character: " ", style: theme.base))
 
@@ -707,7 +713,7 @@ public final class CodeEditorView: TUIView, BorderScrollable {
     }
 
     /// The editor takes focus.
-    public override var acceptsFirstResponder: Bool {
+    open override var acceptsFirstResponder: Bool {
         true
     }
 
@@ -715,7 +721,7 @@ public final class CodeEditorView: TUIView, BorderScrollable {
     ///
     /// The entire keyboard model in one place, and the only part of editing
     /// that knows what a key is.
-    public override func keyDown(_ key: KeyInput) -> Bool {
+    open override func keyDown(_ key: KeyInput) -> Bool {
         let shift = key.modifiers.contains(.shift)
         let word = key.modifiers.contains(.alt)
 
@@ -836,7 +842,7 @@ public final class CodeEditorView: TUIView, BorderScrollable {
 
     /// Click to place the caret, drag to select, double/triple click to take
     /// a word or a line, wheel to scroll.
-    public override func mouseEvent(_ mouse: MouseInput) -> Bool {
+    open override func mouseEvent(_ mouse: MouseInput) -> Bool {
         // Bars first: a press on the last column is a scrollbar press, not a
         // click at the end of that line.
         if showsOwnScrollbars, pressOwnScrollbar(mouse) {
