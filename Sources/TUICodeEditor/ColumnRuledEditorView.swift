@@ -48,6 +48,15 @@ public final class ColumnRuledEditorView: CodeEditorView {
             /// Structural, but not a mistake — a sequence area, an Area A.
             case subtle
 
+            /// A column whose ONE character changes what the line is.
+            ///
+            /// COBOL's indicator column is the case: a `*` there comments the
+            /// whole line, a `-` continues the previous one, and a space means
+            /// code. It is one character wide, so it needs to be findable
+            /// without counting — which it is not when it shades the same as
+            /// the sequence area it sits against.
+            case marker
+
             /// Text the compiler will not see. This is the one worth noticing.
             case warning
         }
@@ -77,7 +86,7 @@ public final class ColumnRuledEditorView: CodeEditorView {
     public static var cobolFixedFormat: [ColumnBand] {
         [
             ColumnBand(columns: 0..<6, emphasis: .subtle, name: "sequence"),
-            ColumnBand(columns: 6..<7, emphasis: .subtle, name: "indicator"),
+            ColumnBand(columns: 6..<7, emphasis: .marker, name: "indicator"),
             ColumnBand(columns: 7..<11, emphasis: .none, name: "Area A"),
             ColumnBand(columns: 11..<72, emphasis: .none, name: "Area B"),
             ColumnBand(columns: 72..<Int.max, emphasis: .warning, name: "ignored"),
@@ -169,12 +178,17 @@ public final class ColumnRuledEditorView: CodeEditorView {
             // colours that cannot be mistaken for the ground.
             return [
                 .subtle: .named(.blue),
+                .marker: .named(.cyan),
                 .warning: .named(.red),
             ]
         }
 
         return [
             .subtle: shade(red: red, green: green, blue: blue, by: 18),
+            // Twice the sequence area's step, so the two read as separate
+            // bands where they touch. One column is not much to look at;
+            // matching its neighbour makes it nothing at all.
+            .marker: shade(red: red, green: green, blue: blue, by: 40),
             .warning: warning(red: red, green: green, blue: blue),
         ]
     }

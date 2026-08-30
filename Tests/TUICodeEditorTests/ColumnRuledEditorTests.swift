@@ -134,3 +134,25 @@ private func editor(_ text: String, width: Int = 90) -> ColumnRuledEditorView {
     let (keywords, _) = highlighter.tokenize(line: "procedure Main; begin end;", entering: .code)
     #expect(keywords.filter { $0.scope == "keyword" }.count >= 3)
 }
+
+@Test @MainActor func indicatorColumnDoesNotShadeLikeTheSequenceAreaItTouches() {
+    // A `*` in column 7 comments the whole line, and column 7 is one column
+    // wide sitting directly against the six-column sequence area. Shading
+    // them alike makes the boundary — the thing worth seeing — invisible.
+    let bands = ColumnRuledEditorView.cobolFixedFormat
+    let indicator = bands.first { $0.name == "indicator" }
+    let sequence = bands.first { $0.name == "sequence" }
+
+    #expect(indicator?.emphasis == .marker)
+    #expect(sequence?.emphasis == .subtle)
+
+    let dark = CellStyle(background: .rgb(red: 0, green: 0, blue: 170))
+    let palette = ColumnRuledEditorView.palette(over: dark)
+
+    #expect(palette[.marker] != nil)
+    #expect(palette[.marker] != palette[.subtle])
+    #expect(palette[.marker] != dark.background)
+
+    let plain = CellStyle(background: .standard)
+    #expect(ColumnRuledEditorView.palette(over: plain)[.marker] == .named(.cyan))
+}
