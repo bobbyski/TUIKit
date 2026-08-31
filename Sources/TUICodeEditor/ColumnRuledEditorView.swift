@@ -130,6 +130,20 @@ public final class ColumnRuledEditorView: CodeEditorView {
         ]
     }
 
+    /// The bands a COBOL file needs, which for a free-format file is none.
+    ///
+    /// Free-format COBOL has no sequence area, no indicator column and no
+    /// margin at 72 — banding it would draw lines through code at columns
+    /// that mean nothing, which is worse than drawing nothing.
+    ///
+    /// - Parameter text: The file's contents.
+    /// - Returns: The fixed-format bands, or an empty array.
+    public static func cobolBands(for text: String) -> [ColumnBand] {
+        COBOLHighlighter.detectFormat(in: text.components(separatedBy: "\n")) == .fixed
+            ? cobolFixedFormat
+            : []
+    }
+
     /// Creates an editor with column bands.
     ///
     /// - Parameters:
