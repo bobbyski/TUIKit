@@ -395,3 +395,55 @@ private func makeDirectoryTree() -> (DirectoryTree, FakeFileSystem, Window) {
     _ = tree.keyDown(KeyInput(key: .enter))
     #expect(activated == ["Sources"])
 }
+
+@Test @MainActor func treeViewShowsAScrollbarWhenItOverflows() {
+    let tree = TreeView()
+    tree.roots = (1...30).map { TreeNode("Node \($0)") }
+
+    let window = Window(frame: Rect(x: 0, y: 0, width: 14, height: 6))
+    tree.frame = window.bounds
+    window.addSubview(tree)
+
+    // 30 rows in 6 → the last column becomes the same proportional bar the
+    // list and the editor use, and the rows lose a column to it rather than
+    // being painted underneath it.
+    // Six rows is enough for the end arrows, so the thumb starts below one.
+    let buffer = SceneRenderer(root: window).render(size: Size(width: 14, height: 6))
+    #expect(buffer[Point(x: 13, y: 1)].style.background == .named(.white), "thumb at top of the track")
+    #expect(buffer[Point(x: 13, y: 4)].style.background == .named(.brightBlack), "dim track below")
+
+    // Nothing reserved when everything fits.
+    let small = TreeView()
+    small.roots = [TreeNode("only")]
+    let plain = Window(frame: Rect(x: 0, y: 0, width: 14, height: 6))
+    small.frame = plain.bounds
+    plain.addSubview(small)
+
+    let line = SceneRenderer(root: plain).render(size: Size(width: 14, height: 6)).textLines()[0]
+    #expect(line.trimmingCharacters(in: .whitespaces) == "only")
+}
+
+@Test @MainActor func treeViewScrollbarThumbDragsTheTree() {
+    let tree = TreeView()
+    tree.roots = (1...40).map { TreeNode("Node \($0)") }
+
+    let window = Window(frame: Rect(x: 0, y: 0, width: 14, height: 8))
+    tree.frame = window.bounds
+    window.addSubview(tree)
+    _ = SceneRenderer(root: window).render(size: window.frame.size)
+
+    #expect(tree.scrollOffset == 0)
+
+    // Grab the thumb (row 1, below the ▴ arrow) and drag it down.
+    _ = tree.mouseEvent(MouseInput(position: Point(x: 13, y: 1), action: .press, button: .left))
+    _ = tree.mouseEvent(MouseInput(position: Point(x: 13, y: 6), action: .drag, button: .left))
+    #expect(tree.scrollOffset == 40 - 8, "dragged to the end")
+
+    _ = tree.mouseEvent(MouseInput(position: Point(x: 13, y: 6), action: .release, button: .left))
+
+    // A click in the bar's column is the bar's, not a row's: it must not
+    // change the selection.
+    let selected = tree.selectedNode
+    _ = tree.mouseEvent(MouseInput(position: Point(x: 13, y: 3), action: .click, button: .left))
+    #expect(tree.selectedNode === selected)
+}

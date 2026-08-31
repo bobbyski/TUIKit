@@ -115,6 +115,9 @@ public final class TreeView: TUIView {
     // Expanded nodes flattened depth-first, with their indentation depth.
     private var visibleRows: [(node: TreeNode, depth: Int)] = []
 
+    // In-flight scrollbar-thumb drag: the grab offset within the thumb.
+    private var scrollbarGrab: Int?
+
     /// Creates a tree.
     ///
     /// - Parameter roots: Top-level nodes.
@@ -127,6 +130,11 @@ public final class TreeView: TUIView {
     /// The selected node, when any.
     public var selectedNode: TreeNode? {
         navigation.selectedIndex.map { visibleRows[$0].node }
+    }
+
+    /// First visible row, as ``ListView`` reports it.
+    public var scrollOffset: Int {
+        navigation.scrollOffset
     }
 
     /// Number of currently visible (flattened) rows.
@@ -210,6 +218,9 @@ public final class TreeView: TUIView {
             return
         }
 
+        let showsScrollbar = visibleRows.count > height && width > 1
+        let rowWidth = showsScrollbar ? width - 1 : width
+
         for viewportRow in 0..<height {
             let index = navigation.scrollOffset + viewportRow
 
@@ -230,11 +241,55 @@ public final class TreeView: TUIView {
 
             let disclosure = node.isExpandable ? (node.isExpanded ? "▾" : "▸") : " "
             let text = String(repeating: " ", count: depth * 2) + disclosure + " " + node.title
-            let truncated = Label.truncated(text, width: width)
-            let padded = truncated + String(repeating: " ", count: max(0, width - truncated.count))
+            let truncated = Label.truncated(text, width: rowWidth)
+            let padded = truncated + String(repeating: " ", count: max(0, rowWidth - truncated.count))
 
             painter.write(padded, at: Point(x: 0, y: viewportRow), style: style)
         }
+
+        if showsScrollbar {
+            drawScrollbar(painter, at: width - 1, height: height)
+        }
+    }
+
+    // The same bar as ListView's, the editor's and the window border's: one
+    // painter and one geometry, so a tree that overflows does not scroll by a
+    // rule of its own.
+    private func drawScrollbar(_ painter: Painter, at column: Int, height: Int) {
+        let (track, thumb) = ScrollView.indicatorStyles(for: effectiveTheme, focused: isFirstResponder)
+        scrollbarRun(height: height).draw(in: painter, vertical: true, at: column, track: track, thumb: thumb)
+    }
+
+    // The run for the current scroll — shared by drawing, pressing and
+    // dragging, so the thumb the user grabs is exactly the one drawn.
+    private func scrollbarRun(height: Int) -> ScrollbarRun {
+        ScrollbarRun(
+            start: 0,
+            length: height,
+            span: ScrollSpan(offset: navigation.scrollOffset, viewport: height, content: max(1, visibleRows.count))
+        )
+    }
+
+    // Press on the scrollbar: an arrow steps, the track pages, the thumb
+    // starts a drag. All three come from the shared run.
+    private func pressScrollbar(atRow row: Int, height: Int) -> Bool {
+        let run = scrollbarRun(height: height)
+        navigation.scrollOffset = clampedOffset(run.offset(forPress: row, grab: &scrollbarGrab), height: height)
+        setNeedsDisplay()
+        return true
+    }
+
+    // Drag maps the thumb's top row to a proportional scroll offset.
+    private func dragScrollbar(toRow row: Int, height: Int) {
+        let run = scrollbarRun(height: height)
+        let target = run.offset(forThumbStart: row - (scrollbarGrab ?? 0))
+
+        navigation.scrollOffset = clampedOffset(target, height: height)
+        setNeedsDisplay()
+    }
+
+    private func clampedOffset(_ offset: Int, height: Int) -> Int {
+        min(max(0, offset), max(0, visibleRows.count - height))
     }
 
     /// Navigation, disclosure (`←`/`→`), and activation keys.
@@ -311,11 +366,32 @@ public final class TreeView: TUIView {
     /// acts on the raw press, so a double-click never runs the single-click
     /// action first. The wheel scrolls.
     public override func mouseEvent(_ mouse: MouseInput) -> Bool {
+        let height = bounds.size.height
+        let overflow = visibleRows.count > height && bounds.size.width > 1
+
         switch mouse.action {
         case .press where mouse.button == .left:
+            if overflow, mouse.position.x == bounds.size.width - 1 {
+                return pressScrollbar(atRow: mouse.position.y, height: height)
+            }
+
             return true   // consume; the settled click does the work
 
+        case .drag where scrollbarGrab != nil:
+            dragScrollbar(toRow: mouse.position.y, height: height)
+            return true
+
+        case .release where scrollbarGrab != nil:
+            scrollbarGrab = nil
+            return true
+
         case .click:
+            // The scrollbar's column is the scrollbar's, not the row's: a
+            // click there already scrolled on the press.
+            if overflow, mouse.position.x == bounds.size.width - 1 {
+                return false
+            }
+
             let index = navigation.scrollOffset + mouse.position.y
 
             guard index < visibleRows.count else {
