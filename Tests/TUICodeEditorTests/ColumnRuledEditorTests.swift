@@ -156,3 +156,32 @@ private func editor(_ text: String, width: Int = 90) -> ColumnRuledEditorView {
     let plain = CellStyle(background: .standard)
     #expect(ColumnRuledEditorView.palette(over: plain)[.marker] == .named(.cyan))
 }
+
+@Test @MainActor func guideModeChoosesHowMuchOfTheRuleIsPainted() {
+    let view = editor("      *" + String(repeating: "X", count: 100))
+
+    // All three modes agree about what the bands ARE — the mode decides
+    // which of them reach the screen, so `band(atColumn:)` keeps answering
+    // for the format even when nothing is drawn.
+    #expect(view.guideMode == .all)
+    #expect(!view.columnTints.isEmpty)
+
+    let everything = view.columnTints
+    view.guideMode = .overflowOnly
+    view.layoutIfNeeded()
+
+    let overflow = view.columnTints
+    #expect(!overflow.isEmpty)
+    #expect(overflow != everything)
+    #expect(overflow.values.allSatisfy { $0.count == 1 }, "only the ignored tail survives")
+    #expect(overflow.values.allSatisfy { $0.first?.columns.lowerBound == 72 })
+    #expect(view.band(atColumn: 0)?.name == "sequence", "the format is unchanged")
+
+    view.guideMode = .none
+    view.layoutIfNeeded()
+    #expect(view.columnTints.isEmpty)
+
+    view.guideMode = .all
+    view.layoutIfNeeded()
+    #expect(view.columnTints == everything)
+}

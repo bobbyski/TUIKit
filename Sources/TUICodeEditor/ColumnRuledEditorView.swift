@@ -69,6 +69,43 @@ public final class ColumnRuledEditorView: CodeEditorView {
         }
     }
 
+    /// How much of the column rule to paint.
+    ///
+    /// The bands are useful while learning a fixed format's areas and while
+    /// laying code out; they are noise to someone who has typed COBOL for
+    /// thirty years and only wants to know when a line has run past the
+    /// margin. So the middle setting keeps the one band that reports a
+    /// mistake and drops the four that describe the format.
+    public enum GuideMode: String, CaseIterable, Sendable {
+        /// Every band: the areas and the overflow.
+        case all
+
+        /// Only the bands that mark text the compiler will not see.
+        case overflowOnly
+
+        /// No bands at all — an ordinary editor with COBOL colouring.
+        case none
+
+        /// Menu/popup wording.
+        public var title: String {
+            switch self {
+            case .all: "All Guides"
+            case .overflowOnly: "Overflow Only"
+            case .none: "No Guides"
+            }
+        }
+    }
+
+    /// Which bands are painted. Defaults to all of them.
+    public var guideMode: GuideMode = .all {
+        didSet {
+            if guideMode != oldValue {
+                refreshBandTints()
+                setNeedsDisplay()
+            }
+        }
+    }
+
     /// The bands, in column order. Empty means an ordinary editor.
     public var bands: [ColumnBand] = [] {
         didSet {
@@ -126,7 +163,15 @@ public final class ColumnRuledEditorView: CodeEditorView {
     // painted by the same code that paints a diff's two halves, and syntax
     // colours resolve over them exactly the same way.
     private func refreshBandTints() {
-        guard !bands.isEmpty else {
+        let shown: [ColumnBand]
+
+        switch guideMode {
+        case .all: shown = bands
+        case .overflowOnly: shown = bands.filter { $0.emphasis == .warning }
+        case .none: shown = []
+        }
+
+        guard !shown.isEmpty else {
             if !columnTints.isEmpty {
                 columnTints = [:]
             }
@@ -137,7 +182,7 @@ public final class ColumnRuledEditorView: CodeEditorView {
         let width = max(1, textAreaWidth)
         let palette = Self.palette(over: effectiveTheme.base)
 
-        let tints: [ColumnTint] = bands.compactMap { band in
+        let tints: [ColumnTint] = shown.compactMap { band in
             guard let color = palette[band.emphasis] else {
                 return nil
             }
