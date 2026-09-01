@@ -282,9 +282,10 @@ import Testing
     #expect(vector?.windowShadow != nil)
     #expect(vector?.button != nil)
 
-    // Translucent document, near-solid chrome.
-    let surface = vector?.surface
-    #expect(surface?.windowFill.alpha == 205)
+    // Solid windows: the chrome is what this theme takes from Ambiance,
+    // not the see-through body.
+    #expect(vector?.surface == nil)
+    #expect(Theme.ambiance.base.vector?.surface != nil, "Ambiance keeps it")
 
     // Turbo itself is untouched: no vector chrome, no transparency.
     #expect(turbo.base.vector?.surface == nil)
@@ -297,7 +298,7 @@ import Testing
     // cells over it go back to the terminal's default, which is what lets
     // the desktop show through them.
     let panel = Panel("Doc")
-    panel.theme = .turboAmbiance
+    panel.theme = .ambiance
     panel.frame = Rect(x: 0, y: 0, width: 20, height: 6)
 
     let renderer = SceneRenderer(root: panel)

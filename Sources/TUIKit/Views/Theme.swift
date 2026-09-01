@@ -440,13 +440,13 @@ extension Theme {
     ///
     /// The same EGA colours a Turbo window has always worn, drawn the way
     /// the Phase 10 vector chrome draws Ambiance: a gradient desktop, a
-    /// gradient titlebar with circular buttons, gradient push buttons, a
-    /// soft window shadow — and translucent window bodies, so the desktop
-    /// glows through the document the way a modern compositor would.
+    /// gradient titlebar with circular buttons, gradient push buttons and a
+    /// soft window shadow.
     ///
-    /// The chrome does NOT go translucent with it. A menu, the menu bar and
-    /// a toolbar are drawn nearly solid over the window they cover, because
-    /// a menu you can read the document through is a menu you cannot read.
+    /// Solid windows, deliberately. The vector layer can make a body
+    /// translucent — ``Ambiance`` asks for it — and over a Borland palette it
+    /// reads as a wash rather than as depth. The chrome here is the part
+    /// worth having.
     ///
     /// On a terminal without VTG this is Turbo, cell for cell: every vector
     /// feature has a cell fallback already, and the palette is unchanged. The
@@ -484,14 +484,7 @@ extension Theme {
                 topColor: ChromeColor(red: 85, green: 85, blue: 255),     // the Turbo backdrop…
                 bottomColor: ChromeColor(red: 0, green: 0, blue: 70)      // …deepened
             ),
-            windowShadow: ChromeColor(red: 0, green: 0, blue: 0, alpha: 84),
-            surface: VectorChrome.Surface(
-                // Four fifths solid: enough blue left to read yellow text on,
-                // enough backdrop through it to see that it is a window. The
-                // menu bar, menus and toolbars stay opaque cells over it.
-                windowFill: ChromeColor(red: 0, green: 0, blue: 170, alpha: 205),
-                cornerRadius: 0.2
-            )
+            windowShadow: ChromeColor(red: 0, green: 0, blue: 0, alpha: 84)
         )
 
         return theme
@@ -566,7 +559,15 @@ extension Theme {
                 topColor: ChromeColor(red: 94, green: 39, blue: 80),      // aubergine…
                 bottomColor: ChromeColor(red: 44, green: 0, blue: 30)     // …to near-black
             ),
-            windowShadow: ChromeColor(red: 0, green: 0, blue: 0, alpha: 84)
+            windowShadow: ChromeColor(red: 0, green: 0, blue: 0, alpha: 84),
+            surface: VectorChrome.Surface(
+                // The one theme that asks for a translucent body, so the
+                // aubergine desktop glows faintly through the window the way
+                // a compositor would show it. Menus, the menu bar and
+                // toolbars stay opaque cells over it.
+                windowFill: ChromeColor(red: 242, green: 241, blue: 240, alpha: 214),
+                cornerRadius: 0.2
+            )
         )
 
         // Cell fallback for the desktop: flat aubergine.
