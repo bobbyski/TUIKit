@@ -414,3 +414,101 @@ import Testing
     #expect(older.effectiveTheme.scrollbar.foreground == .rgb(red: 17, green: 34, blue: 51))
 }
 
+
+// The sixteen inks a Turbo window is allowed to use.
+private let egaPalette: Set<[Int]> = [
+    [0, 0, 0], [0, 0, 170], [0, 170, 0], [0, 170, 170],
+    [170, 0, 0], [170, 0, 170], [170, 85, 0], [170, 170, 170],
+    [85, 85, 85], [85, 85, 255], [85, 255, 85], [85, 255, 255],
+    [255, 85, 85], [255, 85, 255], [255, 255, 85], [255, 255, 255],
+]
+
+@Test func turboAmbiancesVectorChromeUsesOnlyTurbosInks() {
+    // The theme is Turbo's colours drawn Ambiance's way. A colour invented
+    // for the chrome would be a colour Turbo does not have, which is the one
+    // thing this theme may not do — so the gradients, the window buttons and
+    // the shadow all come out of the same sixteen inks.
+    let vector = try! #require(Theme.turboAmbiance.base.vector)
+
+    func check(_ color: ChromeColor?, _ what: String) {
+        guard let color else { return }
+        #expect(egaPalette.contains([Int(color.red), Int(color.green), Int(color.blue)]), "\(what) is not an EGA ink")
+    }
+
+    func check(_ color: TerminalColor?, _ what: String) {
+        guard case .rgb(let red, let green, let blue)? = color else { return }
+        #expect(egaPalette.contains([Int(red), Int(green), Int(blue)]), "\(what) is not an EGA ink")
+    }
+
+    let bar = try! #require(vector.titleBar)
+    check(bar.topColor, "titlebar top")
+    check(bar.bottomColor, "titlebar bottom")
+    check(bar.strokeColor, "titlebar stroke")
+    check(bar.textColor, "titlebar text")
+    check(bar.closeButtonColor, "close button")
+    check(bar.closeSymbolColor, "close symbol")
+    check(bar.auxiliaryButtonColor, "maximize button")
+    check(bar.auxiliarySymbolColor, "maximize symbol")
+
+    let button = try! #require(vector.button)
+    check(button.topColor, "button top")
+    check(button.bottomColor, "button bottom")
+    check(button.strokeColor, "button stroke")
+    check(button.textColor, "button text")
+    check(button.focusStrokeColor, "focus stroke")
+    check(button.pressedTopColor, "pressed top")
+    check(button.pressedBottomColor, "pressed bottom")
+
+    let desktop = try! #require(vector.desktop)
+    check(desktop.topColor, "desktop top")
+    check(desktop.bottomColor, "desktop bottom")
+    check(vector.windowShadow, "window shadow")   // black, softened by alpha
+}
+
+@Test @MainActor func turboAmbiancePaintsTheSameCellsAsTurbo() {
+    // Cell for cell, on a VTG terminal: the menu bar, the toolbar, the list,
+    // the selection, the scrollbar. Whatever Ambiance contributes, it is not
+    // a different colour anywhere.
+    func scene(_ theme: Theme) -> CellBuffer {
+        let panel = Panel("Doc")
+        panel.theme = theme
+        panel.frame = Rect(x: 0, y: 0, width: 60, height: 14)
+
+        let bar = MenuBar()
+        bar.addMenu(Menu("&File"))
+        bar.frame = Rect(x: 0, y: 0, width: 60, height: 1)
+
+        let toolbar = Toolbar()
+        toolbar.addItem("Open", glyph: "▤") {}
+        toolbar.frame = Rect(x: 1, y: 1, width: 58, height: 1)
+
+        let list = ListView(items: (1...30).map { "Item \($0)" })
+        list.frame = Rect(x: 1, y: 2, width: 30, height: 10)
+
+        panel.addSubview(bar)
+        panel.addSubview(toolbar)
+        panel.addSubview(list)
+        panel.layoutIfNeeded()
+
+        let renderer = SceneRenderer(root: panel)
+        renderer.chromeEnabled = true
+        return renderer.render(size: Size(width: 60, height: 14))
+    }
+
+    let turbo = scene(.turbo)
+    let ambiance = scene(.turboAmbiance)
+    var differences = 0
+
+    for y in 0..<14 {
+        for x in 0..<60 {
+            let expected = turbo[Point(x: x, y: y)].style
+            let actual = ambiance[Point(x: x, y: y)].style
+
+            if expected.foreground != actual.foreground || expected.background != actual.background {
+                differences += 1
+            }
+        }
+    }
+
+    #expect(differences == 0, "\(differences) cells differ from Turbo")
+}

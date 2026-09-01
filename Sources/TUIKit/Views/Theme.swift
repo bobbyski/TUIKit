@@ -457,34 +457,39 @@ extension Theme {
         theme.base.buttonShadowColor = nil   // the vector pill has its own depth
         theme.base.borderStyle = .rounded    // Ambiance rounds; the cells follow
 
+        // EVERY colour here is one Turbo already uses — the sixteen EGA
+        // inks and nothing else. What Ambiance contributes is the shapes:
+        // gradients, rounded corners, circular window buttons, a shadow.
+        // A colour invented for the chrome would be a colour Turbo does not
+        // have, which is the whole thing this theme is not allowed to do.
         theme.base.vector = VectorChrome(
             titleBar: VectorChrome.TitleBar(
-                topColor: ChromeColor(red: 0, green: 0, blue: 200),      // Borland blue…
-                bottomColor: ChromeColor(red: 0, green: 0, blue: 120),   // …into navy
+                topColor: ChromeColor(red: 85, green: 85, blue: 255),     // EGA bright blue…
+                bottomColor: ChromeColor(red: 0, green: 0, blue: 170),    // …into EGA blue
                 cornerRadius: 0.35,
-                strokeColor: ChromeColor(red: 0, green: 0, blue: 85),
-                textColor: .rgb(red: 255, green: 255, blue: 255),
+                strokeColor: ChromeColor(red: 0, green: 0, blue: 0),      // black
+                textColor: .rgb(red: 255, green: 255, blue: 255),         // white
                 buttonPlacement: .leading,                                // Ambiance's side
-                closeButtonColor: ChromeColor(red: 255, green: 85, blue: 85),   // EGA bright red
-                closeSymbolColor: .rgb(red: 90, green: 0, blue: 0),
-                auxiliaryButtonColor: ChromeColor(red: 0, green: 170, blue: 170),  // cyan
-                auxiliarySymbolColor: .rgb(red: 0, green: 0, blue: 90)
+                closeButtonColor: ChromeColor(red: 170, green: 0, blue: 0),    // EGA red
+                closeSymbolColor: .rgb(red: 0, green: 0, blue: 0),
+                auxiliaryButtonColor: ChromeColor(red: 0, green: 170, blue: 170),  // EGA cyan
+                auxiliarySymbolColor: .rgb(red: 0, green: 0, blue: 0)
             ),
             button: VectorChrome.Button(
-                topColor: ChromeColor(red: 200, green: 200, blue: 200),   // gray pill…
-                bottomColor: ChromeColor(red: 140, green: 140, blue: 140),
-                strokeColor: ChromeColor(red: 85, green: 85, blue: 85),
+                topColor: ChromeColor(red: 170, green: 170, blue: 170),   // light gray…
+                bottomColor: ChromeColor(red: 85, green: 85, blue: 85),   // …into dark gray
+                strokeColor: ChromeColor(red: 0, green: 0, blue: 0),
                 cornerRadius: 0.4,
-                textColor: .rgb(red: 0, green: 0, blue: 0),
+                textColor: .rgb(red: 255, green: 255, blue: 255),         // white, as Turbo's
                 focusStrokeColor: ChromeColor(red: 0, green: 170, blue: 170),  // cyan focus
-                pressedTopColor: ChromeColor(red: 130, green: 130, blue: 130),
-                pressedBottomColor: ChromeColor(red: 190, green: 190, blue: 190)
+                pressedTopColor: ChromeColor(red: 85, green: 85, blue: 85),
+                pressedBottomColor: ChromeColor(red: 170, green: 170, blue: 170)
             ),
             desktop: VectorChrome.DesktopBackdrop(
-                topColor: ChromeColor(red: 85, green: 85, blue: 255),     // the Turbo backdrop…
-                bottomColor: ChromeColor(red: 0, green: 0, blue: 70)      // …deepened
+                topColor: ChromeColor(red: 85, green: 85, blue: 255),     // Turbo's desktop…
+                bottomColor: ChromeColor(red: 0, green: 0, blue: 170)     // …into its blue
             ),
-            windowShadow: ChromeColor(red: 0, green: 0, blue: 0, alpha: 84)
+            windowShadow: ChromeColor(red: 0, green: 0, blue: 0, alpha: 84)   // black, softened
         )
 
         return theme
