@@ -357,25 +357,23 @@ import Testing
     #expect(ScrollView.contrasting(.named(.blue), against: .named(.blue)) == .named(.blue))
 }
 
-@Test @MainActor func everyBuiltInThemePicksItsOwnVisibleThumb() {
-    // The floor in the scrollbar is a backstop for themes written elsewhere.
-    // The BUILT-INS are expected to clear it on their own, in colours chosen
-    // for each of them — a corrected colour is the framework overruling the
-    // theme, and a theme shipped here should not need overruling.
+@Test @MainActor func everyBuiltInThemesThumbIsVisibleWhereItIsDRAWN() {
+    // The palettes keep their own two shades — a theme's colours are the
+    // theme's business. What is guaranteed is what reaches the screen: by
+    // the time a bar is painted, its thumb clears the floor.
     for (name, theme) in Theme.builtIn {
         for context in [ThemeContext.contentWindow, .menus, .secondaryWindows, nil] {
             let resolved = theme.resolved(for: context)
-            let thumb = resolved.scrollbar.foreground
-            let track = resolved.scrollbar.background
+            let (track, thumb) = ScrollView.indicatorStyles(for: resolved, focused: false)
 
-            guard case .rgb = thumb, case .rgb = track else {
+            guard case .rgb = thumb.background, case .rgb = track.background else {
                 continue   // named or default colours are the terminal's call
             }
 
-            let corrected = ScrollView.contrasting(thumb, against: track)
+            let corrected = ScrollView.contrasting(thumb.background, against: track.background)
             #expect(
-                corrected == thumb,
-                "\(name) [\(context.map { "\($0)" } ?? "base")] ships a thumb the scrollbar has to correct"
+                corrected == thumb.background,
+                "\(name) [\(context.map { "\($0)" } ?? "base")] draws a thumb that is still too close to its track"
             )
         }
     }
