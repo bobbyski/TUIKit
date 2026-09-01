@@ -525,6 +525,95 @@ open class TUIView {
         return (self, point)
     }
 
+    // MARK: - Coordinate conversion
+
+    /// This view's origin in `ancestor`'s coordinate space.
+    ///
+    /// Sums frame origins up the superview chain, stopping at `ancestor`.
+    /// Returns nil when `ancestor` is not actually an ancestor — a detached
+    /// view, or two views in different windows — rather than answering a
+    /// number that would silently be wrong.
+    ///
+    /// `Window` has carried a private version of this walk for its drag
+    /// handling. This is the same arithmetic, said once and in public,
+    /// because anything hosting TUIKit needs it too: ActiveUI's terminal
+    /// backend was reduced to re-deriving it, which is how it surfaced.
+    ///
+    /// - Parameter ancestor: The view to measure against. Passing `self`
+    ///   answers `.zero`.
+    /// - Returns: The origin in `ancestor`'s space, or nil when unrelated.
+    public func origin(in ancestor: TUIView) -> Point? {
+        var origin = Point.zero
+        var current: TUIView? = self
+
+        while let node = current {
+            if node === ancestor {
+                return origin
+            }
+            origin = origin + node.frame.origin
+            current = node.superview
+        }
+
+        return nil
+    }
+
+    /// Converts a point from this view's space into another's.
+    ///
+    /// Works in either direction — up, down, or across — by routing through
+    /// the nearest common ancestor.
+    ///
+    /// - Parameters:
+    ///   - point: A point in this view's local coordinates.
+    ///   - other: The view to convert into.
+    /// - Returns: The point in `other`'s coordinates, or nil when the two
+    ///   views share no ancestor.
+    public func convert(_ point: Point, to other: TUIView) -> Point? {
+        guard let shared = nearestCommonAncestor(with: other),
+              let mine = origin(in: shared),
+              let theirs = other.origin(in: shared) else {
+            return nil
+        }
+
+        return point + mine - theirs
+    }
+
+    /// Converts a point from another view's space into this one's.
+    ///
+    /// - Parameters:
+    ///   - point: A point in `other`'s local coordinates.
+    ///   - other: The view the point came from.
+    /// - Returns: The point in this view's coordinates, or nil when the two
+    ///   views share no ancestor.
+    public func convert(_ point: Point, from other: TUIView) -> Point? {
+        other.convert(point, to: self)
+    }
+
+    /// The nearest view that is an ancestor of both, or nil when there is
+    /// none — two detached trees, or two different windows.
+    ///
+    /// A view is considered an ancestor of itself, so this answers `self`
+    /// when one view contains the other.
+    public func nearestCommonAncestor(with other: TUIView) -> TUIView? {
+        var chain: Set<ObjectIdentifier> = []
+        var current: TUIView? = self
+
+        while let node = current {
+            chain.insert(ObjectIdentifier(node))
+            current = node.superview
+        }
+
+        var candidate: TUIView? = other
+
+        while let node = candidate {
+            if chain.contains(ObjectIdentifier(node)) {
+                return node
+            }
+            candidate = node.superview
+        }
+
+        return nil
+    }
+
     // Visits the visible tree depth-first (self, then children in order)
     // until the body returns true. Returns whether any visit returned true.
     @discardableResult
