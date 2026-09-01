@@ -70,10 +70,22 @@ public final class Desktop: TUIView {
     // window cannot paint outside its own frame (the clipping contract).
     // Slightly offset and rounded like the titlebar above each shadow.
     private func drawWindowShadows(_ chrome: ChromeSurface) {
-        for subview in subviews {
+        for (index, subview) in subviews.enumerated() {
             guard let window = subview as? Window, !window.isHidden, !window.fillsScreen,
                   let vector = window.effectiveTheme.vector,
                   let shadow = vector.windowShadow else {
+                continue
+            }
+
+            // A shadow belongs UNDER its window and beside it — but the
+            // terminal composites it over the whole frame, so a window with
+            // something stacked on top gets none. Better a missing shadow
+            // than a grey wash across the window in front.
+            let covered = subviews[(index + 1)...].contains {
+                !$0.isHidden && $0.frame.intersects(window.frame)
+            }
+
+            guard !covered else {
                 continue
             }
 

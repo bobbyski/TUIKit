@@ -75,6 +75,13 @@ public struct Painter {
     // surface even on a VTG terminal.
     private let chromeSuppressed: Bool
 
+    // Regions of the screen covered by something drawn AFTER this view: the
+    // windows stacked above it. Cells handle this for free — a later window
+    // overwrites them — but vector chrome is composited by the terminal over
+    // the whole frame, so a covered window's titlebar would otherwise paint
+    // across the window in front of it.
+    private let occluders: [Rect]
+
     /// The vector chrome surface, when the frame is chrome-enabled.
     ///
     /// `nil` on plain terminals — and inside subtrees that set
@@ -105,7 +112,8 @@ public struct Painter {
         clip: Rect,
         base: CellStyle = CellStyle(),
         chromeOwnerID: String = "root",
-        chromeSuppressed: Bool = false
+        chromeSuppressed: Bool = false,
+        occluders: [Rect] = []
     ) {
         self.target = target
         self.origin = origin
@@ -113,6 +121,45 @@ public struct Painter {
         self.base = base
         self.chromeOwnerID = chromeOwnerID
         self.chromeSuppressed = chromeSuppressed
+        self.occluders = occluders
+    }
+
+    // Whether the frame draws vector chrome at all. The render walk gates
+    // its occlusion bookkeeping on this: on a plain terminal nothing needs
+    // to know what covers what, because cells already handle it.
+    var chromeIsActive: Bool {
+        target.chromeEnabled && !chromeSuppressed
+    }
+
+    /// Whether anything drawn later covers part of a view-local rectangle.
+    ///
+    /// The question vector chrome has to ask and cells do not. A view whose
+    /// answer is `true` draws its cell fallback: VTG cannot crop a rounded
+    /// bar or a circle to an arbitrary shape, and half a titlebar painted
+    /// over the window in front of it is worse than the plain one it
+    /// replaces.
+    ///
+    /// - Parameter rect: A view-local rectangle.
+    /// - Returns: True when a later sibling overlaps it.
+    public func isOccluded(_ rect: Rect) -> Bool {
+        let translated = Rect(origin: origin + rect.origin, size: rect.size)
+        return occluders.contains { $0.intersects(translated) }
+    }
+
+    /// Derives a painter that knows what is stacked above the view it draws.
+    ///
+    /// - Parameter rects: Screen-space regions covering it.
+    /// - Returns: Painter with the same translation, clip and base.
+    public func withOccluders(_ rects: [Rect]) -> Painter {
+        Painter(
+            target: target,
+            origin: origin,
+            clip: clip,
+            base: base,
+            chromeOwnerID: chromeOwnerID,
+            chromeSuppressed: chromeSuppressed,
+            occluders: rects
+        )
     }
 
     /// Writes one cell at a view-local point, subject to clipping.
@@ -241,7 +288,8 @@ public struct Painter {
             clip: clip.intersection(frameInBuffer),
             base: base,
             chromeOwnerID: chromeOwnerID,
-            chromeSuppressed: chromeSuppressed
+            chromeSuppressed: chromeSuppressed,
+            occluders: occluders
         )
     }
 
@@ -265,7 +313,8 @@ public struct Painter {
             clip: clip,
             base: newBase,
             chromeOwnerID: chromeOwnerID,
-            chromeSuppressed: chromeSuppressed
+            chromeSuppressed: chromeSuppressed,
+            occluders: occluders
         )
     }
 
@@ -284,7 +333,8 @@ public struct Painter {
             clip: clip,
             base: base,
             chromeOwnerID: ownerID,
-            chromeSuppressed: chromeSuppressed
+            chromeSuppressed: chromeSuppressed,
+            occluders: occluders
         )
     }
 
@@ -299,7 +349,8 @@ public struct Painter {
             clip: clip,
             base: base,
             chromeOwnerID: chromeOwnerID,
-            chromeSuppressed: true
+            chromeSuppressed: true,
+            occluders: occluders
         )
     }
 }

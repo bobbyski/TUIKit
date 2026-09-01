@@ -691,8 +691,26 @@ open class TUIView {
 
         draw(painter)
 
-        for subview in subviews {
-            subview.renderTree(with: painter.forSubview(frame: subview.frame))
+        for (index, subview) in subviews.enumerated() {
+            var subviewPainter = painter.forSubview(frame: subview.frame)
+
+            // What is stacked ABOVE this subview — the later siblings that
+            // overlap it. Cells need none of this (a later sibling simply
+            // overwrites them), but the terminal composites vector chrome
+            // over the whole frame, so a covered window's titlebar would
+            // paint across the window in front of it. Gated on chrome being
+            // live, so a plain terminal pays nothing for the bookkeeping.
+            if painter.chromeIsActive, index + 1 < subviews.count {
+                let above = subviews[(index + 1)...]
+                    .filter { !$0.isHidden && $0.frame.intersects(subview.frame) }
+                    .map { Rect(origin: painter.origin + $0.frame.origin, size: $0.frame.size) }
+
+                if !above.isEmpty {
+                    subviewPainter = subviewPainter.withOccluders(above)
+                }
+            }
+
+            subview.renderTree(with: subviewPainter)
         }
 
         needsDisplay = false

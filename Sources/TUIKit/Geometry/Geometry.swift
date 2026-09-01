@@ -148,4 +148,12 @@ public struct Rect: Hashable, Codable, Sendable {
 
         return Rect(x: x0, y: y0, width: x1 - x0, height: y1 - y0)
     }
+
+    /// Whether two rectangles overlap at all.
+    ///
+    /// - Parameter other: Rectangle to test against.
+    /// - Returns: True when they share any area.
+    public func intersects(_ other: Rect) -> Bool {
+        intersection(other) != .zero
+    }
 }

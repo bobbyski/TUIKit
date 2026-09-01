@@ -235,7 +235,14 @@ public final class Panel: TUIView {
 
         let width = bounds.size.width
 
+        // A window with something stacked over it takes the cell titlebar:
+        // the vector bar cannot be cropped to the visible part, and half a
+        // rounded bar painted across the window in front is worse than the
+        // plain one it replaces.
+        let titleRow = Rect(x: 0, y: 0, width: width, height: 1)
+
         if let chrome = painter.chrome, isWindowChrome, width >= 4,
+           !painter.isOccluded(titleRow),
            let titleBar = theme.vector?.titleBar {
             chromeTitleBarActive = true
             chromeButtonsLeading = (titleBar.buttonPlacement ?? .trailing) == .leading

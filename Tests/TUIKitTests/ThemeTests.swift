@@ -515,3 +515,47 @@ private let egaPalette: Set<[Int]> = [
 
     #expect(differences == 0, "\(differences) cells differ from Turbo")
 }
+
+@Test @MainActor func aCoveredWindowDrawsNoVectorTitleBarOverTheOneInFront() {
+    // The bug this fixes: cells are overwritten by whatever is drawn after
+    // them, but vector chrome is composited over the whole frame — so a
+    // window behind another painted its rounded titlebar straight across the
+    // window in front of it.
+    let desktop = Desktop()
+    desktop.frame = Rect(x: 0, y: 0, width: 60, height: 20)
+    desktop.theme = .turboAmbiance
+
+    let back = FloatingWindow(title: "Back", frame: Rect(x: 0, y: 0, width: 40, height: 10))
+    let front = FloatingWindow(title: "Front", frame: Rect(x: 5, y: 0, width: 40, height: 10))
+
+    desktop.addSubview(back)
+    desktop.addSubview(front)
+
+    let renderer = SceneRenderer(root: desktop)
+    renderer.chromeEnabled = true
+    _ = renderer.render(size: Size(width: 60, height: 20))
+
+    // A gradient bar is a base rect plus strips, so count the WINDOWS that
+    // drew one rather than the commands.
+    func titleBarOwners() -> Set<String> {
+        Set(
+            renderer.chromeCommands
+                .filter { $0.id.contains("titlebar") }
+                .map { String($0.id.prefix(while: { $0 != "_" })) }
+        )
+    }
+
+    #expect(titleBarOwners().count == 1, "only the uncovered window draws one, got \(titleBarOwners().count)")
+
+    // And the covered one still HAS a titlebar — the cell-drawn kind, which
+    // the window in front overwrites the way cells always have.
+    let buffer = renderer.render(size: Size(width: 60, height: 20))
+    let backRow = (0..<5).map { String(buffer[Point(x: $0, y: 0)].character) }.joined()
+    #expect(backRow.contains("═") || backRow.contains("─") || backRow.contains("╔"), "a cell frame, got '\(backRow)'")
+
+    // Move it clear and the vector bar comes back.
+    front.frame = Rect(x: 45, y: 12, width: 14, height: 6)
+    desktop.setNeedsDisplay()
+    _ = renderer.render(size: Size(width: 60, height: 20))
+    #expect(titleBarOwners().count == 2, "both are clear now")
+}
