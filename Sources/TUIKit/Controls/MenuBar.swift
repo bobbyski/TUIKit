@@ -213,8 +213,11 @@ public final class MenuBar: TUIView {
         let theme = effectiveTheme
 
         // The whole bar wears the header slot (e.g. the Borland gray menu bar),
-        // so it reads as one strip of chrome rather than window content.
+        // so it reads as one strip of chrome rather than window content —
+        // and under a translucent theme it is drawn MORE opaque than the
+        // windows below it, for the same reason.
         painter.fill(bounds, with: TerminalCell(character: " ", style: theme.header))
+        drawTranslucentChromeSurface(painter, bounds, key: "menubar")
 
         var x = 0
 
@@ -607,6 +610,11 @@ final class MenuDropdown: TUIView {
         let theme = effectiveTheme
 
         painter.fill(bounds, with: .blank)
+
+        // A dropdown is the one surface that must never be see-through: it
+        // covers a document you are reading in order to be read instead.
+        drawTranslucentChromeSurface(painter, bounds, key: "dropdown")
+
         painter.drawBox(bounds, style: theme.border, border: theme.borderStyle)
 
         let innerWidth = max(0, bounds.size.width - 4)

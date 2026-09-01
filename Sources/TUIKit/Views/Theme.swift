@@ -431,6 +431,67 @@ extension Theme {
         return theme
     }()
 
+    /// Turbo Ambiance — Borland's palette with Ambiance's manners.
+    ///
+    /// The same EGA colours a Turbo window has always worn, drawn the way
+    /// the Phase 10 vector chrome draws Ambiance: a gradient desktop, a
+    /// gradient titlebar with circular buttons, gradient push buttons, a
+    /// soft window shadow — and translucent window bodies, so the desktop
+    /// glows through the document the way a modern compositor would.
+    ///
+    /// The chrome does NOT go translucent with it. A menu, the menu bar and
+    /// a toolbar are drawn nearly solid over the window they cover, because
+    /// a menu you can read the document through is a menu you cannot read.
+    ///
+    /// On a terminal without VTG this is Turbo, cell for cell: every vector
+    /// feature has a cell fallback already, and the palette is unchanged. The
+    /// pretty version costs nothing to the terminal that cannot draw it.
+    public static let turboAmbiance: Theme = {
+        var theme = Theme.turbo
+        theme.name = "Turbo Ambiance"
+        theme.base.buttonShadowColor = nil   // the vector pill has its own depth
+        theme.base.borderStyle = .rounded    // Ambiance rounds; the cells follow
+
+        theme.base.vector = VectorChrome(
+            titleBar: VectorChrome.TitleBar(
+                topColor: ChromeColor(red: 0, green: 0, blue: 200),      // Borland blue…
+                bottomColor: ChromeColor(red: 0, green: 0, blue: 120),   // …into navy
+                cornerRadius: 0.35,
+                strokeColor: ChromeColor(red: 0, green: 0, blue: 85),
+                textColor: .rgb(red: 255, green: 255, blue: 255),
+                buttonPlacement: .leading,                                // Ambiance's side
+                closeButtonColor: ChromeColor(red: 255, green: 85, blue: 85),   // EGA bright red
+                closeSymbolColor: .rgb(red: 90, green: 0, blue: 0),
+                auxiliaryButtonColor: ChromeColor(red: 0, green: 170, blue: 170),  // cyan
+                auxiliarySymbolColor: .rgb(red: 0, green: 0, blue: 90)
+            ),
+            button: VectorChrome.Button(
+                topColor: ChromeColor(red: 200, green: 200, blue: 200),   // gray pill…
+                bottomColor: ChromeColor(red: 140, green: 140, blue: 140),
+                strokeColor: ChromeColor(red: 85, green: 85, blue: 85),
+                cornerRadius: 0.4,
+                textColor: .rgb(red: 0, green: 0, blue: 0),
+                focusStrokeColor: ChromeColor(red: 0, green: 170, blue: 170),  // cyan focus
+                pressedTopColor: ChromeColor(red: 130, green: 130, blue: 130),
+                pressedBottomColor: ChromeColor(red: 190, green: 190, blue: 190)
+            ),
+            desktop: VectorChrome.DesktopBackdrop(
+                topColor: ChromeColor(red: 85, green: 85, blue: 255),     // the Turbo backdrop…
+                bottomColor: ChromeColor(red: 0, green: 0, blue: 70)      // …deepened
+            ),
+            windowShadow: ChromeColor(red: 0, green: 0, blue: 0, alpha: 84),
+            surface: VectorChrome.Surface(
+                // Four fifths solid: enough blue left to read yellow text on,
+                // enough backdrop through it to see that it is a window.
+                windowFill: ChromeColor(red: 0, green: 0, blue: 170, alpha: 205),
+                chromeFill: ChromeColor(red: 170, green: 170, blue: 170, alpha: 246),
+                cornerRadius: 0.2
+            )
+        )
+
+        return theme
+    }()
+
     /// Ambiance — an Ubuntu-desktop homage, and the first theme to dress the
     /// Phase 10 vector chrome: an aubergine gradient desktop, windows with a
     /// dark rounded-top titlebar (gradient, centered title, circular orange
@@ -526,6 +587,7 @@ extension Theme {
         ("Silver Aerogel", .silverAerogel),
         ("Turbo", .turbo),
         ("Modern Turbo", .modernTurbo),
+        ("Turbo Ambiance", .turboAmbiance),
         ("Ambiance", .ambiance),
     ]
 }

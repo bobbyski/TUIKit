@@ -286,8 +286,47 @@ public struct VectorChrome: Codable, Hashable, Sendable {
         }
     }
 
+    /// How the vector layer fills the SURFACES — window bodies and the
+    /// chrome strips over them — when the theme wants them translucent.
+    ///
+    /// Cells cannot be part-way transparent: a cell either carries a colour
+    /// or it carries the terminal's default, and the terminal decides how
+    /// solid that default is. So a translucent surface is drawn by the
+    /// vector layer under the text, and the cells above it are cleared to the
+    /// default so it shows through — the same trick the desktop backdrop and
+    /// the vector titlebar already use.
+    ///
+    /// **Chrome is always at least as opaque as the window it covers.** A
+    /// menu you can read the document through is a menu you cannot read, and
+    /// a menu bar that dissolves into the window under it stops reading as a
+    /// separate strip. ``init(windowFill:chromeFill:cornerRadius:)`` enforces
+    /// it rather than trusting each theme to remember.
+    public struct Surface: Codable, Hashable, Sendable {
+        /// Fill behind a window's body — the translucent one.
+        public var windowFill: ChromeColor
+
+        /// Fill behind menus, the menu bar and toolbars.
+        public var chromeFill: ChromeColor
+
+        /// Corner radius for the window fill, in cell heights.
+        public var cornerRadius: Double?
+
+        /// Creates a surface style, raising `chromeFill`'s alpha to the
+        /// window's when a theme asks for chrome you can see through more
+        /// than the document.
+        public init(windowFill: ChromeColor, chromeFill: ChromeColor, cornerRadius: Double? = nil) {
+            self.windowFill = windowFill
+            self.chromeFill = chromeFill
+            self.chromeFill.alpha = max(chromeFill.alpha, windowFill.alpha)
+            self.cornerRadius = cornerRadius
+        }
+    }
+
     /// Titlebar styling, or `nil` to keep the cell-drawn top border.
     public var titleBar: TitleBar?
+
+    /// Translucent surface fills, or `nil` for solid cell backgrounds.
+    public var surface: Surface?
 
     /// Button styling, or `nil` to keep cell-drawn buttons.
     public var button: Button?
@@ -304,8 +343,10 @@ public struct VectorChrome: Codable, Hashable, Sendable {
         titleBar: TitleBar? = nil,
         button: Button? = nil,
         desktop: DesktopBackdrop? = nil,
-        windowShadow: ChromeColor? = nil
+        windowShadow: ChromeColor? = nil,
+        surface: Surface? = nil
     ) {
+        self.surface = surface
         self.titleBar = titleBar
         self.button = button
         self.desktop = desktop
