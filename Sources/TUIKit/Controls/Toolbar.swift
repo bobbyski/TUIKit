@@ -631,7 +631,6 @@ public final class Toolbar: TUIView {
     public override func draw(_ painter: Painter) {
         let theme = effectiveTheme
         painter.fill(bounds, with: TerminalCell(character: " ", style: barStyle(theme)))
-        drawTranslucentChromeSurface(painter, bounds, key: "toolbar")
 
         let plan = layout()
 

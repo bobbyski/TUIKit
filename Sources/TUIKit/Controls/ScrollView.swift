@@ -344,7 +344,7 @@ public final class ScrollView: TUIView {
     // Solid indicator cells from the theme's scrollbar slot: track from its
     // background, thumb from its foreground (accent while focused). A
     // colorless slot falls back to video-attribute blocks.
-    static func indicatorStyles(for theme: ResolvedTheme, focused: Bool) -> (track: CellStyle, thumb: CellStyle) {
+    public static func indicatorStyles(for theme: ResolvedTheme, focused: Bool) -> (track: CellStyle, thumb: CellStyle) {
         let slot = theme.scrollbar
 
         guard slot.foreground != .standard, slot.background != .standard else {
@@ -375,7 +375,7 @@ public final class ScrollView: TUIView {
     /// nothing but a flat block a shade off its surroundings, which is why
     /// the ARROWS stayed legible in themes whose thumb had vanished. A glyph
     /// has a shape to find; a block of near-track colour has nothing.
-    static let minimumThumbContrast = 3.0
+    public static let minimumThumbContrast = 3.0
 
     /// Pushes a thumb colour away from its track until it can be seen,
     /// keeping its hue.
@@ -393,7 +393,7 @@ public final class ScrollView: TUIView {
     /// - Returns: The theme's colour when it is legible, or the nearest
     ///   darker/lighter version of it that is. Non-RGB colours are returned
     ///   untouched — a named colour's brightness is the terminal's business.
-    static func contrasting(_ thumb: TerminalColor, against track: TerminalColor) -> TerminalColor {
+    public static func contrasting(_ thumb: TerminalColor, against track: TerminalColor) -> TerminalColor {
         guard case .rgb(let red, let green, let blue) = thumb,
               case .rgb(let trackRed, let trackGreen, let trackBlue) = track else {
             return thumb

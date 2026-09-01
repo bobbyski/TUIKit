@@ -253,25 +253,6 @@ import Testing
 
 // MARK: - Translucent surfaces
 
-@Test func chromeIsNeverMoreTransparentThanTheWindowItCovers() {
-    // The rule the type enforces rather than asking each theme to remember:
-    // a menu you can read the document through is a menu you cannot read.
-    let asked = VectorChrome.Surface(
-        windowFill: ChromeColor(red: 0, green: 0, blue: 170, alpha: 200),
-        chromeFill: ChromeColor(red: 170, green: 170, blue: 170, alpha: 120)
-    )
-
-    #expect(asked.chromeFill.alpha == 200)
-    #expect(asked.windowFill.alpha == 200)
-
-    // More opaque chrome is left exactly as asked for.
-    let sensible = VectorChrome.Surface(
-        windowFill: ChromeColor(red: 0, green: 0, blue: 170, alpha: 200),
-        chromeFill: ChromeColor(red: 170, green: 170, blue: 170, alpha: 250)
-    )
-
-    #expect(sensible.chromeFill.alpha == 250)
-}
 
 @Test func turboAmbianceIsTurboWithAmbiancesManners() {
     let ambiance = Theme.turboAmbiance
@@ -298,7 +279,6 @@ import Testing
     // Translucent document, near-solid chrome.
     let surface = vector?.surface
     #expect(surface?.windowFill.alpha == 205)
-    #expect((surface?.chromeFill.alpha ?? 0) > (surface?.windowFill.alpha ?? 255))
 
     // Turbo itself is untouched: no vector chrome, no transparency.
     #expect(turbo.base.vector?.surface == nil)
@@ -318,7 +298,7 @@ import Testing
     renderer.chromeEnabled = true
     let buffer = renderer.render(size: Size(width: 20, height: 6))
 
-    let body = renderer.chromeCommands.first { $0.id.contains("body") }
+    let body = renderer.chromeCommands.first { $0.id.hasSuffix(ChromeKeys.windowSurface) }
     #expect(body != nil, "the window body is drawn by the vector layer")
     #expect(buffer[Point(x: 10, y: 3)].style.background == TerminalColor.standard, "…and its cells are transparent")
 
@@ -332,32 +312,8 @@ import Testing
     plain.chromeEnabled = true
     let solidBuffer = plain.render(size: Size(width: 20, height: 6))
 
-    #expect(!plain.chromeCommands.contains { $0.id.contains("body") })
+    #expect(!plain.chromeCommands.contains { $0.id.hasSuffix(ChromeKeys.windowSurface) })
     #expect(solidBuffer[Point(x: 10, y: 3)].style.background != TerminalColor.standard)
-}
-
-@Test @MainActor func chromeStripsPaintOverTheWindowTheyCover() {
-    // The menu bar and a toolbar both reach for the chrome fill, which is
-    // the more opaque of the two.
-    let bar = MenuBar()
-    bar.addMenu(Menu("&File"))
-    bar.theme = .turboAmbiance
-    bar.frame = Rect(x: 0, y: 0, width: 30, height: 1)
-
-    let barRenderer = SceneRenderer(root: bar)
-    barRenderer.chromeEnabled = true
-    _ = barRenderer.render(size: Size(width: 30, height: 1))
-    #expect(barRenderer.chromeCommands.contains { $0.id.contains("menubar") })
-
-    let toolbar = Toolbar()
-    toolbar.addItem("Open", glyph: "▤") {}
-    toolbar.theme = .turboAmbiance
-    toolbar.frame = Rect(x: 0, y: 0, width: 30, height: 2)
-
-    let toolRenderer = SceneRenderer(root: toolbar)
-    toolRenderer.chromeEnabled = true
-    _ = toolRenderer.render(size: Size(width: 30, height: 2))
-    #expect(toolRenderer.chromeCommands.contains { $0.id.contains("toolbar") })
 }
 
 @Test @MainActor func aThumbIsPushedOffItsTrackUntilItCanBeSeen() {
@@ -401,21 +357,26 @@ import Testing
     #expect(ScrollView.contrasting(.named(.blue), against: .named(.blue)) == .named(.blue))
 }
 
-@Test @MainActor func everyBuiltInThemesThumbClearsTheFloor() {
-    // The floor is enforced where the bar is drawn, so this holds for themes
-    // added later too — which is the point of putting it there rather than
-    // fixing five palettes.
+@Test @MainActor func everyBuiltInThemePicksItsOwnVisibleThumb() {
+    // The floor in the scrollbar is a backstop for themes written elsewhere.
+    // The BUILT-INS are expected to clear it on their own, in colours chosen
+    // for each of them — a corrected colour is the framework overruling the
+    // theme, and a theme shipped here should not need overruling.
     for (name, theme) in Theme.builtIn {
         for context in [ThemeContext.contentWindow, .menus, .secondaryWindows, nil] {
             let resolved = theme.resolved(for: context)
-            let (track, thumb) = ScrollView.indicatorStyles(for: resolved, focused: false)
+            let thumb = resolved.scrollbar.foreground
+            let track = resolved.scrollbar.background
 
-            guard case .rgb = thumb.background, case .rgb = track.background else {
+            guard case .rgb = thumb, case .rgb = track else {
                 continue   // named or default colours are the terminal's call
             }
 
-            let corrected = ScrollView.contrasting(thumb.background, against: track.background)
-            #expect(corrected == thumb.background, "\(name) [\(context.map { "\($0)" } ?? "base")] still needs correcting")
+            let corrected = ScrollView.contrasting(thumb, against: track)
+            #expect(
+                corrected == thumb,
+                "\(name) [\(context.map { "\($0)" } ?? "base")] ships a thumb the scrollbar has to correct"
+            )
         }
     }
 }

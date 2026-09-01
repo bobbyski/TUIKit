@@ -229,7 +229,7 @@ public final class Panel: TUIView {
         // A theme with translucent surfaces paints the body with the vector
         // layer instead, so the desktop shows through the document. The
         // border, title and everything else still draw as cells over it.
-        drawTranslucentWindowSurface(painter, bounds, key: "body")
+        drawTranslucentWindowSurface(painter, bounds)
 
         painter.drawBox(bounds, style: theme.border, border: frameStyle(theme))
 

@@ -138,10 +138,15 @@ extension Theme {
         foreground: TerminalColor,
         accent: TerminalColor
     ) -> Theme {
-        // Scrollbar shades: track 30% and thumb 70% of the way from the
-        // background toward the text — always distinct from the window.
-        let track = TerminalColor.blend(background, toward: foreground, fraction: 0.3) ?? .named(.brightBlack)
-        let thumb = TerminalColor.blend(background, toward: foreground, fraction: 0.7) ?? foreground
+        // Scrollbar shades, both on the background→text axis so they belong
+        // to the theme: the track just off the window, the thumb nearly at
+        // the text. 20/95 rather than the 30/70 this started with, because
+        // 40% of a span between two similar colours — a green theme's green
+        // on green — is not a difference you can see. Themes whose two ends
+        // are genuinely close still lean on the floor the scrollbar enforces
+        // when it draws.
+        let track = TerminalColor.blend(background, toward: foreground, fraction: 0.2) ?? .named(.brightBlack)
+        let thumb = TerminalColor.blend(background, toward: foreground, fraction: 0.95) ?? foreground
 
         var base = ThemePalette()
         base.foreground = foreground
@@ -254,12 +259,21 @@ extension Theme {
     )
 
     /// Cream text on lawn green.
-    public static let grass = surface(
-        "Grass",
-        background: .rgb(red: 19, green: 119, blue: 61),
-        foreground: .rgb(red: 255, green: 240, blue: 165),
-        accent: .rgb(red: 255, green: 176, blue: 3)
-    )
+    public static let grass: Theme = {
+        var theme = surface(
+            "Grass",
+            background: .rgb(red: 19, green: 119, blue: 61),
+            foreground: .rgb(red: 255, green: 240, blue: 165),
+            accent: .rgb(red: 255, green: 176, blue: 3)
+        )
+
+        // The one theme the shared 20/95 axis cannot spread far enough: its
+        // ground is a mid green and its text a pale straw, and 95% of that
+        // span is still not far from 20% of it. The trough goes to a deeper
+        // green than the window instead, which the axis never reaches.
+        theme.base.scrollbarTrack = .rgb(red: 20, green: 74, blue: 38)
+        return theme
+    }()
 
     /// White on deep sea blue.
     public static let ocean = surface(
@@ -330,8 +344,8 @@ extension Theme {
         base.borderForeground = .rgb(red: 255, green: 255, blue: 255)    // white
         base.borderBackground = .rgb(red: 170, green: 170, blue: 170)
         base.borderStyle = .single   // menus, dropdowns, interior lines are single
-        base.scrollbarThumb = .rgb(red: 85, green: 85, blue: 85)         // dark gray
-        base.scrollbarTrack = .rgb(red: 127, green: 127, blue: 127)     // gray
+        base.scrollbarThumb = .rgb(red: 0, green: 0, blue: 128)          // navy block…
+        base.scrollbarTrack = .rgb(red: 192, green: 192, blue: 192)     // …on EGA light gray
         base.placeholderForeground = .rgb(red: 85, green: 85, blue: 85)
         base.placeholderBackground = .rgb(red: 170, green: 170, blue: 170)
         base.placeholderAttributes = [.dim]
@@ -492,9 +506,9 @@ extension Theme {
             windowShadow: ChromeColor(red: 0, green: 0, blue: 0, alpha: 84),
             surface: VectorChrome.Surface(
                 // Four fifths solid: enough blue left to read yellow text on,
-                // enough backdrop through it to see that it is a window.
+                // enough backdrop through it to see that it is a window. The
+                // menu bar, menus and toolbars stay opaque cells over it.
                 windowFill: ChromeColor(red: 0, green: 0, blue: 170, alpha: 205),
-                chromeFill: ChromeColor(red: 170, green: 170, blue: 170, alpha: 246),
                 cornerRadius: 0.2
             )
         )
@@ -528,8 +542,8 @@ extension Theme {
         base.borderForeground = .rgb(red: 167, green: 165, blue: 155)   // thin gray frame
         base.borderBackground = .rgb(red: 242, green: 241, blue: 240)
         base.borderStyle = .rounded   // the cell fallback rounds its corners too
-        base.scrollbarThumb = .rgb(red: 181, green: 179, blue: 172)
-        base.scrollbarTrack = .rgb(red: 229, green: 227, blue: 223)
+        base.scrollbarThumb = .rgb(red: 87, green: 83, blue: 76)         // dark warm gray…
+        base.scrollbarTrack = .rgb(red: 229, green: 227, blue: 223)     // …on the light trough
         base.placeholderForeground = .rgb(red: 150, green: 147, blue: 142)
         base.placeholderBackground = .rgb(red: 242, green: 241, blue: 240)
         base.placeholderAttributes = [.dim]

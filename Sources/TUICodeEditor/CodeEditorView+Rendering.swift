@@ -198,12 +198,16 @@ extension CodeEditorView {
 
     /// Paints the interior scrollbars, when the view owns them.
     func paintScrollbars(_ painter: Painter, theme: ResolvedTheme) {
-        // The theme's scrollbar slot: foreground is the thumb, background
-        // the track. Focused bars brighten, matching the rest of TUIKit.
+        // Through the shared resolver rather than reading the slots here:
+        // that is where a thumb too close to its track gets pushed off it,
+        // and an editor whose bar was invisible while every other control's
+        // was fine is exactly what reading them directly bought.
+        let resolved = ScrollView.indicatorStyles(for: theme, focused: isFirstResponder)
         var track = theme.scrollbar
-        track.foreground = theme.scrollbar.background
+        track.foreground = resolved.track.background
+        track.background = resolved.track.background
         var thumb = theme.scrollbar
-        thumb.background = theme.scrollbar.foreground
+        thumb.background = resolved.thumb.background
 
         if !isFirstResponder {
             track.flags.insert(.dim)

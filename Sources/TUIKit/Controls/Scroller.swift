@@ -70,10 +70,11 @@ public final class Scroller: TUIView {
     /// Draws the track, thumb and arrows in the theme's scrollbar slot.
     public override func draw(_ painter: Painter) {
         let theme = effectiveTheme
+        let resolved = ScrollView.indicatorStyles(for: theme, focused: isFirstResponder)
         var thumb = theme.scrollbar
-        thumb.background = theme.scrollbarThumb
+        thumb.background = resolved.thumb.background
         var track = theme.scrollbar
-        track.background = theme.scrollbarTrack
+        track.background = resolved.track.background
         run.draw(in: painter, vertical: axis == .vertical, at: 0, track: track, thumb: thumb)
     }
 

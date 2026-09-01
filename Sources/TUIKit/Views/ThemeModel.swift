@@ -296,28 +296,21 @@ public struct VectorChrome: Codable, Hashable, Sendable {
     /// default so it shows through — the same trick the desktop backdrop and
     /// the vector titlebar already use.
     ///
-    /// **Chrome is always at least as opaque as the window it covers.** A
-    /// menu you can read the document through is a menu you cannot read, and
-    /// a menu bar that dissolves into the window under it stops reading as a
-    /// separate strip. ``init(windowFill:chromeFill:cornerRadius:)`` enforces
-    /// it rather than trusting each theme to remember.
+    /// **Only window bodies go translucent.** Menus, the menu bar and
+    /// toolbars keep their opaque cells, which makes them more solid than the
+    /// document under them by construction rather than by arithmetic — and
+    /// keeps them legible on a terminal that draws no vectors, where a
+    /// cleared cell is just an empty one.
     public struct Surface: Codable, Hashable, Sendable {
-        /// Fill behind a window's body — the translucent one.
+        /// Fill behind a window's body.
         public var windowFill: ChromeColor
 
-        /// Fill behind menus, the menu bar and toolbars.
-        public var chromeFill: ChromeColor
-
-        /// Corner radius for the window fill, in cell heights.
+        /// Corner radius for the fill, in cell heights.
         public var cornerRadius: Double?
 
-        /// Creates a surface style, raising `chromeFill`'s alpha to the
-        /// window's when a theme asks for chrome you can see through more
-        /// than the document.
-        public init(windowFill: ChromeColor, chromeFill: ChromeColor, cornerRadius: Double? = nil) {
+        /// Creates a surface style.
+        public init(windowFill: ChromeColor, cornerRadius: Double? = nil) {
             self.windowFill = windowFill
-            self.chromeFill = chromeFill
-            self.chromeFill.alpha = max(chromeFill.alpha, windowFill.alpha)
             self.cornerRadius = cornerRadius
         }
     }

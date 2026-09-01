@@ -6,9 +6,26 @@
 /// default, which is the same trick the desktop backdrop and the vector
 /// titlebar already use.
 ///
-/// Two fills, because a window and the chrome over it are not the same kind
-/// of surface: the document may be translucent, but a menu you can read the
-/// document through is a menu you cannot read.
+/// Only WINDOW BODIES are drawn this way. Menus, the menu bar and toolbars
+/// keep their opaque cells, which makes them more solid than the document
+/// under them by construction rather than by arithmetic — and keeps them
+/// legible on a terminal that draws no vectors at all, where a cleared cell
+/// is simply an empty one.
+/// Keys the FRAMEWORK claims in a view's chrome namespace.
+///
+/// A chrome command's id is `"<owner view>_<key>"`, so two keys only collide
+/// inside one view — which is exactly where a framework drawing "body" and an
+/// application drawing "body" would meet, and the application would lose
+/// without ever being told. Everything TUIKit draws on a view an application
+/// also draws on carries this prefix.
+public enum ChromeKeys {
+    /// Namespace for every framework-claimed key.
+    public static let prefix = "tuikit."
+
+    /// The translucent fill behind a window's content.
+    public static let windowSurface = prefix + "window-surface"
+}
+
 public extension TUIView {
     /// Fills a rect with the theme's translucent window fill, clearing the
     /// cells over it, and reports whether it did.
@@ -16,33 +33,21 @@ public extension TUIView {
     /// - Parameters:
     ///   - painter: The painter for this draw pass.
     ///   - rect: The area to fill, in view coordinates.
-    ///   - key: Id unique within this view.
+    ///   - key: Id unique within this view; defaults to the framework's own
+    ///     namespaced key, which is what keeps it clear of a host's.
     /// - Returns: False when the terminal has no vector layer or the theme
     ///   asks for solid surfaces — the caller then fills cells as before.
     @discardableResult
-    func drawTranslucentWindowSurface(_ painter: Painter, _ rect: Rect, key: String = "surface") -> Bool {
+    func drawTranslucentWindowSurface(
+        _ painter: Painter,
+        _ rect: Rect,
+        key: String = ChromeKeys.windowSurface
+    ) -> Bool {
         guard let surface = effectiveTheme.vector?.surface else {
             return false
         }
 
         return fillTranslucent(painter, rect, key: key, color: surface.windowFill, radius: surface.cornerRadius ?? 0)
-    }
-
-    /// Fills a rect with the theme's chrome fill — menus, the menu bar, and
-    /// toolbars, which are never more transparent than the window they cover.
-    ///
-    /// - Parameters:
-    ///   - painter: The painter for this draw pass.
-    ///   - rect: The area to fill, in view coordinates.
-    ///   - key: Id unique within this view.
-    /// - Returns: False when the surface could not be drawn.
-    @discardableResult
-    func drawTranslucentChromeSurface(_ painter: Painter, _ rect: Rect, key: String = "chrome") -> Bool {
-        guard let surface = effectiveTheme.vector?.surface else {
-            return false
-        }
-
-        return fillTranslucent(painter, rect, key: key, color: surface.chromeFill, radius: 0)
     }
 
     private func fillTranslucent(
