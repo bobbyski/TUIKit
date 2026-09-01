@@ -280,9 +280,12 @@ import Testing
     // The palette is Turbo's, unchanged — a terminal without VTG renders the
     // two identically apart from the border style.
     #expect(ambiance.base.background == turbo.base.background)
-    #expect(ambiance.base.selectionBackground == turbo.base.selectionBackground)
     #expect(ambiance.contentWindow?.background == turbo.contentWindow?.background)
     #expect(ambiance.base.acceleratorColor == turbo.base.acceleratorColor)
+
+    // With one deliberate exception: the highlight is brighter, because it
+    // has translucency to survive — see the contrast test below.
+    #expect(ambiance.base.selectionBackground != turbo.base.selectionBackground)
 
     // And the vector chrome is Ambiance's shape: gradient desktop, gradient
     // titlebar with the buttons on the Ubuntu side, a window shadow.
@@ -355,4 +358,77 @@ import Testing
     toolRenderer.chromeEnabled = true
     _ = toolRenderer.render(size: Size(width: 30, height: 2))
     #expect(toolRenderer.chromeCommands.contains { $0.id.contains("toolbar") })
+}
+
+@Test @MainActor func aThumbIsPushedOffItsTrackUntilItCanBeSeen() {
+    // The bug this fixes: a theme picking two neighbouring shades of one
+    // gray for thumb and track. The ARROWS stayed legible — a glyph has a
+    // shape to find — while the thumb read as an empty bar.
+    let track = TerminalColor.rgb(red: 229, green: 227, blue: 223)
+    let whisper = TerminalColor.rgb(red: 181, green: 179, blue: 172)
+    let corrected = ScrollView.contrasting(whisper, against: track)
+
+    #expect(corrected != whisper)
+
+    guard case .rgb(let red, let green, let blue) = corrected else {
+        Issue.record("an rgb thumb stays rgb")
+        return
+    }
+
+    // Darker, because the track is light — and still the theme's own hue
+    // rather than a stock gray.
+    #expect(red < 181 && green < 179 && blue < 172)
+    #expect(red > green - 20 && blue < red, "the warm gray is still warm")
+
+    // A dark track pushes the other way.
+    let onDark = ScrollView.contrasting(
+        .rgb(red: 60, green: 60, blue: 60),
+        against: .rgb(red: 20, green: 20, blue: 30)
+    )
+
+    guard case .rgb(let lightened, _, _) = onDark else {
+        Issue.record("an rgb thumb stays rgb")
+        return
+    }
+
+    #expect(lightened > 60)
+
+    // A pairing that already reads is left exactly as the theme wrote it.
+    let cyan = TerminalColor.rgb(red: 85, green: 255, blue: 255)
+    #expect(ScrollView.contrasting(cyan, against: .rgb(red: 0, green: 0, blue: 110)) == cyan)
+
+    // Named colours belong to the terminal, so they are not second-guessed.
+    #expect(ScrollView.contrasting(.named(.blue), against: .named(.blue)) == .named(.blue))
+}
+
+@Test @MainActor func everyBuiltInThemesThumbClearsTheFloor() {
+    // The floor is enforced where the bar is drawn, so this holds for themes
+    // added later too — which is the point of putting it there rather than
+    // fixing five palettes.
+    for (name, theme) in Theme.builtIn {
+        for context in [ThemeContext.contentWindow, .menus, .secondaryWindows, nil] {
+            let resolved = theme.resolved(for: context)
+            let (track, thumb) = ScrollView.indicatorStyles(for: resolved, focused: false)
+
+            guard case .rgb = thumb.background, case .rgb = track.background else {
+                continue   // named or default colours are the terminal's call
+            }
+
+            let corrected = ScrollView.contrasting(thumb.background, against: track.background)
+            #expect(corrected == thumb.background, "\(name) [\(context.map { "\($0)" } ?? "base")] still needs correcting")
+        }
+    }
+}
+
+@Test func turboAmbianceHighlightsBrightlyEnoughToSurviveTranslucency() {
+    // Black on Turbo's plain cyan is 7:1 and fine on a solid terminal; over a
+    // window you can see the desktop through, it is not. The ground gets
+    // brighter rather than the text lighter — white on that cyan would have
+    // been 2.9:1, worse than the black it replaced.
+    let resolved = Theme.turboAmbiance.resolved()
+    #expect(resolved.selection.background == .rgb(red: 85, green: 255, blue: 255))
+    #expect(resolved.selection.foreground == .rgb(red: 0, green: 0, blue: 0))
+
+    // Turbo itself keeps its own highlight.
+    #expect(Theme.turbo.resolved().selection.background == .rgb(red: 0, green: 170, blue: 170))
 }

@@ -363,8 +363,99 @@ public final class ScrollView: TUIView {
         }
 
         let track = CellStyle(background: slot.background)
-        let thumb = CellStyle(background: focused ? theme.accent : slot.foreground)
+        let wanted = focused ? theme.accent : slot.foreground
+        let thumb = CellStyle(background: contrasting(wanted, against: slot.background))
         return (track, thumb)
+    }
+
+    /// The contrast ratio a thumb must reach against its track.
+    ///
+    /// 3:1 — the figure interface components are held to, as opposed to the
+    /// 4.5:1 asked of body text. Below it the bar looks empty: the eye has
+    /// nothing but a flat block a shade off its surroundings, which is why
+    /// the ARROWS stayed legible in themes whose thumb had vanished. A glyph
+    /// has a shape to find; a block of near-track colour has nothing.
+    static let minimumThumbContrast = 3.0
+
+    /// Pushes a thumb colour away from its track until it can be seen,
+    /// keeping its hue.
+    ///
+    /// A theme picks scrollbar colours to look right against the window, and
+    /// several pick two neighbouring shades of the same gray. Rather than ask
+    /// every palette — present and future — to get this right, the bar
+    /// enforces its own floor: a thumb the same colour as its track is not a
+    /// design choice, it is a scrollbar that reports position only to someone
+    /// who already knows it.
+    ///
+    /// - Parameters:
+    ///   - thumb: The colour the theme asked for.
+    ///   - track: What it sits on.
+    /// - Returns: The theme's colour when it is legible, or the nearest
+    ///   darker/lighter version of it that is. Non-RGB colours are returned
+    ///   untouched — a named colour's brightness is the terminal's business.
+    static func contrasting(_ thumb: TerminalColor, against track: TerminalColor) -> TerminalColor {
+        guard case .rgb(let red, let green, let blue) = thumb,
+              case .rgb(let trackRed, let trackGreen, let trackBlue) = track else {
+            return thumb
+        }
+
+        let trackLuminance = relativeLuminance(trackRed, trackGreen, trackBlue)
+
+        guard contrastRatio(relativeLuminance(red, green, blue), trackLuminance) < minimumThumbContrast else {
+            return thumb
+        }
+
+        // Away from the track: a light track gets a darker thumb, a dark one
+        // a lighter thumb. Twenty steps of 5%, which lands within a shade of
+        // the ratio without a solver.
+        let towardsWhite = trackLuminance < 0.18
+
+        for step in 1...20 {
+            let mix = Double(step) / 20
+
+            func moved(_ channel: UInt8) -> UInt8 {
+                let value = Double(channel)
+                let target = towardsWhite ? 255.0 : 0.0
+                return UInt8(clamping: Int(value + (target - value) * mix))
+            }
+
+            let candidate = (moved(red), moved(green), moved(blue))
+            let luminance = relativeLuminance(candidate.0, candidate.1, candidate.2)
+
+            if contrastRatio(luminance, trackLuminance) >= minimumThumbContrast {
+                return .rgb(red: candidate.0, green: candidate.1, blue: candidate.2)
+            }
+        }
+
+        // Nothing in that direction reached it (a mid-gray track has little
+        // room either way), so take the extreme, which is as far as the
+        // colour space goes.
+        return towardsWhite
+            ? .rgb(red: 255, green: 255, blue: 255)
+            : .rgb(red: 0, green: 0, blue: 0)
+    }
+
+    // Relative luminance, the input to a contrast ratio.
+    //
+    // sRGB's transfer curve is x^2.4 with a linear toe; this squares instead,
+    // which tracks it closely enough for a legibility FLOOR and keeps the
+    // framework's arithmetic free of Foundation. The error is largest in the
+    // deep shadows, where the answer — "not enough contrast" — is the same
+    // either way.
+    private static func relativeLuminance(_ red: UInt8, _ green: UInt8, _ blue: UInt8) -> Double {
+        func channel(_ value: UInt8) -> Double {
+            let scaled = Double(value) / 255
+            return scaled * scaled
+        }
+
+        return 0.2126 * channel(red) + 0.7152 * channel(green) + 0.0722 * channel(blue)
+    }
+
+    private static func contrastRatio(_ first: Double, _ second: Double) -> Double {
+        let lighter = max(first, second)
+        let darker = min(first, second)
+
+        return (lighter + 0.05) / (darker + 0.05)
     }
 
     // A press on a bar either grabs the thumb (starting a drag) or pages

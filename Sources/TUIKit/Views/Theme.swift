@@ -452,6 +452,16 @@ extension Theme {
         theme.base.buttonShadowColor = nil   // the vector pill has its own depth
         theme.base.borderStyle = .rounded    // Ambiance rounds; the cells follow
 
+        // Bright cyan, where Turbo highlights in plain cyan. Black on plain
+        // cyan is a 7:1 pairing and perfectly readable on a solid terminal —
+        // but every colour here sits over a translucent window, and a ground
+        // washed towards the desktop takes the text's contrast with it. The
+        // brighter ground answers that at 17:1, and it is the highlight
+        // Turbo Vision itself used. Lightening the TEXT would have gone the
+        // wrong way: white on that cyan is 2.9:1, worse than the black it
+        // replaced.
+        theme.base.selectionBackground = .rgb(red: 85, green: 255, blue: 255)
+
         theme.base.vector = VectorChrome(
             titleBar: VectorChrome.TitleBar(
                 topColor: ChromeColor(red: 0, green: 0, blue: 200),      // Borland blue…
