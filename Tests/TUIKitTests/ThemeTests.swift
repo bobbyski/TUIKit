@@ -274,18 +274,23 @@ import Testing
     #expect(ambiance.resolved(for: .menus).base.foreground == turbo.resolved(for: .menus).base.foreground)
     #expect(ambiance.resolved(for: .menus).selection.background == turbo.resolved(for: .menus).selection.background)
 
-    // And the vector chrome is Ambiance's shape: gradient desktop, gradient
-    // titlebar with the buttons on the Ubuntu side, a window shadow.
+    // Two things are drawn rather than typed — the title bar and the
+    // buttons — and nothing else is. A desktop gradient or a shadow would
+    // make it a different theme rather than a better-drawn one.
     let vector = ambiance.base.vector
-    #expect(vector?.desktop != nil)
-    #expect(vector?.titleBar?.buttonPlacement == .leading)
-    #expect(vector?.windowShadow != nil)
+    #expect(vector?.titleBar != nil)
     #expect(vector?.button != nil)
+    #expect(vector?.desktop == nil, "no desktop gradient")
+    #expect(vector?.windowShadow == nil, "no shadow")
+    #expect(vector?.surface == nil, "no translucency")
 
-    // Solid windows: the chrome is what this theme takes from Ambiance,
-    // not the see-through body.
-    #expect(vector?.surface == nil)
-    #expect(Theme.ambiance.base.vector?.surface != nil, "Ambiance keeps it")
+    // The title bar is one colour rather than a gradient, and the button is
+    // Turbo's own pill with a curve on it.
+    #expect(vector?.titleBar?.topColor == vector?.titleBar?.bottomColor)
+    #expect(vector?.button?.topColor == vector?.button?.bottomColor)
+    #expect((vector?.button?.cornerRadius ?? 0) > 0)
+
+    #expect(Theme.ambiance.base.vector?.surface != nil, "Ambiance keeps the translucency")
 
     // Turbo itself is untouched: no vector chrome, no transparency.
     #expect(turbo.base.vector?.surface == nil)
@@ -459,10 +464,8 @@ private let egaPalette: Set<[Int]> = [
     check(button.pressedTopColor, "pressed top")
     check(button.pressedBottomColor, "pressed bottom")
 
-    let desktop = try! #require(vector.desktop)
-    check(desktop.topColor, "desktop top")
-    check(desktop.bottomColor, "desktop bottom")
-    check(vector.windowShadow, "window shadow")   // black, softened by alpha
+    #expect(vector.desktop == nil)
+    #expect(vector.windowShadow == nil)
 }
 
 @Test @MainActor func turboAmbiancePaintsTheSameCellsAsTurbo() {

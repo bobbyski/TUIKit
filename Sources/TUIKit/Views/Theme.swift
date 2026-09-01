@@ -436,60 +436,56 @@ extension Theme {
         return theme
     }()
 
-    /// Turbo Ambiance — Borland's palette with Ambiance's manners.
+    /// Turbo Ambiance — Turbo, with two things drawn rather than typed.
     ///
-    /// The same EGA colours a Turbo window has always worn, drawn the way
-    /// the Phase 10 vector chrome draws Ambiance: a gradient desktop, a
-    /// gradient titlebar with circular buttons, gradient push buttons and a
-    /// soft window shadow.
+    /// Every colour is Turbo's and every surface is Turbo's. Two pieces of
+    /// chrome are handed to the vector layer instead of being spelled in
+    /// cells:
     ///
-    /// Solid windows, deliberately. The vector layer can make a body
-    /// translucent — ``Ambiance`` asks for it — and over a Borland palette it
-    /// reads as a wash rather than as depth. The chrome here is the part
-    /// worth having.
+    /// * the **title bar**, a flat bar of Turbo's bright blue with rounded
+    ///   top corners and circular window buttons;
+    /// * the **buttons**, the same grey pill Turbo already draws, with
+    ///   rounded corners and a clean edge instead of block characters.
     ///
-    /// On a terminal without VTG this is Turbo, cell for cell: every vector
-    /// feature has a cell fallback already, and the palette is unchanged. The
-    /// pretty version costs nothing to the terminal that cannot draw it.
+    /// No desktop gradient, no shadow, no translucency — the things that
+    /// would make it look like a different theme rather than a better-drawn
+    /// one. On a terminal without VTG this is Turbo exactly, since both
+    /// features fall back to the cells Turbo always used.
     public static let turboAmbiance: Theme = {
         var theme = Theme.turbo
         theme.name = "Turbo Ambiance"
-        theme.base.buttonShadowColor = nil   // the vector pill has its own depth
-        theme.base.borderStyle = .rounded    // Ambiance rounds; the cells follow
+        theme.base.buttonShadowColor = nil   // the rounded pill carries its own edge
 
-        // EVERY colour here is one Turbo already uses — the sixteen EGA
-        // inks and nothing else. What Ambiance contributes is the shapes:
-        // gradients, rounded corners, circular window buttons, a shadow.
-        // A colour invented for the chrome would be a colour Turbo does not
-        // have, which is the whole thing this theme is not allowed to do.
         theme.base.vector = VectorChrome(
             titleBar: VectorChrome.TitleBar(
-                topColor: ChromeColor(red: 85, green: 85, blue: 255),     // EGA bright blue…
-                bottomColor: ChromeColor(red: 0, green: 0, blue: 170),    // …into EGA blue
+                // One colour, not a gradient: Turbo's bright blue, top and
+                // bottom the same.
+                topColor: ChromeColor(red: 85, green: 85, blue: 255),
+                bottomColor: ChromeColor(red: 85, green: 85, blue: 255),
                 cornerRadius: 0.35,
-                strokeColor: ChromeColor(red: 0, green: 0, blue: 0),      // black
-                textColor: .rgb(red: 255, green: 255, blue: 255),         // white
-                buttonPlacement: .leading,                                // Ambiance's side
-                closeButtonColor: ChromeColor(red: 170, green: 0, blue: 0),    // EGA red
+                strokeColor: ChromeColor(red: 0, green: 0, blue: 0),
+                textColor: .rgb(red: 255, green: 255, blue: 255),
+                buttonPlacement: .leading,
+                closeButtonColor: ChromeColor(red: 170, green: 0, blue: 0),        // EGA red
                 closeSymbolColor: .rgb(red: 0, green: 0, blue: 0),
                 auxiliaryButtonColor: ChromeColor(red: 0, green: 170, blue: 170),  // EGA cyan
                 auxiliarySymbolColor: .rgb(red: 0, green: 0, blue: 0)
             ),
             button: VectorChrome.Button(
-                topColor: ChromeColor(red: 170, green: 170, blue: 170),   // light gray…
-                bottomColor: ChromeColor(red: 85, green: 85, blue: 85),   // …into dark gray
+                // Turbo's own pill — dark grey, white lettering — rounded
+                // rather than recoloured. Top and bottom match, so it is the
+                // same flat button, drawn with a curve.
+                topColor: ChromeColor(red: 85, green: 85, blue: 85),
+                bottomColor: ChromeColor(red: 85, green: 85, blue: 85),
                 strokeColor: ChromeColor(red: 0, green: 0, blue: 0),
                 cornerRadius: 0.4,
-                textColor: .rgb(red: 255, green: 255, blue: 255),         // white, as Turbo's
-                focusStrokeColor: ChromeColor(red: 0, green: 170, blue: 170),  // cyan focus
-                pressedTopColor: ChromeColor(red: 85, green: 85, blue: 85),
+                textColor: .rgb(red: 255, green: 255, blue: 255),
+                focusStrokeColor: ChromeColor(red: 0, green: 170, blue: 170),      // EGA cyan
+                // Pressed swaps to light grey, which is how Turbo's own
+                // buttons read when pushed in.
+                pressedTopColor: ChromeColor(red: 170, green: 170, blue: 170),
                 pressedBottomColor: ChromeColor(red: 170, green: 170, blue: 170)
-            ),
-            desktop: VectorChrome.DesktopBackdrop(
-                topColor: ChromeColor(red: 85, green: 85, blue: 255),     // Turbo's desktop…
-                bottomColor: ChromeColor(red: 0, green: 0, blue: 170)     // …into its blue
-            ),
-            windowShadow: ChromeColor(red: 0, green: 0, blue: 0, alpha: 84)   // black, softened
+            )
         )
 
         return theme
