@@ -2,7 +2,30 @@
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
+import Foundation
 import CompilerPluginSupport
+
+// The in-house dependencies resolve from local checkouts, not from GitHub.
+//
+// Bobby, 2026-08-22: "live local repos for now — until I finish the CI/CD
+// server." The tags on GitHub lag whatever is being worked on across the
+// family, and a change that spans TUIKit and the SDK cannot be built at all
+// while one half is only committed locally. `canvas.detach()` is the worked
+// example: it existed on the SDK's develop branch, unpushed, so ANSIDriver
+// could not call it and terminals kept talking to a shell that had moved on.
+//
+// CodeEditorCore below has been a local path for the same reason since it and
+// TUIKit began co-evolving; this extends that to the rest of the in-house set.
+// swift-syntax stays remote — it is Apple's, it is tagged, and it is not
+// something anyone here edits.
+//
+// Overridable so this survives a machine with a different layout, and so the
+// CI/CD server can point at its own checkouts without editing the manifest.
+let richSwiftPath = ProcessInfo.processInfo.environment["RICHSWIFT_PATH"]
+    ?? "/Users/bobby/src/frameworks/RichSwift"
+
+let vectorTerminalSDKPath = ProcessInfo.processInfo.environment["VECTORTERMINALSDK_PATH"]
+    ?? "/Users/bobby/AIResearch/GraphicalTerminal/Code/VectorTerminalSDK"
 
 let package = Package(
     name: "TUIKit",
@@ -27,7 +50,7 @@ let package = Package(
     dependencies: [
         // In-house only — RichSwift renders rich *content* (markup, tables,
         // panels, markdown, syntax); TUIKit owns the interactive layer.
-        .package(url: "https://github.com/bobbyski/RichSwift.git", from: "0.1.0"),
+        .package(path: richSwiftPath),
         // swift-syntax powers the @Bound data-binding macro only (Data layer,
         // Phase 14.6): the one non-in-house dependency, confined to the macro
         // plugin so the library's runtime stays dependency-free.
@@ -35,7 +58,7 @@ let package = Package(
         // In-house VectorTerminal Graphics wrapper (Phase 10): APC escape
         // sequences, retained vector scene, under-text layer. Raw VTG bytes
         // live only in the driver layer; plain terminals never see one.
-        .package(url: "https://github.com/bobbyski/VectorTerminalSDK.git", from: "1.5.6"),
+        .package(path: vectorTerminalSDKPath),
         // The UI-free half of the editor: document, commands, tokenizer,
         // gutter models. Foundation-only by construction, so it stays
         // adoptable by a GUI editor. LOCAL PATH while the two co-evolve.

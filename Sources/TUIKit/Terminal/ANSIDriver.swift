@@ -297,6 +297,21 @@ public actor ANSIDriver: TerminalDriver {
             await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
                 outputQueue.async {
                     state.canvas?.clear()
+                    // Stop the terminal replying before we hand it back.
+                    //
+                    // VTG replies are only meaningful to the app that asked.
+                    // Anything still on its way once this process is gone is
+                    // delivered to whatever owns the terminal next — the
+                    // user's shell — which treats what it is given as typed
+                    // input, so the prompt fills with
+                    // `VTG;frameStarted,id=…,timeout=250`.
+                    //
+                    // After detaching the terminal still *applies* what it is
+                    // sent, which is why the clear() above still lands; it
+                    // simply stops answering. Hosts also mute on their own
+                    // when the foreground process changes, which is what
+                    // covers a signalled program — this is the polite half.
+                    state.canvas?.detach()
                     state.canvas = nil
                     state.mapper = nil
                     state.previous = []

@@ -1,15 +1,6 @@
 {
-  "originHash" : "b812943ec15d884404a11a752b1b5416267805ae64c35e7b60b00bec79e2ddec",
+  "originHash" : "1ee866288345e554f54bba30d27d9317ba82130838f97a6dcb588ca0de863ada",
   "pins" : [
-    {
-      "identity" : "richswift",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/bobbyski/RichSwift.git",
-      "state" : {
-        "revision" : "14142ead047b563f95e177bf524e061fd2c1276e",
-        "version" : "0.1.0"
-      }
-    },
     {
       "identity" : "swift-syntax",
       "kind" : "remoteSourceControl",
@@ -17,15 +8,6 @@
       "state" : {
         "revision" : "79e4b74a295b6eb74a8b585e3a39d29e70c1dbd1",
         "version" : "603.0.2"
-      }
-    },
-    {
-      "identity" : "vectorterminalsdk",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/bobbyski/VectorTerminalSDK.git",
-      "state" : {
-        "revision" : "1a6fa1cd89b7f71fed11f95529dade8ca290f224",
-        "version" : "1.5.7"
       }
     }
   ],
