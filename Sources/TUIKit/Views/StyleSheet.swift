@@ -154,7 +154,7 @@ public struct StyleSheet: Hashable, Sendable {
 
             // A KNOWN property's kind decides how its value must parse (a
             // malformed value drops the declaration, tolerant as ever).
-            if let property = StyleDeclaration.Property(rawValue: name) {
+            if let property = StyleDeclaration.Property.named(name) {
                 switch property.kind {
                 case .color:
                     guard let color = TerminalColor(styleValue: value) else {
@@ -228,7 +228,7 @@ public struct StyleDeclaration: Hashable, Sendable {
     /// The *known* properties — the vocabulary TUIKit itself routes into
     /// theme slots. Deliberately not a restriction: unknown names still
     /// parse and land in ``ResolvedTheme/custom``.
-    public enum Property: String, Hashable, Sendable {
+    public enum Property: String, Hashable, Sendable, CaseIterable {
         case color
         case background
         case accent
@@ -246,6 +246,28 @@ public struct StyleDeclaration: Hashable, Sendable {
         case placeholderBackground = "placeholder-background"
         case scrollbarColor = "scrollbar-color"
         case scrollbarBackground = "scrollbar-background"
+
+        // Namespaced spellings of four slots that ordinary CSS words could
+        // collide with. `background`, `color` and `selection` are the most
+        // borrowed words in styling, and a sheet written for something else
+        // that happens to define them should not silently repaint a
+        // scrollbar. These names say whose they are.
+        //
+        // The generic spellings above keep working — nothing that reads
+        // today stops reading — but these are the ones to write.
+
+        /// The scrollbar's moving part: the thumb AND the end arrows, which
+        /// are one colour because they are one control.
+        case secondaryControlMarker = "tuikit.secondaryControlMarker"
+
+        /// The trough the marker travels in.
+        case secondaryControlBackground = "tuikit.secondaryControlBackground"
+
+        /// Text of the selected row, tab or item.
+        case selectedItemColor = "tuikit.selectedItemColor"
+
+        /// The bar behind it.
+        case selectedItemBackgroundColor = "tuikit.selectedItemBackgroundColor"
         case border
         case bold
         case dim
@@ -271,6 +293,19 @@ public struct StyleDeclaration: Hashable, Sendable {
             case flag
             case border
         }
+
+        /// Looks a property up the way CSS does: without caring about case.
+        ///
+        /// The namespaced names are camel-cased (`tuikit.secondaryControlMarker`),
+        /// and a parser that lowercases what it reads would never match them
+        /// again — which is a silently ignored declaration, the worst kind.
+        static func named(_ name: String) -> Property? {
+            byLowercasedName[name.lowercased()]
+        }
+
+        private static let byLowercasedName: [String: Property] = Dictionary(
+            uniqueKeysWithValues: Property.allCases.map { ($0.rawValue.lowercased(), $0) }
+        )
     }
 
     /// A property's value, typed by shape.
@@ -382,11 +417,17 @@ public struct StyleDeclaration: Hashable, Sendable {
         case (.placeholderBackground, .color(let color)):
             theme.placeholderBackground = color
 
-        case (.scrollbarColor, .color(let color)):
+        case (.scrollbarColor, .color(let color)), (.secondaryControlMarker, .color(let color)):
             theme.scrollbarThumb = color
 
-        case (.scrollbarBackground, .color(let color)):
+        case (.scrollbarBackground, .color(let color)), (.secondaryControlBackground, .color(let color)):
             theme.scrollbarTrack = color
+
+        case (.selectedItemColor, .color(let color)):
+            theme.selectionForeground = color
+
+        case (.selectedItemBackgroundColor, .color(let color)):
+            theme.selectionBackground = color
 
         case (.border, .border(let style)):
             theme.borderStyle = style

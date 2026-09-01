@@ -264,9 +264,15 @@ import Testing
     #expect(ambiance.contentWindow?.background == turbo.contentWindow?.background)
     #expect(ambiance.base.acceleratorColor == turbo.base.acceleratorColor)
 
-    // With one deliberate exception: the highlight is brighter, because it
-    // has translucency to survive — see the contrast test below.
-    #expect(ambiance.base.selectionBackground != turbo.base.selectionBackground)
+    #expect(ambiance.base.selectionBackground == turbo.base.selectionBackground)
+    #expect(ambiance.base.scrollbarThumb == turbo.base.scrollbarThumb)
+    #expect(ambiance.base.scrollbarTrack == turbo.base.scrollbarTrack)
+
+    // Menus and the menu bar are Turbo's, letter for letter: the theme
+    // changes how things are DRAWN, not what colour they are.
+    #expect(ambiance.resolved(for: .menus).base.background == turbo.resolved(for: .menus).base.background)
+    #expect(ambiance.resolved(for: .menus).base.foreground == turbo.resolved(for: .menus).base.foreground)
+    #expect(ambiance.resolved(for: .menus).selection.background == turbo.resolved(for: .menus).selection.background)
 
     // And the vector chrome is Ambiance's shape: gradient desktop, gradient
     // titlebar with the buttons on the Ubuntu side, a window shadow.
@@ -379,15 +385,31 @@ import Testing
     }
 }
 
-@Test func turboAmbianceHighlightsBrightlyEnoughToSurviveTranslucency() {
-    // Black on Turbo's plain cyan is 7:1 and fine on a solid terminal; over a
-    // window you can see the desktop through, it is not. The ground gets
-    // brighter rather than the text lighter — white on that cyan would have
-    // been 2.9:1, worse than the black it replaced.
-    let resolved = Theme.turboAmbiance.resolved()
-    #expect(resolved.selection.background == .rgb(red: 85, green: 255, blue: 255))
-    #expect(resolved.selection.foreground == .rgb(red: 0, green: 0, blue: 0))
 
-    // Turbo itself keeps its own highlight.
-    #expect(Theme.turbo.resolved().selection.background == .rgb(red: 0, green: 170, blue: 170))
+@Test @MainActor func theNamespacedStyleNamesReachTheSlotsTheyName() {
+    // `background`, `color` and `selection` are the most borrowed words in
+    // styling. These four spellings say whose they are, so a sheet written
+    // for something else cannot repaint a scrollbar by accident.
+    let list = ListView(items: ["one"])
+    list.styleSheet = StyleSheet("""
+        ListView {
+            tuikit.secondaryControlMarker: #55FFFF;
+            tuikit.secondaryControlBackground: #000066;
+            tuikit.selectedItemColor: #0000AA;
+            tuikit.selectedItemBackgroundColor: #FFFF55;
+        }
+        """)
+
+    let theme = list.effectiveTheme
+    #expect(theme.scrollbar.foreground == .rgb(red: 85, green: 255, blue: 255))
+    #expect(theme.scrollbar.background == .rgb(red: 0, green: 0, blue: 102))
+    #expect(theme.selection.foreground == .rgb(red: 0, green: 0, blue: 170))
+    #expect(theme.selection.background == .rgb(red: 255, green: 255, blue: 85))
+
+    // The generic spellings still work: nothing written already stops
+    // reading.
+    let older = ListView(items: ["one"])
+    older.styleSheet = StyleSheet("ListView { scrollbar-color: #112233; }")
+    #expect(older.effectiveTheme.scrollbar.foreground == .rgb(red: 17, green: 34, blue: 51))
 }
+
