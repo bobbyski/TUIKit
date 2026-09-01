@@ -198,7 +198,7 @@ public final class ListView: TUIView {
             }
 
             let title = Label.truncated(items[index], width: rowWidth)
-            let padded = title + String(repeating: " ", count: max(0, rowWidth - title.count))
+            let padded = title + String(repeating: " ", count: max(0, rowWidth - DisplayWidth.of(title)))
             painter.write(padded, at: Point(x: 0, y: row), style: style)
         }
 

@@ -209,6 +209,8 @@ public final class TextView: TUIView {
                 style.foreground = color
             }
 
+            var x = 0
+
             for column in 0..<row.length {
                 let character = characters[row.start + column]
                 var cellStyle = style
@@ -217,7 +219,10 @@ public final class TextView: TUIView {
                     cellStyle = effectiveTheme.selection
                 }
 
-                painter.set(TerminalCell(character: character, style: cellStyle), at: Point(x: column, y: viewportRow))
+                // `write` rather than `set`: a wide character owns two cells
+                // and the painter is what knows to mark the second one.
+                painter.write(String(character), at: Point(x: x, y: viewportRow), style: cellStyle)
+                x += DisplayWidth.of(character)
             }
         }
 
@@ -238,9 +243,10 @@ public final class TextView: TUIView {
                 ? line[line.index(line.startIndex, offsetBy: cursor.x)]
                 : " "
 
-            painter.set(
-                TerminalCell(character: character, style: CellStyle(flags: .inverse)),
-                at: Point(x: position.column, y: position.row - offset.y)
+            painter.write(
+                String(character),
+                at: Point(x: position.column, y: position.row - offset.y),
+                style: CellStyle(flags: .inverse)
             )
         }
     }
@@ -773,17 +779,33 @@ public final class TextView: TUIView {
             var start = 0
 
             while start < characters.count {
-                let remaining = characters.count - start
+                // Fit characters into the column budget — a wide character
+                // costs two (`DisplayWidth`), a combining mark nothing. A row
+                // always takes at least one character, so a lone wide
+                // character in a one-column view still makes progress.
+                var end = start
+                var used = 0
 
-                if remaining <= width {
-                    rows.append((lineIndex, start, remaining))
+                while end < characters.count {
+                    let cost = DisplayWidth.of(characters[end])
+
+                    if used + cost > width, end > start {
+                        break
+                    }
+
+                    used += cost
+                    end += 1
+                }
+
+                if end == characters.count {
+                    rows.append((lineIndex, start, end - start))
                     break
                 }
 
                 // Break at the last space within the window; hard-break a word
                 // that is longer than the width.
                 var breakAt = -1
-                var scan = start + width - 1
+                var scan = end - 1
 
                 while scan > start {
                     if characters[scan] == " " {
@@ -797,8 +819,8 @@ public final class TextView: TUIView {
                     rows.append((lineIndex, start, breakAt - start))
                     start = breakAt + 1
                 } else {
-                    rows.append((lineIndex, start, width))
-                    start += width
+                    rows.append((lineIndex, start, end - start))
+                    start = end
                 }
             }
         }
@@ -806,7 +828,8 @@ public final class TextView: TUIView {
         return rows.isEmpty ? [(0, 0, 0)] : rows
     }
 
-    // Logical (line, column) → visual (row index, column within the row).
+    // Logical (line, column) → visual (row index, DISPLAY column within the
+    // row): the columns the characters before the cursor actually occupy.
     private func visualPosition(line: Int, column: Int, in rows: [VisualRow]) -> (row: Int, column: Int) {
         var lastRow = 0
 
@@ -814,17 +837,37 @@ public final class TextView: TUIView {
             lastRow = index
 
             if column < row.start + row.length || index + 1 >= rows.count || rows[index + 1].line != line {
-                return (index, max(0, column - row.start))
+                let characters = Array(lines[line])
+                let from = min(row.start, characters.count)
+                let to = min(max(row.start, column), characters.count)
+                return (index, DisplayWidth.of(String(characters[from..<to])))
             }
         }
 
         return (lastRow, 0)
     }
 
-    // Visual (row index, column) → logical (line, column).
+    // Visual (row index, DISPLAY column) → logical (line, character index).
+    // A click on either cell of a wide character lands the cursor before it.
     private func logicalPosition(row: Int, column: Int, in rows: [VisualRow]) -> (line: Int, column: Int) {
         let clamped = rows[min(max(0, row), rows.count - 1)]
-        return (clamped.line, min(clamped.start + max(0, column), clamped.start + clamped.length))
+        let characters = Array(lines[clamped.line])
+        let end = min(clamped.start + clamped.length, characters.count)
+        var index = clamped.start
+        var used = 0
+
+        while index < end {
+            let cost = DisplayWidth.of(characters[index])
+
+            if used + cost > max(0, column) {
+                break
+            }
+
+            used += cost
+            index += 1
+        }
+
+        return (clamped.line, index)
     }
 }
 

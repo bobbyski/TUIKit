@@ -68,7 +68,7 @@ public final class Label: TUIView {
 
     /// One row at the text's character count.
     public override var intrinsicContentSize: Size? {
-        Size(width: text.count, height: 1)
+        Size(width: DisplayWidth.of(text), height: 1)
     }
 
     /// Draws the text, aligned and truncated to the bounds.
@@ -80,15 +80,16 @@ public final class Label: TUIView {
         }
 
         let visible = Self.truncated(text, width: width)
+        let visibleWidth = DisplayWidth.of(visible)
         let x: Int
 
         switch alignment {
         case .leading:
             x = 0
         case .center:
-            x = (width - visible.count) / 2
+            x = (width - visibleWidth) / 2
         case .trailing:
-            x = width - visible.count
+            x = width - visibleWidth
         }
 
         painter.write(visible, at: Point(x: x, y: 0), style: style)
@@ -96,12 +97,15 @@ public final class Label: TUIView {
 
     /// Truncates text to a width, ending with an ellipsis when cut.
     ///
+    /// Width is in display COLUMNS, not characters — `日` costs two — and a
+    /// wide character is never split across the boundary (`DisplayWidth`).
+    ///
     /// - Parameters:
     ///   - text: Text to truncate.
     ///   - width: Available cell count.
     /// - Returns: The text, or a prefix ending in `…` when it does not fit.
     public static func truncated(_ text: String, width: Int) -> String {
-        guard text.count > width else {
+        guard DisplayWidth.of(text) > width else {
             return text
         }
 
@@ -109,6 +113,6 @@ public final class Label: TUIView {
             return width == 1 ? "…" : ""
         }
 
-        return String(text.prefix(width - 1)) + "…"
+        return DisplayWidth.prefix(of: text, fitting: width - 1).text + "…"
     }
 }

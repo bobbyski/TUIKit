@@ -242,7 +242,7 @@ public final class TreeView: TUIView {
             let disclosure = node.isExpandable ? (node.isExpanded ? "▾" : "▸") : " "
             let text = String(repeating: " ", count: depth * 2) + disclosure + " " + node.title
             let truncated = Label.truncated(text, width: rowWidth)
-            let padded = truncated + String(repeating: " ", count: max(0, rowWidth - truncated.count))
+            let padded = truncated + String(repeating: " ", count: max(0, rowWidth - DisplayWidth.of(truncated)))
 
             painter.write(padded, at: Point(x: 0, y: viewportRow), style: style)
         }

@@ -364,11 +364,13 @@ public final class TableView: TUIView {
 
             let cell = index < cells.count ? cells[index] : ""
             let truncated = Label.truncated(cell, width: width)
-            line += truncated + String(repeating: " ", count: max(0, width - truncated.count))
+            line += truncated + String(repeating: " ", count: max(0, width - DisplayWidth.of(truncated)))
         }
 
-        if line.count < total {
-            line += String(repeating: " ", count: total - line.count)
+        let lineWidth = DisplayWidth.of(line)
+
+        if lineWidth < total {
+            line += String(repeating: " ", count: total - lineWidth)
         }
 
         return line

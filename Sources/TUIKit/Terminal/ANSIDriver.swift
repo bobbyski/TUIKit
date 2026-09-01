@@ -19,8 +19,9 @@ import Glibc
 /// dispatch queue behind `await`, so no cooperative thread ever blocks on
 /// terminal I/O.
 ///
-/// v1 presents with a full redraw per frame; damage-based diffing can land
-/// later behind the same `present(_:)` contract.
+/// `present(_:)` is damage-diffed: rows are compared against the previous
+/// frame and only changed ones are rewritten (`ANSIEncoder.frame`), so an
+/// idle app writes nothing and a one-cell change costs one row.
 public actor ANSIDriver: TerminalDriver {
     /// Errors produced by the ANSI driver.
     public enum DriverError: Error, Equatable, Sendable {
