@@ -47,6 +47,7 @@ Phase 14 · Data In / Out (binding)    █████████████�
 Phase 15 · TUICodeEditor              ████████████████░░░░░░░░░░   62%  🔄 E1–E5/E8 code complete — stateful colouring, banded gutter, OmegaCLIDE swapped over; E6 folding, E7 diff/merge, E9 perf remain
 Phase 16 · Control Parity             ██████████████████████████  100%  ✅ Complete 2026-08-21 — Waves A+B in-package, Wave C siblings TUITerminal (no nested VTG), TUIDiagram, TUIBoards; plus 16.29 PreferencesDialog and the inline presentation (2.5)
 Phase 17 · Declarative Screens        ██████████████████████████  100%  ✅ v1 2026-08-22 — sibling `Code/TUIDeclarativeKit`: `Screen` → one real Window, pull-based providers, MenuBar/Toolbar/StatusBar/Preferences/Wizard/Dialog builders, `TUIDeclarativeWatch` (Watcher → pull). Not reactive. Plan: its `TUIKIT_DECLARATIVE.md` (D8 gallery page, D9 more providers pending)
+Phase 18 · Logging                    ██████████████████████████  100%  ✅ v1 2026-09-02 — ActiveUI's Logging/ suite ported: LogLevel/LogCategory (open ladder), TUILogger (never blocks, autoclosure, category overrides), Console/OSLog/File destinations, LogLineFormatter (fixed columns by DisplayWidth), LogStore ring, LogView control. Gallery Log page narrates page clicks + the VTG check
 ```
 
 **Status key:** ✅ Done &nbsp;|&nbsp; 🔄 In Progress &nbsp;|&nbsp; ⏳ Pending &nbsp;|&nbsp; 🚫 Blocked
@@ -597,6 +598,27 @@ TUIKit changes made for it: `Menu.addItem(_ item: MenuItem)` (16.x menus
 could only append by title). Requests still open against TUIKit are in the
 kit's plan §10 (`Dialog.preferredSize` counting body content; a `TUIView`
 deinit hook for exact watch teardown).
+
+## Phase 18 — Logging ✅ v1
+
+ActiveUI grew a `Logging/` suite (AUILogLevel/AUILogger/AUILogStore/AUILogView
+…); this is the TUIKit equivalent, ported 2026-09-02 into
+`Sources/TUIKit/Logging/` with the same design decisions and their reasons
+kept in the doc comments.
+
+| Piece | TUIKit name | Notes |
+|-------|-------------|-------|
+| Level + category | `LogLevel`, `LogCategory` | open ladder (severity Int, name IS identity); level carries a `TerminalColor` instead of a raw ANSI string |
+| Logger | `TUILogger` | prefixed — `os.Logger`/swift-log own the bare name. Never blocks: level check under one lock, entries onto one serial queue; `@autoclosure` messages; per-category level overrides; destination tokens; `flush()` |
+| Destinations | `ConsoleLogDestination` (SGR via `ANSIEncoder`; documented as wrong while a full-screen driver owns stdout), `OSLogDestination`, `FileLogDestination` (roll-over, one previous copy) | |
+| Formatter | `LogLineFormatter` | fixed columns measured in DISPLAY columns (`DisplayWidth`), tail-preserving `fit`, hanging continuation lines |
+| Store | `LogStore` | ring buffer; `onChange` delivered on the main actor; `totalWritten`/`hasDropped` |
+| View | `LogView` (+ internal `LogListView`) | filter row (level picker fed by the levels actually seen, search, Follow, Clear, Copy), virtual colored rows that drop quiet columns as the view narrows, tail-following resolved at draw time (`pinsToEnd` — entries arrive before layout), status line |
+
+Also: `App.graphicsCapabilities` — a public snapshot of what the VTG probe
+answered, taken in `run()`, so an app can log/show its terminal's answer
+(the gallery's "VTG check" line). Gallery: `Log` page; page clicks and the
+VTG check are logged (`GalleryLogPage.swift`; category `gallery`).
 
 ## Testing Rules
 

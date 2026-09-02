@@ -48,6 +48,13 @@ public final class App {
     /// cannot opt in — the terminal either supports it or it doesn't.
     public private(set) var isVectorChromeActive = false
 
+    /// What the terminal's graphics plane answered during startup, or nil
+    /// before `run(_:)` — and on a driver with no plane at all.
+    ///
+    /// A snapshot, so an app can *say* what it found — log it, show it in a
+    /// debug panel — without reaching into the driver mid-frame.
+    public private(set) var graphicsCapabilities: GraphicsCapabilities?
+
     /// Whether Control+C stops the application.
     ///
     /// Enabled by default so every TUIKit app is quittable before it wires
@@ -377,6 +384,7 @@ public final class App {
         // chrome-enabled rendering follows its answer for the whole run.
         isVectorChromeActive = await driver.supportsGraphicsChrome
         renderer.chromeEnabled = isVectorChromeActive
+        graphicsCapabilities = await driver.graphicsCapabilities
 
         desktop.frame = Rect(origin: .zero, size: await driver.size)
         present(window)
