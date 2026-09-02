@@ -17,6 +17,17 @@ public struct Field {
         self.title = title
         self.control = content().first ?? Spacer()
     }
+
+    /// Creates a field from a built view — the non-builder face, for
+    /// imperative clients and language bridges.
+    ///
+    /// - Parameters:
+    ///   - title: The row's label (a trailing `:` is added).
+    ///   - view: The control beside it.
+    public init(_ title: String, view: TUIView) {
+        self.title = title
+        self.control = view
+    }
 }
 
 /// A titled group of fields inside a `Form`: a header row, then its fields.
@@ -46,6 +57,16 @@ public struct Section {
 
             return nil   // nested sections flatten to their fields' level
         }
+    }
+
+    /// Creates a section from built fields — the non-builder face.
+    ///
+    /// - Parameters:
+    ///   - title: The header text.
+    ///   - fields: The rows under it.
+    public init(_ title: String, fields: [Field]) {
+        self.title = title
+        self.fields = fields
     }
 }
 
@@ -113,8 +134,33 @@ public final class Form: TUIView {
     ///     to the widest label.
     ///   - spacing: Blank rows between fields.
     ///   - fields: The rows.
-    public init(labelWidth: Int? = nil, spacing: Int = 1, @FormBuilder _ fields: () -> [FormEntry]) {
-        let entries = fields()
+    public convenience init(labelWidth: Int? = nil, spacing: Int = 1,
+                            @FormBuilder _ fields: () -> [FormEntry]) {
+        self.init(labelWidth: labelWidth, spacing: spacing, entries: fields())
+    }
+
+    /// Builds a form from sections — the non-builder face, matching what
+    /// the builder emits for the same sections (a header row, then the
+    /// section's fields, all sharing one label column).
+    ///
+    /// - Parameters:
+    ///   - labelWidth: Fixed width for the label column, or `nil` to size
+    ///     it to the widest label.
+    ///   - spacing: Blank rows between fields.
+    ///   - sections: The titled groups.
+    public convenience init(labelWidth: Int? = nil, spacing: Int = 1, sections: [Section]) {
+        self.init(labelWidth: labelWidth, spacing: spacing,
+                  entries: sections.flatMap { [.header($0.title)] + $0.fields.map { .field($0) } })
+    }
+
+    /// Builds a form from entry rows.
+    ///
+    /// - Parameters:
+    ///   - labelWidth: Fixed width for the label column, or `nil` to size
+    ///     it to the widest label.
+    ///   - spacing: Blank rows between fields.
+    ///   - entries: The rows — fields and headers.
+    public init(labelWidth: Int? = nil, spacing: Int = 1, entries: [FormEntry]) {
         let fieldRows = entries.compactMap { entry -> Field? in
             if case .field(let field) = entry { return field } else { return nil }
         }

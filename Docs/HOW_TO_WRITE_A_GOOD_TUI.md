@@ -257,7 +257,7 @@ struct MyApp {
         // The content sits between the two bars — never under them.
         let content = StackView(axis: .vertical, spacing: 1)
         content.anchors = AnchorSet(leading: 0, trailing: 0, top: 1, bottom: 1)
-        content.addArrangedSubview(Label("Hello from a real terminal app."))
+        content.addSubview(Label("Hello from a real terminal app."))
         window.addSubview(content)
 
         window.makeFirstResponder(menuBar)
