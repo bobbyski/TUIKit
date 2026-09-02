@@ -153,6 +153,18 @@ public final class Form: TUIView {
                   entries: sections.flatMap { [.header($0.title)] + $0.fields.map { .field($0) } })
     }
 
+    /// Builds a header-less form from fields — the non-builder face.
+    ///
+    /// - Parameters:
+    ///   - labelWidth: Fixed width for the label column, or `nil` to size
+    ///     it to the widest label.
+    ///   - spacing: Blank rows between fields.
+    ///   - fields: The rows.
+    public convenience init(labelWidth: Int? = nil, spacing: Int = 1, fields: [Field]) {
+        self.init(labelWidth: labelWidth, spacing: spacing,
+                  entries: fields.map { .field($0) })
+    }
+
     /// Builds a form from entry rows.
     ///
     /// - Parameters:
