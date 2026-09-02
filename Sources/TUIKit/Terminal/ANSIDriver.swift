@@ -426,8 +426,31 @@ public actor ANSIDriver: TerminalDriver {
     // probe's blocking poll-with-deadline reads cannot park a cooperative
     // thread. Runs before the read source exists, so the APC responses on
     // stdin are the probe's to consume. `TUIKIT_VTG=0` opts out entirely.
+    /// Appends one line of probe progress to `$TUIKIT_VTG_LOG`, when set.
+    ///
+    /// The probe's outcome is otherwise a silent boolean, and "my charts
+    /// are drawing cells" has three possible causes — no VectorTerminal,
+    /// no glyph metrics, or the opt-out — that look identical on screen.
+    /// A terminal that answers nothing writes nothing beyond the first
+    /// line, which is itself the answer.
+    static func logProbe(_ message: String) {
+        guard let path = ProcessInfo.processInfo.environment["TUIKIT_VTG_LOG"] else {
+            return
+        }
+
+        let line = Data("vtg probe: \(message)\n".utf8)
+        if let handle = FileHandle(forWritingAtPath: path) {
+            defer { try? handle.close() }
+            _ = try? handle.seekToEnd()
+            try? handle.write(contentsOf: line)
+        } else {
+            try? line.write(to: URL(fileURLWithPath: path))
+        }
+    }
+
     private func probeGraphics() async -> Bool {
         guard ProcessInfo.processInfo.environment["TUIKIT_VTG"] != "0" else {
+            Self.logProbe("skipped — TUIKIT_VTG=0")
             return false
         }
 
@@ -444,23 +467,29 @@ public actor ANSIDriver: TerminalDriver {
                     output: sink,
                     timeoutMilliseconds: 400
                 ) else {
+                    Self.logProbe("capabilities: no answer — not a VectorTerminal (or slower than 400 ms)")
                     continuation.resume(returning: false)
                     return
                 }
+                Self.logProbe("capabilities: answered")
 
                 // Chrome must sit exactly behind text; without real glyph
                 // metrics, alignment would be a guess — treat as unsupported.
                 guard let glyph = canvas.queryTerminalWSize(timeoutMilliseconds: 400),
                       glyph.width > 0, glyph.height > 0 else {
+                    Self.logProbe("glyph metrics: none — chrome cannot align, so cells it is")
                     continuation.resume(returning: false)
                     return
                 }
+                Self.logProbe("glyph metrics: \(glyph.width)x\(glyph.height)")
 
                 // One more round trip, before the read source exists and
                 // while the APC responses on stdin are still the probe's to
                 // consume. A terminal that does not answer leaves this nil
                 // and the baseline stands.
                 let reported = canvas.queryCapabilityInfo(timeoutMilliseconds: 400)
+                Self.logProbe("capability info: \(reported == nil ? "none — baseline stands" : "reported")")
+                Self.logProbe("vector chrome ACTIVE")
 
                 canvas.clear()
                 state.canvas = canvas
