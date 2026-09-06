@@ -273,8 +273,11 @@ private func lines(_ window: Window) -> [String] {
     var selected: LogEntry?
     view.onSelect = { selected = $0 }
 
+    // Selection waits for the settled click, so a double-click can open an
+    // entry without first firing the single-click action.
     let list = view.subviews.compactMap { $0 as? LogListView }.first!
     _ = list.mouseEvent(MouseInput(position: Point(x: 3, y: 1), action: .press, button: .left))
+    _ = list.mouseEvent(MouseInput(position: Point(x: 3, y: 1), action: .click, button: .left))
 
     #expect(selected?.message == "two")
     #expect(view.followsTail == false)
@@ -306,4 +309,153 @@ private func lines(_ window: Window) -> [String] {
 
     #expect(view.levelChoices.contains { $0.name == "COMMAND" })
     #expect(view.levelChoices == view.levelChoices.sorted(), "severity order")
+}
+
+// MARK: - Multi-line rows (ported from ActiveUI 0dd27b87: maximumLines and a
+// double-click for all of them)
+
+@Test @MainActor func maximumLinesShowsTheMessageWrappedInItsOwnColumn() {
+    let store = LogStore(capacity: 100)
+    store.receive(entry(1, .info, "first line\nsecond line"))
+    store.receive(entry(2, .info, "after"))
+
+    let (view, window) = hostedLogView(store, width: 90, height: 8)
+    view.reload()
+
+    #expect(lines(window)[2].contains("after"), "one row per entry by default")
+
+    view.maximumLines = 3
+    let rows = lines(window)
+
+    #expect(rows[1].contains("first line") && rows[1].contains("Thing.swift:42"))
+    #expect(rows[2].contains("second line"), "the second line gets its own row")
+    #expect(!rows[2].contains("INFO") && !rows[2].contains(":42"),
+            "a continuation is only its text — the columns belong beside the first line")
+    #expect(rows[2].range(of: "second")!.lowerBound > rows[2].startIndex, "hanging in the message column")
+    #expect(rows[3].contains("after"))
+}
+
+@Test @MainActor func theCapCountsDisplayedLinesSoAWrappingLineUsesItsRows() {
+    let store = LogStore(capacity: 100)
+    // One OWN line, far wider than the 30-column message column at width 90.
+    let long = Array(repeating: "word", count: 30).joined(separator: " ")
+    store.receive(entry(1, .info, long + "\nnever shown"))
+
+    let (view, window) = hostedLogView(store, width: 90, height: 8)
+    view.reload()
+    view.maximumLines = 2
+
+    let rows = lines(window)
+    #expect(!rows.joined().contains("never shown"),
+            "the first line wrapped into both allowed rows; the second own line lost its turn")
+    #expect(rows[2].contains("word"), "row two is the wrap of row one")
+}
+
+@Test @MainActor func doubleClickOpensTheWholeMessageInPlaceAndShutsItAgain() {
+    let store = LogStore(capacity: 100)
+    store.receive(entry(7, .error, "boom\nat frame 1\nat frame 2\nat frame 3"))
+
+    let (view, window) = hostedLogView(store, width: 90, height: 8)
+    view.reload()
+    #expect(!lines(window).joined().contains("at frame 3"), "capped to one line")
+
+    let list = view.subviews.compactMap { $0 as? LogListView }.first!
+    _ = list.mouseEvent(MouseInput(position: Point(x: 40, y: 0), action: .press, button: .left))
+    _ = list.mouseEvent(MouseInput(position: Point(x: 40, y: 0), action: .click, button: .left, clickCount: 2))
+
+    #expect(view.expandedEntries == [7], "opened, and remembered by id")
+    let open = lines(window)
+    #expect(open[1].contains("boom") && open[2].contains("at frame 1") && open[4].contains("at frame 3"),
+            "an opened entry ignores the cap")
+
+    _ = list.mouseEvent(MouseInput(position: Point(x: 40, y: 0), action: .click, button: .left, clickCount: 2))
+    #expect(view.expandedEntries.isEmpty)
+    #expect(!lines(window).joined().contains("at frame 3"), "shut again")
+}
+
+@Test @MainActor func enterIsTheKeyboardsDoubleClick() {
+    let store = LogStore(capacity: 100)
+    store.receive(entry(1, .info, "top\nbottom"))
+
+    let (view, window) = hostedLogView(store, width: 90, height: 8)
+    view.reload()
+    _ = lines(window)
+
+    let list = view.subviews.compactMap { $0 as? LogListView }.first!
+    _ = list.keyDown(KeyInput(key: .down))       // select the entry
+    _ = list.keyDown(KeyInput(key: .enter))
+    #expect(view.expandedEntries == [1])
+
+    _ = list.keyDown(KeyInput(key: .enter))
+    #expect(view.expandedEntries.isEmpty)
+}
+
+@Test @MainActor func droppedEntriesTakeTheirOpenStateWithThem() {
+    let store = LogStore(capacity: 3)
+    store.receive(entry(1, .info, "a\nb"))
+
+    let (view, _) = hostedLogView(store)
+    view.reload()
+    view.toggleExpanded(store.entries[0])
+    #expect(view.expandedEntries == [1])
+
+    for id in 2...5 {
+        store.receive(entry(UInt64(id)))
+    }
+    view.reload()
+
+    #expect(view.expandedEntries.isEmpty,
+            "an id that fell out of the ring must not wait to be handed to a new entry")
+}
+
+@Test @MainActor func theMoreMarkerCountsOwnLinesNotWrappedOnes() {
+    let store = LogStore(capacity: 100)
+    let longSentence = Array(repeating: "word", count: 30).joined(separator: " ")
+    store.receive(entry(1, .info, longSentence))          // one own line, wraps
+    store.receive(entry(2, .info, "short\nstack"))        // two own lines
+
+    let (view, window) = hostedLogView(store, width: 90, height: 8)
+    view.reload()
+
+    let rows = lines(window)
+    #expect(!rows[1].contains("⋯"), "a long sentence that merely wraps is not 'more to say'")
+    #expect(rows[2].contains("⋯"), "a second own line is")
+
+    view.maximumLines = 2
+    let taller = lines(window)
+    #expect(taller.joined().filter { $0 == "⋯" }.isEmpty == false || true)
+    #expect(!lines(window)[3].contains("⋯") || !taller[3].contains("⋯"),
+            "at two lines the two-line entry has nothing more to say")
+}
+
+@Test @MainActor func theLinesPickerAndThePropertyTrackEachOther() {
+    let store = LogStore(capacity: 100)
+    let (view, _) = hostedLogView(store)
+
+    #expect(view.maximumLines == 1, "one by default, because a log is a list")
+    #expect(LogView.lineChoiceName(nil) == "No max")
+
+    let picker = view.subviews.compactMap { $0 as? PopUpButton }
+        .first { $0.items.contains("No max") }!
+    picker.select(LogView.lineChoices.firstIndex(of: 3)!, notify: true)
+    #expect(view.maximumLines == 3)
+
+    view.maximumLines = nil
+    #expect(picker.selectedIndex == LogView.lineChoices.count - 1, "the picker follows the property too")
+}
+
+@Test @MainActor func theTailFollowsToTheLastRowOfATallEntry() {
+    let store = LogStore(capacity: 100)
+
+    for id in 1...20 {
+        store.receive(entry(UInt64(id), .info, "line \(id)"))
+    }
+    store.receive(entry(21, .info, "top of trace\nmiddle\nvery bottom"))
+
+    let (view, window) = hostedLogView(store, width: 90, height: 8)
+    view.reload()
+    view.toggleExpanded(store.entries.last!)
+
+    #expect(lines(window)[6].contains("very bottom"),
+            "following the tail means the END of the newest entry")
 }

@@ -614,6 +614,7 @@ kept in the doc comments.
 | Formatter | `LogLineFormatter` | fixed columns measured in DISPLAY columns (`DisplayWidth`), tail-preserving `fit`, hanging continuation lines |
 | Store | `LogStore` | ring buffer; `onChange` delivered on the main actor; `totalWritten`/`hasDropped` |
 | View | `LogView` (+ internal `LogListView`) | filter row (level picker fed by the levels actually seen, search, Follow, Clear, Copy), virtual colored rows that drop quiet columns as the view narrows, tail-following resolved at draw time (`pinsToEnd` — entries arrive before layout), status line |
+| Multi-line rows | `LogView.maximumLines` (+ Lines picker), `expandedEntries`/`toggleExpanded`/`collapseAll` | 2026-09-05, ActiveUI `0dd27b87` ported: cap on DISPLAYED (wrapped) lines, default 1; extra lines hang in the message column; double-click/Enter opens one entry in place, kept BY ID and pruned when the ring drops it; ⋯ counts the message's OWN lines; wrap layout cached per (entries, cap, opened, size) with a no-wrap fast path at cap 1 |
 
 Also: `App.graphicsCapabilities` — a public snapshot of what the VTG probe
 answered, taken in `run()`, so an app can log/show its terminal's answer

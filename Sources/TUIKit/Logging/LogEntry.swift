@@ -59,4 +59,10 @@ public struct LogEntry: Hashable, Sendable, Codable, Identifiable {
 
     /// Whether the message runs to more than one line.
     public var isMultiline: Bool { message.contains("\n") }
+
+    /// How many lines the message is written on. Its own lines — what it
+    /// wraps to on screen depends on how wide the screen is.
+    public var lineCount: Int {
+        message.reduce(1) { $1 == "\n" ? $0 + 1 : $0 }
+    }
 }
