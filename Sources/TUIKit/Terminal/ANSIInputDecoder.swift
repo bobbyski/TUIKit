@@ -415,7 +415,15 @@ public struct ANSIInputDecoder: Sendable {
             }
         }
 
-        return [.mouse(MouseInput(position: position, action: action, button: button, modifiers: modifiers))]
+        let event = MouseInput(position: position, action: action, button: button, modifiers: modifiers)
+        // What the terminal actually sent, before anything routes it.
+        //
+        // "Some clicks work and some do not" has two very different causes —
+        // events that never arrive, and events that arrive and land on the
+        // wrong view — and on screen they are the same nothing. This says
+        // which, in the terminal where it happens.
+        TUIMouseTrace.record(code: code, event: event)
+        return [.mouse(event)]
     }
 
     // MARK: - UTF-8

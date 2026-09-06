@@ -689,6 +689,18 @@ open class TUIView {
             painter = painter.withoutChrome()
         }
 
+        // Why this view drew cells rather than vectors.
+        //
+        // The probe log says whether the *terminal* can do chrome; it cannot
+        // say whether a given view used it. "My charts are drawing cells"
+        // then still has two causes that look identical on screen — the
+        // subtree opted out, or the frame it was handed is empty — and the
+        // gallery draws the same chart twice precisely so the two can be
+        // compared, which makes telling them apart the whole question.
+        //
+        // Once per view, not per frame: this is a diagnostic, not a trace.
+        TUIChromeTrace.record(self, painter: painter)
+
         draw(painter)
 
         for (index, subview) in subviews.enumerated() {
