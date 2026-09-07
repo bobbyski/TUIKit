@@ -1,10 +1,12 @@
 /// Scrolling markdown reader.
 ///
 /// Renders markdown through RichSwift `Markdown` (headings, lists, block
-/// quotes, inline bold/code, fenced code blocks with syntax highlighting),
-/// then soft-wraps the styled result to the view's width — RichSwift keeps
-/// one output line per source line, so paragraph wrapping is this view's
-/// job. Long documents scroll vertically: arrows, PageUp/PageDown,
+/// quotes, inline bold/code/links, pipe tables drawn as RichSwift `Table`s,
+/// fenced code blocks with syntax highlighting), then soft-wraps the styled
+/// result to the view's width — RichSwift wraps only what it draws a box
+/// around, so paragraph wrapping is this view's job. The render width is the
+/// pane's, so a table sizes its columns to fit. Long documents scroll
+/// vertically: arrows, PageUp/PageDown,
 /// Home/End while focused, the wheel anytime, with a proportional ░/█
 /// indicator in the last column when the document overflows.
 ///

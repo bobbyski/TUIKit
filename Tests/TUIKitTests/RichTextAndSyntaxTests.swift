@@ -107,6 +107,38 @@ private func renderedBuffer(_ view: TUIKit.TUIView, size: TUIKit.Size) -> CellBu
     #expect(bold.flags.contains(.bold))
 }
 
+@Test @MainActor func markdownViewDrawsPipeTablesAsBoxedTables() {
+    let source = """
+    | Command | What it does |
+    |---|---|
+    | [`cd`](CD.md) | change the directory |
+    """
+    let view = MarkdownView(markdown: source)
+    let lines = renderedBuffer(view, size: TUIKit.Size(width: 40, height: 6)).textLines()
+
+    #expect(lines[0].hasPrefix("╭"))
+    #expect(lines[1].contains("Command"))
+    #expect(lines[2].hasPrefix("├"))
+    #expect(lines[3].contains("cd"))
+    #expect(lines[4].hasPrefix("╰"))
+
+    // The markup is structure now: no pipes, no link syntax left over.
+    #expect(!lines.contains { $0.contains("|") || $0.contains("CD.md") })
+
+    // The table sizes itself to the pane, leaving the scrollbar column alone.
+    #expect(lines.allSatisfy { $0.trimmingCharacters(in: .whitespaces).count <= 39 })
+}
+
+@Test @MainActor func markdownViewRendersLinkLabelsUnderlined() {
+    let view = MarkdownView(markdown: "see [the docs](D.md) first")
+    let buffer = renderedBuffer(view, size: TUIKit.Size(width: 30, height: 2))
+
+    #expect(buffer.textLines()[0].hasPrefix("see the docs first"))
+    // A bare `[` used to read as a markup tag and swallow the label.
+    #expect(buffer[TUIKit.Point(x: 4, y: 0)].style.flags.contains(.underline))
+    #expect(!buffer[TUIKit.Point(x: 0, y: 0)].style.flags.contains(.underline))
+}
+
 @Test @MainActor func markdownViewScrollsAndShowsIndicator() {
     let source = (1...20).map { "- line \($0)" }.joined(separator: "\n")
     let view = MarkdownView(markdown: source)
