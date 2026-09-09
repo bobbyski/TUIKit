@@ -15,8 +15,20 @@ import Foundation
 enum TUIChromeTrace {
     private static var seen: Set<ObjectIdentifier> = []
 
+    /// Where to log, read once.
+    ///
+    /// **Once, not once per view per frame.** This is called from
+    /// `renderTree` for every view in the tree on every frame, and it used to
+    /// ask `ProcessInfo` each time — a dictionary build and lookup per view
+    /// per frame, to answer a question whose answer cannot change while the
+    /// process runs. A diagnostic that is off should cost a nil check.
+    private static let logPath = ProcessInfo.processInfo.environment["TUIKIT_VTG_LOG"]
+
+    /// Whether the trace is on at all, so the caller can skip the call.
+    static var isEnabled: Bool { logPath != nil }
+
     static func record(_ view: TUIView, painter: Painter) {
-        guard let path = ProcessInfo.processInfo.environment["TUIKIT_VTG_LOG"] else { return }
+        guard let path = logPath else { return }
         let identity = ObjectIdentifier(view)
         guard seen.insert(identity).inserted else { return }
 

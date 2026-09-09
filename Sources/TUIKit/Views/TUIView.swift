@@ -672,8 +672,24 @@ open class TUIView {
     // ones).
     func renderTree(with painter: Painter) {
         guard !isHidden else {
-            needsDisplay = false
-            subtreeNeedsDisplay = false
+            clearDisplayFlagsInTree()
+            return
+        }
+
+        // **Nothing inside an empty clip can reach the buffer.** Every write
+        // goes through `Painter`, which clips it, and `ChromeSurface` carries
+        // the same clip — so a view whose clip has no area cannot produce a
+        // cell or a vector command however hard it draws.
+        //
+        // Descending anyway was the single largest cost in a frame. A list is
+        // a stack of rows in a shorter window, and the rows past the bottom
+        // paid the full price of being drawn: theme resolution, a chrome
+        // owner id built by string interpolation, a trace record, and the
+        // view's own drawing — all of it thrown away by the clip one layer
+        // down. Measured on a 200-row stack in a 60-row window: 17.3ms a
+        // frame, ~82µs of it per invisible row.
+        guard !painter.clip.isEmpty else {
+            clearDisplayFlagsInTree()
             return
         }
 
@@ -681,9 +697,15 @@ open class TUIView {
         // theme override and/or stylesheet rules); a no-op when nothing
         // applies. Chrome object ids are scoped to this view's identity —
         // stable across frames for the terminal's retained vector scene.
-        var painter = painter
-            .withBase(effectiveTheme.base)
-            .withChromeOwner("v\(UInt(bitPattern: ObjectIdentifier(self)))")
+        // The owner id is what keeps a view's vector chrome addressable
+        // across frames — and it is built by interpolating a pointer into a
+        // String, per view, per frame. A plain terminal never reads it, so it
+        // is only worth paying for where chrome is live.
+        var painter = painter.withBase(effectiveTheme.base)
+
+        if painter.chromeIsActive {
+            painter = painter.withChromeOwner("v\(UInt(bitPattern: ObjectIdentifier(self)))")
+        }
 
         if suppressesVectorChrome {
             painter = painter.withoutChrome()
@@ -699,7 +721,11 @@ open class TUIView {
         // compared, which makes telling them apart the whole question.
         //
         // Once per view, not per frame: this is a diagnostic, not a trace.
-        TUIChromeTrace.record(self, painter: painter)
+        // The `isEnabled` check keeps the call itself off the hot path when
+        // the log is not on, which is every run but a debugging one.
+        if TUIChromeTrace.isEnabled {
+            TUIChromeTrace.record(self, painter: painter)
+        }
 
         draw(painter)
 
@@ -727,5 +753,19 @@ open class TUIView {
 
         needsDisplay = false
         subtreeNeedsDisplay = false
+    }
+
+    /// Marks this view and everything under it as drawn.
+    ///
+    /// A subtree that was skipped — hidden, or clipped away entirely — must
+    /// still come out of the frame clean, or `needsDisplayInTree` stays true
+    /// and the run loop composes a new frame on every tick forever.
+    private func clearDisplayFlagsInTree() {
+        needsDisplay = false
+        subtreeNeedsDisplay = false
+
+        for subview in subviews {
+            subview.clearDisplayFlagsInTree()
+        }
     }
 }
