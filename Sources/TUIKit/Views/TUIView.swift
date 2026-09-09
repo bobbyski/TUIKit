@@ -171,6 +171,17 @@ open class TUIView {
     /// (↑/↓, Return, Esc); clicking elsewhere dismisses.
     public var contextMenu: Menu?
 
+    /// Help text shown after the pointer rests over this view.
+    ///
+    /// The terminal's `NSView.toolTip` — and, like it, inherited: the owning
+    /// `Window` walks up from whatever the pointer is over to the nearest
+    /// view that sets one, so a container can label a row of unlabelled
+    /// glyph buttons in one place.
+    ///
+    /// Shown by ``TooltipPanel`` after ``Window/tooltipDelay``, and dismissed
+    /// by any click, key or scroll. It never takes focus.
+    public var toolTip: String?
+
     /// The theme in effect for this view: the nearest ancestor's theme,
     /// with matching stylesheet rules applied when any sheets exist
     /// (outer sheets first, then specificity, then source order).

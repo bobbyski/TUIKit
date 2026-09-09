@@ -40,7 +40,7 @@ Phase 7 · Styling & Theming           █████████████�
 Phase 8 · Demo & Polish               ██████████████████████░░░░   85%  🔄 Turbo theme suite (8.5–8.8, 8.13–8.15), border scrollbars (8.7), multi-click (8.16), API review (8.3), docs (8.4) done; remaining: headless demo test (8.2), minimize trio (8.10–8.12)
 Phase 9 · Tutorial                    ██████████████████████████  100%  ✅ Docs/Tutorial (README + Ch1–6), TUIKitTutorial runner + TUIKitTutorialMilestones library, anti-rot tests render every chapter headlessly
 Phase 10 · VTG Vector Graphics        ████████████████████░░░░░░   75%  🔄 Core shipped (10.1–10.5 first pass, 10.7; Ambiance theme); pending: real-VectorTerminal check (10.8), wider control pass
-Phase 11 · Controls v3                ░░░░░░░░░░░░░░░░░░░░░░░░░░    0%  ⏳ Pending (rev 2: search, sheets, images, tokens, tooltips)
+Phase 11 · Controls v3                ██████████████████████░░░░   80%  🔄 11.1/11.3/11.4 shipped in Phase 16; 11.5 tooltips done 2026-09-09 (`TUIView.toolTip`, hover dwell, `TooltipPanel` that never takes focus); 11.2 sheets remain
 Phase 12 · TUIBuilder (declarative)   ██████████████████████████  100%  🔄 Code complete — core, containers, Form, Grid/Tab/Split DSL, hosting
 Phase 13 · TUIView base rename        ██████████████████████████  100%  ✅ Done — base class View → TUIView (SwiftUI coexistence)
 Phase 14 · Data In / Out (binding)    ██████████████████████████  100%  🔄 Code complete — value/named/dict + typed binding + load/save/live + @Bound macro
@@ -426,7 +426,7 @@ real VectorTerminal is still pending — everything below is headless-proven.
 | 11.2 | Sheets | ⏳ Pending | Window-attached modal: a dialog that anchors to (and visually hangs from) a specific window's title bar instead of centering on screen; blocks only that window in a non-modal stack. |
 | 11.3 | `ImageView` | → 16.20 | Raster display: cell-art/braille approximation in plain terminals; real raster via the VTG layer (Phase 10) when the terminal supports it. |
 | 11.4 | `TokenField` | → 16.15 | Tag pills inside a text field: typing + Return mints a token, Backspace removes, tokens navigable with ←/→; `onTokensChanged`. |
-| 11.5 | Tooltips | ⏳ Pending | Hover text after a delay (mouse-move events already decoded; uses the 6B.6 timer story); per-view `toolTip` property; renders as a small floating panel that never takes focus. |
+| 11.5 | Tooltips | ✅ Done 2026-09-09 | `TUIView.toolTip`, inherited up the view chain so a row can label its unlabelled children once. `App.trackHover` arms a `Window.tooltipDelay` clock on `.move` only — a press, drag or scroll means doing rather than asking — and `TooltipPanel` draws opaque in `.menus`, never takes focus, flips above the pointer when there is no room below, and truncates help wider than the window. Seven tests, two of them driving a real run loop on a `ManualTimerSource`. Closes ActiveUI's silently-dropped `tooltip` property. |
 
 ## Phase 12 — TUIBuilder (declarative layer) 🔄 33%
 

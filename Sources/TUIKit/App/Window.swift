@@ -444,6 +444,93 @@ open class Window: TUIView {
         makeFirstResponder(dropdown)
     }
 
+    // MARK: - Tooltips (Phase 11.5)
+
+    private weak var tooltipPanel: TooltipPanel?
+
+    /// How long the pointer must rest before help text appears.
+    ///
+    /// Long enough that crossing a control on the way somewhere else shows
+    /// nothing, short enough that stopping to ask reads as an answer.
+    public static var tooltipDelay: Duration = .milliseconds(600)
+
+    /// The nearest view at a window-local point that has help text.
+    ///
+    /// Walks up from the hit view, so a container can label a row of
+    /// unlabelled children in one place.
+    ///
+    /// - Parameter position: A window-local point.
+    /// - Returns: The view whose `toolTip` applies there, or nil.
+    func viewWithToolTip(at position: Point) -> TUIView? {
+        guard let hit = hitTest(position) else {
+            return nil
+        }
+
+        var current: TUIView? = hit.view
+
+        while let view = current {
+            if let text = view.toolTip, !text.isEmpty {
+                return view
+            }
+
+            current = view === self ? nil : view.superview
+        }
+
+        return nil
+    }
+
+    /// Whether help text is on screen.
+    public var isShowingTooltip: Bool {
+        tooltipPanel != nil
+    }
+
+    /// Shows help text near a window-local point.
+    ///
+    /// Placed below the pointer when there is room and above otherwise, and
+    /// pushed inside the window's edges — the same rule the context menu
+    /// follows, for the same reason: a panel half off the screen is worse
+    /// than none.
+    ///
+    /// - Parameters:
+    ///   - text: The help text.
+    ///   - point: Where the pointer is, in window coordinates.
+    public func showTooltip(_ text: String, at point: Point) {
+        dismissTooltip()
+
+        // Help longer than the window is truncated rather than hung off the
+        // edge. Clamping the origin alone cannot save it — a panel wider than
+        // the screen has no origin that fits — and a sentence cut with an
+        // ellipsis still says more than half a border does.
+        let room = max(0, bounds.size.width - 4)
+        let panel = TooltipPanel(text: Label.truncated(text, width: room))
+        let size = panel.intrinsicContentSize ?? Size(width: 8, height: 3)
+        let spaceBelow = bounds.size.height - (point.y + 1)
+        let y = spaceBelow >= size.height ? point.y + 1 : point.y - size.height
+
+        panel.frame = Rect(
+            origin: Point(
+                x: max(0, min(point.x, bounds.size.width - size.width)),
+                y: max(0, y)
+            ),
+            size: size
+        )
+
+        addSubview(panel)
+        tooltipPanel = panel
+        // Deliberately no `makeFirstResponder`: see TooltipPanel.
+    }
+
+    /// Takes any help text off the screen.
+    public func dismissTooltip() {
+        guard let panel = tooltipPanel else {
+            return
+        }
+
+        tooltipPanel = nil
+        panel.removeFromSuperview()
+        setNeedsDisplay()
+    }
+
     /// Dismisses the open context menu, if any.
     public func dismissContextMenu() {
         guard let dropdown = contextDropdown else {

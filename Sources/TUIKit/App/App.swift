@@ -569,7 +569,67 @@ public final class App {
             // routing, so selection (on press) stays instant; only the debounced
             // `.click` waits out the guard.
             trackClick(action: mouse.action, button: mouse.button, screen: screen, window: window)
+
+            // Help text tracks the pointer, and anything else takes it away.
+            trackHover(mouse: mouse, window: window)
         }
+    }
+
+    // MARK: - Tooltips (PLAN 11.5)
+
+    // The view the dwell clock is currently running for. Identity, not text:
+    // two neighbouring buttons can share help text, and crossing between them
+    // should still restart the clock rather than look like never having left.
+    private weak var hoverView: TUIView?
+    private var hoverTimer: AppTimer?
+
+    /// Arms, re-arms or cancels the hover clock for one mouse event.
+    ///
+    /// **Only `.move` can start it.** A press, a drag, a release or a scroll
+    /// all mean the user is doing something rather than asking what something
+    /// is, and help text over an action in progress is in the way.
+    ///
+    /// - Parameters:
+    ///   - mouse: The event, already in `window` coordinates.
+    ///   - window: The window it was routed to.
+    func trackHover(mouse: MouseInput, window: Window) {
+        guard mouse.action == .move else {
+            cancelHover(in: window)
+            return
+        }
+
+        let target = window.viewWithToolTip(at: mouse.position)
+
+        guard let target, let text = target.toolTip, !text.isEmpty else {
+            cancelHover(in: window)
+            return
+        }
+
+        // Still over the same view: the clock keeps running rather than
+        // restarting, or a hand that trembles never reaches the delay.
+        if target === hoverView {
+            return
+        }
+
+        cancelHover(in: window)
+        hoverView = target
+
+        let position = mouse.position
+        hoverTimer = schedule(after: Window.tooltipDelay) { [weak self, weak window, weak target] in
+            guard let self, let window, let target, self.hoverView === target else {
+                return
+            }
+
+            window.showTooltip(text, at: position)
+        }
+    }
+
+    // Stops the clock and takes any help text off the screen.
+    private func cancelHover(in window: Window) {
+        hoverTimer?.cancel()
+        hoverTimer = nil
+        hoverView = nil
+        window.dismissTooltip()
     }
 
     // Turns a stream of left presses/releases into debounced `.click` events.
