@@ -194,6 +194,27 @@ public final class ProgressIndicator: TUIView {
         let (trackStyle, fillStyle) = Self.barStyles(for: theme)
         let filled = Int((fractionCompleted * Double(trackWidth)).rounded())
 
+        // A real bar where the terminal can draw one (Phase 10). A progress
+        // bar is the shape vector chrome is best at: a rounded track with a
+        // gradient fill, at the sub-cell resolution that makes 43% look like
+        // 43% rather than like the nearest whole cell.
+        //
+        // Ground rule 8 holds — the cells below are drawn either way, and are
+        // the path that must work. Under chrome they are blanked so the vector
+        // shows through; everywhere else they *are* the bar.
+        if let chrome = painter.chrome, chrome.covers(bounds), trackWidth >= 2,
+           let track = ChromeColor(trackStyle.background),
+           let fill = ChromeColor(fillStyle.background) {
+            drawVectorBar(painter, chrome: chrome,
+                          trackWidth: trackWidth, track: track, fill: fill)
+
+            if !label.isEmpty {
+                painter.write(label, at: Point(x: trackWidth, y: 0), style: CellStyle())
+            }
+
+            return
+        }
+
         // Solid cells only — a blank painted on a background color, never a
         // shaded glyph. The track is a filled dim bar; the fill is the accent.
         for x in 0..<trackWidth {
@@ -207,6 +228,41 @@ public final class ProgressIndicator: TUIView {
         if !label.isEmpty {
             painter.write(label, at: Point(x: trackWidth, y: 0), style: CellStyle())
         }
+    }
+
+    // The vector bar: a rounded track, then the filled part over it.
+    //
+    // Sub-cell, which is the whole point — a cell bar can only be filled to
+    // the nearest column, so on a twenty-cell track every value between 42%
+    // and 47% draws identically. The vector one does not round.
+    private func drawVectorBar(
+        _ painter: Painter,
+        chrome: ChromeSurface,
+        trackWidth: Int,
+        track: ChromeColor,
+        fill: ChromeColor
+    ) {
+        // Transparent cells so the chrome underneath is what shows; the label
+        // is written on top afterwards, as text always is.
+        painter.withBase(CellStyle()).fill(
+            Rect(x: 0, y: 0, width: trackWidth, height: 1), with: .blank
+        )
+
+        let bar = ChromeRect(x: 0, y: 0, width: Double(trackWidth), height: 1)
+        chrome.rect("track", bar, fill: track, radius: 0.5)
+
+        let filled = Double(trackWidth) * min(max(fractionCompleted, 0), 1)
+
+        guard filled > 0 else {
+            return
+        }
+
+        chrome.rect(
+            "fill",
+            ChromeRect(x: 0, y: 0, width: filled, height: 1),
+            fill: fill,
+            radius: 0.5
+        )
     }
 
     // Solid track/fill styles — background colors only, never glyph patterns,
