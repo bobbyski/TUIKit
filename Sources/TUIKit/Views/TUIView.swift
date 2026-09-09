@@ -97,7 +97,34 @@ open class TUIView {
     // A theme (or context) change can move intrinsic sizes, so every container
     // in the subtree re-measures — marking only display would leave controls
     // drawing into stale frames (e.g. a shadowed button truncating its label).
+    /// Bumped whenever anything that can change how a theme resolves changes.
+    ///
+    /// **Structural, not a list.** `effectiveTheme` reads six mutable
+    /// properties (`theme`, `themeContext`, `styleSheet`, `identifier`,
+    /// `styleClasses`, `isFirstResponder`) plus the ancestor chain, and every
+    /// one of those already routes through `setNeedsDisplay()` or
+    /// `invalidateThemeDependentLayout()` when it changes. Bumping there
+    /// means the cache cannot go stale because somebody added a seventh input
+    /// and forgot to invalidate — which is how a resolved theme has gone
+    /// stale here before.
+    ///
+    /// It over-invalidates: any redraw anywhere clears every view's cache.
+    /// That is the safe direction, and the win it leaves on the table is
+    /// small — the cost was never *across* frames, it was the same view
+    /// resolving three or four times *within* one, from `renderTree` and then
+    /// from its own `draw`.
+    @MainActor
+    private static var themeEpoch = 0
+
+    @MainActor
+    static func invalidateResolvedThemes() {
+        themeEpoch &+= 1
+    }
+
+    private var cachedTheme: (epoch: Int, theme: ResolvedTheme)?
+
     private func invalidateThemeDependentLayout() {
+        Self.invalidateResolvedThemes()
         setNeedsLayout()
 
         for subview in subviews {
@@ -189,6 +216,18 @@ open class TUIView {
     /// Style sheets are entirely optional — with none in the ancestor
     /// chain this is exactly the inherited theme.
     public var effectiveTheme: ResolvedTheme {
+        if let cachedTheme, cachedTheme.epoch == Self.themeEpoch {
+            return cachedTheme.theme
+        }
+
+        let resolved = resolveTheme()
+        cachedTheme = (Self.themeEpoch, resolved)
+        return resolved
+    }
+
+    // Walks the ancestor chain for the theme, the context and the sheets, and
+    // cascades them. Called only on a cache miss.
+    private func resolveTheme() -> ResolvedTheme {
         var inherited: Theme?
         var context: ThemeContext?
         var foundContext = false
@@ -281,6 +320,7 @@ open class TUIView {
 
     /// Marks the view as needing redraw and records dirtiness up the tree.
     public func setNeedsDisplay() {
+        Self.invalidateResolvedThemes()
         needsDisplay = true
 
         var ancestor = superview
