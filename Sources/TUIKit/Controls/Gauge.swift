@@ -186,7 +186,7 @@ public final class Gauge: TUIView {
         if !label.isEmpty {
             let text = Label.truncated(label, width: width)
             painter.write(text, at: .zero, style: theme.base)
-            x = text.count + 1
+            x = DisplayWidth.of(text) + 1
         }
 
         let valueText = showsValue ? formatter(value) : ""
@@ -235,13 +235,13 @@ public final class Gauge: TUIView {
 
         if showsValue {
             let text = formatter(value)
-            let x = max(0, (bounds.size.width - text.count) / 2)
+            let x = max(0, (bounds.size.width - DisplayWidth.of(text)) / 2)
             painter.write(text, at: Point(x: x, y: bounds.size.height / 2), style: theme.base)
         }
 
         if !label.isEmpty, bounds.size.height >= 5 {
             let text = Label.truncated(label, width: bounds.size.width)
-            painter.write(text, at: Point(x: max(0, (bounds.size.width - text.count) / 2), y: bounds.size.height - 1), style: theme.base)
+            painter.write(text, at: Point(x: max(0, (bounds.size.width - DisplayWidth.of(text)) / 2), y: bounds.size.height - 1), style: theme.base)
         }
     }
 }

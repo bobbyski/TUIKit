@@ -90,7 +90,7 @@ public final class Navigator: TUIView {
             return nil
         }
 
-        return Size(width: max(size.width, backTitle.count + title.count + 4), height: size.height + (showsHeader ? 1 : 0))
+        return Size(width: max(size.width, DisplayWidth.of(backTitle) + DisplayWidth.of(title) + 4), height: size.height + (showsHeader ? 1 : 0))
     }
 
     /// Drills in.
@@ -181,7 +181,7 @@ public final class Navigator: TUIView {
             }
 
             painter.write(backTitle, at: Point(x: x, y: 0), style: back)
-            x += backTitle.count + 3
+            x += DisplayWidth.of(backTitle) + 3
         }
 
         painter.write(Label.truncated(title, width: max(0, bounds.size.width - x)), at: Point(x: x, y: 0), style: theme.header)
@@ -209,7 +209,7 @@ public final class Navigator: TUIView {
     /// A click on `◂ Back` pops.
     public override func mouseEvent(_ mouse: MouseInput) -> Bool {
         guard showsHeader, depth > 1, mouse.action == .press, mouse.button == .left,
-              mouse.position.y == 0, (1...(backTitle.count)).contains(mouse.position.x) else {
+              mouse.position.y == 0, (1...(DisplayWidth.of(backTitle))).contains(mouse.position.x) else {
             return false
         }
 

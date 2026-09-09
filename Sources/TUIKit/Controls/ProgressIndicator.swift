@@ -190,7 +190,7 @@ public final class ProgressIndicator: TUIView {
 
         let theme = effectiveTheme
         let label = showsPercentage ? " \(percentString)" : ""
-        let trackWidth = max(0, width - label.count)
+        let trackWidth = max(0, width - DisplayWidth.of(label))
         let (trackStyle, fillStyle) = Self.barStyles(for: theme)
         let filled = Int((fractionCompleted * Double(trackWidth)).rounded())
 

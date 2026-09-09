@@ -391,9 +391,9 @@ public final class TimelineChart: TUIView {
 
             // Skip a label that would collide with the previous one — an
             // axis that overwrites itself reads as garbage.
-            if column > lastLabelEnd, column + text.count <= bounds.size.width {
+            if column > lastLabelEnd, column + DisplayWidth.of(text) <= bounds.size.width {
                 painter.write(text, at: Point(x: column, y: 0), style: style)
-                lastLabelEnd = column + text.count
+                lastLabelEnd = column + DisplayWidth.of(text)
             }
 
             tick += step

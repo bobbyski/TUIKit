@@ -274,7 +274,7 @@ public final class ScatterChart: TUIView {
             painter.set(TerminalCell(character: "┤", style: axisStyle), at: Point(x: gutter, y: row))
 
             let label = yFormatter(value)
-            painter.write(label, at: Point(x: max(0, gutter - label.count), y: row), style: labelStyle)
+            painter.write(label, at: Point(x: max(0, gutter - DisplayWidth.of(label)), y: row), style: labelStyle)
         }
 
         painter.set(TerminalCell(character: "┼", style: axisStyle), at: Point(x: gutter, y: baseline))
@@ -294,9 +294,9 @@ public final class ScatterChart: TUIView {
 
             let label = xFormatter(tick)
 
-            if column > lastLabelEnd, column + label.count <= bounds.size.width {
+            if column > lastLabelEnd, column + DisplayWidth.of(label) <= bounds.size.width {
                 painter.write(label, at: Point(x: column, y: baseline + 1), style: labelStyle)
-                lastLabelEnd = column + label.count + 1
+                lastLabelEnd = column + DisplayWidth.of(label) + 1
             }
 
             tick += xStep

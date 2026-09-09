@@ -128,7 +128,7 @@ public final class Ribbon: TUIView {
             // Centred under its own items, and truncated to them: a caption
             // wider than its group would read as belonging to the next one.
             let text = Label.truncated(group.title, width: span.width)
-            let x = span.x + max(0, (span.width - text.count) / 2)
+            let x = span.x + max(0, (span.width - DisplayWidth.of(text)) / 2)
             painter.write(text, at: Point(x: x, y: row), style: caption)
         }
     }

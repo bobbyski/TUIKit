@@ -92,7 +92,7 @@ public final class Link: TUIView {
     public override var intrinsicContentSize: Size? {
         switch presentation {
         case .text:
-            return Size(width: title.count, height: 1)
+            return Size(width: DisplayWidth.of(title), height: 1)
 
         case .helpButton:
             return Size(width: 3, height: 1)

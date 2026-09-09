@@ -137,7 +137,7 @@ public final class TUIFavorites: TUIView {
     /// The label drawn for an item, marker included.
     private func label(for item: Item) -> String {
         let title = item.title.count > Self.maximumTitleWidth
-            ? String(item.title.prefix(Self.maximumTitleWidth - 1)) + "…"
+            ? DisplayWidth.prefix(of: item.title, fitting: Self.maximumTitleWidth - 1).text + "…"
             : item.title
 
         return marker.isEmpty ? " \(title) " : " \(marker) \(title) "

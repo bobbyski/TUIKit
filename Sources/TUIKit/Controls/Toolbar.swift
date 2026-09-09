@@ -973,7 +973,7 @@ public final class Toolbar: TUIView {
     ) {
         let pad = style.horizontalPadding
         let inner = Label.truncated(label, width: max(0, width - pad))
-        let content = inner + String(repeating: " ", count: max(0, width - pad - inner.count))
+        let content = inner + String(repeating: " ", count: max(0, width - pad - DisplayWidth.of(inner)))
         painter.write(style.decorate(content), at: Point(x: x, y: row), style: cellStyle)
     }
 

@@ -270,7 +270,7 @@ final class ColorPreview: TUIView {
     }
 
     override var intrinsicContentSize: Size? {
-        Size(width: 6 + 1 + text.count, height: 1)
+        Size(width: 6 + 1 + DisplayWidth.of(text), height: 1)
     }
 
     func show(_ newColor: TerminalColor) {

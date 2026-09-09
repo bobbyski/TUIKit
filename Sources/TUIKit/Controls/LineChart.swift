@@ -240,7 +240,7 @@ public final class LineChart: TUIView {
 
             // Right-aligned, ending just before the axis rule.
             let label = yFormatter(value)
-            painter.write(label, at: Point(x: max(0, gutter - label.count), y: y), style: labelStyle)
+            painter.write(label, at: Point(x: max(0, gutter - DisplayWidth.of(label)), y: y), style: labelStyle)
         }
 
         drawXAxis(
@@ -436,9 +436,9 @@ public final class LineChart: TUIView {
 
             let label = xFormatter(tick)
 
-            if column > lastLabelEnd, column + label.count <= bounds.size.width {
+            if column > lastLabelEnd, column + DisplayWidth.of(label) <= bounds.size.width {
                 painter.write(label, at: Point(x: column, y: y + 1), style: labelStyle)
-                lastLabelEnd = column + label.count + 1
+                lastLabelEnd = column + DisplayWidth.of(label) + 1
             }
 
             tick += step

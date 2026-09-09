@@ -90,7 +90,7 @@ public final class ImageView: TUIView {
 
     /// A card's worth of cells; the picture itself scales to whatever it gets.
     public override var intrinsicContentSize: Size? {
-        Size(width: max(24, caption.count + 6), height: 4)
+        Size(width: max(24, DisplayWidth.of(caption) + 6), height: 4)
     }
 
     /// Replaces the image.

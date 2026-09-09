@@ -58,7 +58,7 @@ public final class DisclosureGroup: TUIView {
     /// Header row plus the content's natural height while expanded.
     public override var intrinsicContentSize: Size? {
         let contentSize = naturalContentSize
-        let width = max(title.count + 2, contentSize.width)
+        let width = max(DisplayWidth.of(title) + 2, contentSize.width)
         return Size(width: width, height: 1 + (isExpanded ? contentSize.height : 0))
     }
 

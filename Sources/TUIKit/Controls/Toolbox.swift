@@ -191,7 +191,7 @@ public final class Toolbox: TUIView {
     // MARK: - Geometry
 
     private var cellWidth: Int {
-        let captions = showsCaptions ? (tools.map(\.caption.count).max() ?? 0) + 1 : 0
+        let captions = showsCaptions ? (tools.map { DisplayWidth.of($0.caption) }.max() ?? 0) + 1 : 0
         return 2 + captions + 1
     }
 

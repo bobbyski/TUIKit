@@ -93,7 +93,7 @@ public final class SegmentedControl: TUIView {
             }
 
             painter.write(label, at: Point(x: x, y: 0), style: CellStyle(flags: flags))
-            x += label.count
+            x += DisplayWidth.of(label)
         }
     }
 
@@ -143,7 +143,7 @@ public final class SegmentedControl: TUIView {
 
     // Width of one segment including its padding spaces.
     private func width(of title: String) -> Int {
-        title.count + 2
+        DisplayWidth.of(title) + 2
     }
 
     private var totalWidth: Int {

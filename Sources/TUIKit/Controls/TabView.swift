@@ -236,7 +236,7 @@ public final class TabView: TUIView {
             }
 
             painter.write(label, at: Point(x: x, y: 0), style: style)
-            x += label.count + 1
+            x += DisplayWidth.of(label) + 1
         }
 
         guard showsNewTabButton else {

@@ -199,7 +199,7 @@ public final class MenuBar: TUIView {
 
     /// One row at the width of all titles (mnemonic `&` markers don't count).
     public override var intrinsicContentSize: Size? {
-        Size(width: menus.reduce(0) { $0 + Accelerator($1.title).display.count + 2 }, height: 1)
+        Size(width: menus.reduce(0) { $0 + DisplayWidth.of(Accelerator($1.title).display) + 2 }, height: 1)
     }
 
     /// Menu bars take keyboard focus.
@@ -241,7 +241,7 @@ public final class MenuBar: TUIView {
                 )
             }
 
-            x += accelerator.display.count + 2
+            x += DisplayWidth.of(accelerator.display) + 2
         }
     }
 
@@ -518,7 +518,7 @@ public final class MenuBar: TUIView {
 
     // Leading x of a title run.
     private func titleStart(of index: Int) -> Int {
-        menus.prefix(index).reduce(0) { $0 + Accelerator($1.title).display.count + 2 }
+        menus.prefix(index).reduce(0) { $0 + DisplayWidth.of(Accelerator($1.title).display) + 2 }
     }
 
     // Menu whose title run contains an x position.
@@ -526,7 +526,7 @@ public final class MenuBar: TUIView {
         var start = 0
 
         for (index, menu) in menus.enumerated() {
-            let width = Accelerator(menu.title).display.count + 2
+            let width = DisplayWidth.of(Accelerator(menu.title).display) + 2
 
             if x >= start && x < start + width {
                 return index
@@ -599,7 +599,7 @@ final class MenuDropdown: TUIView {
         let widest = menu.items.map {
             // A submenu row shows "▸" where a key hint would go, so it costs
             // the same two cells rather than a special case in the layout.
-            Accelerator($0.title).display.count + Self.hint(for: $0.keyEquivalent).count
+            DisplayWidth.of(Accelerator($0.title).display) + DisplayWidth.of(Self.hint(for: $0.keyEquivalent))
                 + ($0.submenu == nil ? 0 : 2) + 2
         }.max() ?? 4
         return Size(width: widest + 4, height: menu.items.count + 2)
@@ -641,8 +641,8 @@ final class MenuDropdown: TUIView {
 
             let accelerator = Accelerator(item.title)
             let hint = item.submenu == nil ? Self.hint(for: item.keyEquivalent) : "▸"
-            let title = Label.truncated(accelerator.display, width: max(0, innerWidth - hint.count))
-            let padding = max(0, innerWidth - title.count - hint.count)
+            let title = Label.truncated(accelerator.display, width: max(0, innerWidth - DisplayWidth.of(hint)))
+            let padding = max(0, innerWidth - DisplayWidth.of(title) - DisplayWidth.of(hint))
             let line = " " + title + String(repeating: " ", count: padding) + hint + " "
 
             painter.write(line, at: Point(x: 1, y: y), style: style)

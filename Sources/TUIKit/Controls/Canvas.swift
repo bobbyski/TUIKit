@@ -106,7 +106,7 @@ public final class Canvas: TUIView {
         }
 
         let text = Label.truncated(placeholderText, width: max(0, bounds.size.width - 2))
-        let x = max(1, (bounds.size.width - text.count) / 2)
+        let x = max(1, (bounds.size.width - DisplayWidth.of(text)) / 2)
         let y = bounds.size.height / 2
         painter.write(text, at: Point(x: x, y: y), style: theme.placeholder)
     }

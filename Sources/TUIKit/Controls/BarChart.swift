@@ -190,7 +190,7 @@ public final class BarChart: TUIView {
 
             // The category label, centered under its group.
             let label = Label.truncated(category, width: groupWidth + spacing + 1)
-            let labelX = groupX + max(0, (groupWidth - label.count) / 2)
+            let labelX = groupX + max(0, (groupWidth - DisplayWidth.of(label)) / 2)
             painter.write(label, at: Point(x: labelX, y: baseline + 1), style: theme.chartDeemphasis)
 
             for (seriesIndex, oneSeries) in series.enumerated() {
@@ -306,7 +306,7 @@ public final class BarChart: TUIView {
             )
 
             let label = yFormatter(value)
-            painter.write(label, at: Point(x: max(0, gutter - label.count), y: row), style: labelStyle)
+            painter.write(label, at: Point(x: max(0, gutter - DisplayWidth.of(label)), y: row), style: labelStyle)
         }
 
         // The zero label sits on the baseline itself.

@@ -398,7 +398,7 @@ public final class Browser: TUIView {
 
             let markerWidth = item.isExpandable ? 1 : 0
             let title = Label.truncated(item.title, width: max(0, columnWidth - markerWidth))
-            var text = title + String(repeating: " ", count: max(0, columnWidth - markerWidth - title.count))
+            var text = title + String(repeating: " ", count: max(0, columnWidth - markerWidth - DisplayWidth.of(title)))
 
             if item.isExpandable {
                 text += "›"

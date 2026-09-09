@@ -70,7 +70,7 @@ public final class SidebarList: TUIView {
 
     /// Rows of the widest title.
     public override var intrinsicContentSize: Size? {
-        let widest = items.map { $0.title.count + 4 }.max() ?? 10
+        let widest = items.map { DisplayWidth.of($0.title) + 4 }.max() ?? 10
         return Size(width: max(widest, 16), height: items.count * rowHeight)
     }
 

@@ -321,7 +321,7 @@ public final class Panel: TUIView {
                 foreground: style.textColor ?? theme.headerForeground,
                 flags: theme.headerAttributes
             )
-            transparent.write(text, at: Point(x: (width - text.count) / 2, y: 0), style: textStyle)
+            transparent.write(text, at: Point(x: (width - DisplayWidth.of(text)) / 2, y: 0), style: textStyle)
         }
 
         if showsCloseButton {

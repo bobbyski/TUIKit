@@ -129,7 +129,7 @@ public final class MarkdownView: TUIView {
 
             for run in lines[index] {
                 painter.write(run.text, at: Point(x: x, y: row), style: run.style)
-                x += run.text.count
+                x += DisplayWidth.of(run.text)
             }
         }
 

@@ -6,9 +6,21 @@ import Foundation
 /// moment text is not Latin. `日` is one Character and two columns; a flag
 /// emoji is one Character and two columns; a combining accent is one
 /// Character and zero. TUIKit counted characters everywhere, which is why
-/// `Label`, `TextView`, `TableView` and `DirectoryTree` all mis-align on CJK
-/// and emoji today — not a rendering bug in any of them, one missing
-/// function underneath all of them.
+/// the text controls all mis-aligned on CJK and emoji — not a rendering bug
+/// in any of them, one missing function underneath all of them.
+///
+/// **Adoption is the work, and it is done in two waves.** The first fixed the
+/// text controls themselves (`Label`, `TextView`, `TableView`, `ListView`).
+/// The second went through every other place a title, caption, tab, menu
+/// entry or chart label was measured — fifty-one sites across thirty files,
+/// covered by `DisplayWidthAdoptionTests`.
+///
+/// **One known remainder**, deliberately left: `TextField`'s horizontal
+/// scrolling mixes a character index (`cursorIndex`, `scrollOffset`) with a
+/// column budget (`width`). Converting the arithmetic in place would be
+/// wrong — the two are different units — so the field's scroll model has to
+/// become column-based first. A long CJK value still scrolls by the wrong
+/// amount.
 ///
 /// This is `wcwidth`'s job, and the ranges are the East Asian Width property
 /// from UAX #11 plus the emoji presentation ranges. It is deliberately a

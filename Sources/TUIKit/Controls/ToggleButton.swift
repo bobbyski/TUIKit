@@ -50,7 +50,7 @@ public final class ToggleButton: TUIView {
 
     /// One row at ` Title ` width.
     public override var intrinsicContentSize: Size? {
-        Size(width: title.count + 2, height: 1)
+        Size(width: DisplayWidth.of(title) + 2, height: 1)
     }
 
     /// Sets the state programmatically.

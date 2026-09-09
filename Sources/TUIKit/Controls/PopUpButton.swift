@@ -138,7 +138,7 @@ public final class PopUpButton: TUIView {
         let reserved = lead.count + trail.count
         let value = selectedIndex.map { items[$0] } ?? ""
         let inner = Label.truncated(value, width: max(0, bounds.size.width - reserved))
-        let padding = max(0, bounds.size.width - reserved - inner.count)
+        let padding = max(0, bounds.size.width - reserved - DisplayWidth.of(inner))
         let text = lead + inner + String(repeating: " ", count: padding) + trail
         painter.write(text, at: .zero, style: cellStyle)
     }
@@ -317,7 +317,7 @@ final class PopUpList: TUIView {
         for (index, item) in items.enumerated() {
             let marker = index == highlightedIndex ? "▸" : " "
             let text = Label.truncated(item, width: innerWidth)
-            let padded = marker + text + String(repeating: " ", count: max(0, innerWidth - text.count)) + " "
+            let padded = marker + text + String(repeating: " ", count: max(0, innerWidth - DisplayWidth.of(text))) + " "
             let style = index == highlightedIndex ? theme.selection : CellStyle()
 
             painter.write(padded, at: Point(x: 1, y: index + 1), style: style)

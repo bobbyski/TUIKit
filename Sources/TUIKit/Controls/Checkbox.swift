@@ -44,7 +44,7 @@ public final class Checkbox: TUIView {
 
     /// One row at `[x] Label` width.
     public override var intrinsicContentSize: Size? {
-        Size(width: label.count + 4, height: 1)
+        Size(width: DisplayWidth.of(label) + 4, height: 1)
     }
 
     /// Sets the checked state programmatically.

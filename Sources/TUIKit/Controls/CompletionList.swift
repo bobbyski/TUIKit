@@ -130,7 +130,7 @@ public final class CompletionList: TUIView {
         for (index, item) in matches.prefix(maximumVisible).enumerated() {
             let marker = index == highlightedIndex ? "▸" : " "
             let text = Label.truncated(item, width: innerWidth)
-            let padded = marker + text + String(repeating: " ", count: max(0, innerWidth - text.count)) + " "
+            let padded = marker + text + String(repeating: " ", count: max(0, innerWidth - DisplayWidth.of(text))) + " "
             painter.write(padded, at: Point(x: 1, y: index + 1), style: index == highlightedIndex ? theme.selection : CellStyle())
         }
     }
@@ -229,7 +229,7 @@ public final class CompletionList: TUIView {
         }
 
         let visible = min(matches.count, maximumVisible)
-        let widest = matches.prefix(maximumVisible).map(\.count).max() ?? 4
+        let widest = matches.prefix(maximumVisible).map(DisplayWidth.of).max() ?? 4
         let size = Size(width: min(widest + 4, window.bounds.size.width), height: visible + 2)
         let spaceBelow = window.bounds.size.height - (origin.y + 1)
         let y = spaceBelow >= size.height || origin.y < size.height ? origin.y + 1 : origin.y - size.height

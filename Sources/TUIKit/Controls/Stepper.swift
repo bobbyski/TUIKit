@@ -94,7 +94,7 @@ public final class Stepper: TUIView {
     public override func draw(_ painter: Painter) {
         let buttonStyle = CellStyle(flags: isFirstResponder ? .inverse : [])
         let field = String(value)
-        let padded = String(repeating: " ", count: max(0, valueFieldWidth - field.count)) + field
+        let padded = String(repeating: " ", count: max(0, valueFieldWidth - DisplayWidth.of(field))) + field
 
         painter.write("[-]", at: .zero, style: buttonStyle)
         painter.write(padded, at: Point(x: 4, y: 0))

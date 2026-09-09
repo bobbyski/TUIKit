@@ -175,7 +175,7 @@ open class Dialog: Window {
 
         // Border (2) + stack side insets (2) around the widest inner line;
         // the title needs its border decoration too.
-        let width = max(max(messageWidth, buttonsWidth) + 4, panel.title.count + 8)
+        let width = max(max(messageWidth, buttonsWidth) + 4, DisplayWidth.of(panel.title) + 8)
 
         // The button row is as tall as its tallest button — 2 under a theme
         // with button drop shadows, 1 otherwise. (Theme-dependent, so call

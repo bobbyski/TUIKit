@@ -102,7 +102,7 @@ public final class Button: TUIView {
     /// when the theme gives buttons a drop shadow, one extra column and row
     /// for it (the shadow sits offset (1, 1) behind the face).
     public override var intrinsicContentSize: Size? {
-        let width = accelerator.display.count + style.horizontalPadding
+        let width = DisplayWidth.of(accelerator.display) + style.horizontalPadding
 
         guard effectiveTheme.buttonShadow != nil else {
             return Size(width: width, height: 1)

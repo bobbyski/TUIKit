@@ -176,7 +176,7 @@ public final class Form: TUIView {
         let fieldRows = entries.compactMap { entry -> Field? in
             if case .field(let field) = entry { return field } else { return nil }
         }
-        let labelColumn = labelWidth ?? (fieldRows.map { $0.title.count + 1 }.max() ?? 0)
+        let labelColumn = labelWidth ?? (fieldRows.map { DisplayWidth.of($0.title) + 1 }.max() ?? 0)
 
         // One grid row per entry: a header spans both columns; a field is a
         // label beside its control. The label column is shared across
@@ -233,7 +233,7 @@ public final class Form: TUIView {
         }
 
         override var intrinsicContentSize: Size? {
-            Size(width: title.count + 2, height: 1)
+            Size(width: DisplayWidth.of(title) + 2, height: 1)
         }
 
         override func draw(_ painter: Painter) {
@@ -245,7 +245,7 @@ public final class Form: TUIView {
             painter.write(text, at: .zero, style: style)
 
             if let line = theme.dividerStyle.characters?.horizontal, width > text.count + 1 {
-                painter.write(String(repeating: line, count: width - text.count - 1), at: Point(x: text.count + 1, y: 0), style: theme.border)
+                painter.write(String(repeating: line, count: width - DisplayWidth.of(text) - 1), at: Point(x: DisplayWidth.of(text) + 1, y: 0), style: theme.border)
             }
         }
     }
