@@ -201,17 +201,21 @@ private func makeMenuWindow() -> (Window, MenuBar, Menu, [String]) {
     var picked: [TerminalColor.NamedColor] = []
     grid.onSelectionChanged = { picked.append($0) }
 
-    grid.select(.white)   // index 7, end of the first row
+    // **Two columns, not eight.** The grid shows each colour's name beside its
+    // swatch — a named colour is defined by its name, and sixteen bare blocks
+    // were a palette wearing the Named tab's label — so it is two wide and
+    // eight deep. The navigation is the same; the arithmetic moved.
+    grid.select(.white)   // index 7: row 3, right-hand column
 
     _ = grid.keyDown(KeyInput(key: .down))
-    #expect(picked == [.brightWhite], "down moves one row (index 15)")
+    #expect(picked == [.brightRed], "down moves one row, which is two indexes")
 
     _ = grid.keyDown(KeyInput(key: .home))
-    #expect(picked == [.brightWhite, .black])
+    #expect(picked == [.brightRed, .black])
 
-    // Click the swatch at column 2, row 1 → index 10 (brightGreen).
-    _ = grid.mouseEvent(MouseInput(position: Point(x: 9, y: 1), action: .press, button: .left))
-    #expect(picked.last == .brightGreen)
+    // Click the left-hand swatch on row 1 → index 2 (green).
+    _ = grid.mouseEvent(MouseInput(position: Point(x: 2, y: 1), action: .press, button: .left))
+    #expect(picked.last == .green)
 }
 
 @Test @MainActor func colorPickerReportsInteractionsThroughOneEvent() {
@@ -229,8 +233,8 @@ private func makeMenuWindow() -> (Window, MenuBar, Menu, [String]) {
     window.focusNext()
     window.route(.key(KeyInput(key: .down)))
 
-    #expect(events == [.named(.brightWhite)])
-    #expect(picker.color == .named(.brightWhite))
+    #expect(events == [.named(.brightRed)], "one row down from white, in a two-column grid")
+    #expect(picker.color == .named(.brightRed))
 }
 
 @Test @MainActor func colorPickerSetColorIsSilentAndDescribed() {

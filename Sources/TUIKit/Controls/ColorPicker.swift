@@ -27,6 +27,8 @@ public final class ColorPicker: TUIView {
     private let redStepper = Stepper(value: 0, in: 0...255)
     private let greenStepper = Stepper(value: 0, in: 0...255)
     private let blueStepper = Stepper(value: 0, in: 0...255)
+    private let paletteRow = HStack(spacing: 1)
+    private let rgbRow = HStack(spacing: 2)
     private let preview = ColorPreview()
     private let stack = VStack(spacing: 1)
 
@@ -44,7 +46,7 @@ public final class ColorPicker: TUIView {
         }
 
         // Palette tab.
-        let paletteRow = HStack(spacing: 1)
+        let paletteRow = self.paletteRow
         paletteRow.addSubview(Label("Index:", style: CellStyle(flags: .bold)))
         paletteRow.addSubview(paletteStepper)
         paletteRow.addSubview(TUIView())
@@ -54,7 +56,7 @@ public final class ColorPicker: TUIView {
         }
 
         // RGB tab.
-        let rgbRow = HStack(spacing: 2)
+        let rgbRow = self.rgbRow
 
         for (label, stepper) in [("R", redStepper), ("G", greenStepper), ("B", blueStepper)] {
             let pair = HStack(spacing: 1)
@@ -83,8 +85,20 @@ public final class ColorPicker: TUIView {
 
     /// Fits the widest tab plus the preview row.
     public override var intrinsicContentSize: Size? {
-        // Tab bar + separator + named grid (2 rows) + spacing + preview.
-        Size(width: 36, height: 6)
+        // **Measured, not assumed.** It used to claim a flat 36×6, and the RGB
+        // row is three labelled steppers — wider than that — so the blue one
+        // was clipped off the right-hand edge. A control you cannot see is a
+        // control you cannot edit, which is how a perfectly live picker reads
+        // as read-only.
+        let widest = [swatches, paletteRow, rgbRow]
+            .compactMap { $0.intrinsicContentSize?.width }
+            .max() ?? 36
+        let tallest = [swatches, paletteRow, rgbRow]
+            .compactMap { $0.intrinsicContentSize?.height }
+            .max() ?? 2
+
+        // Tab bar, separator, the tallest tab, and the preview row.
+        return Size(width: max(36, widest), height: tallest + 4)
     }
 
     /// Sets the color programmatically, switching to the matching tab.
@@ -158,8 +172,17 @@ final class NamedSwatchGrid: TUIView {
     private(set) var selectedIndex = 0
 
     private let colors = TerminalColor.NamedColor.allCases
-    private let columns = 8
-    private let cellWidth = 4
+    private let columns = 2
+
+    /// **Wide enough for the name, because the name is what a named colour
+    /// is.** The grid used to be eight columns of bare `██` swatches: sixteen
+    /// blocks of colour with nothing to tell you which was `brightCyan` and
+    /// which was `cyan` — a palette wearing the Named tab's label. Two columns
+    /// of eight fit the longest name (`brightMagenta`) in the width the picker
+    /// already had.
+    private var cellWidth: Int {
+        4 + (colors.map { DisplayWidth.of($0.rawValue) }.max() ?? 8) + 1
+    }
 
     init() {
         super.init(frame: .zero)
@@ -189,6 +212,8 @@ final class NamedSwatchGrid: TUIView {
             painter.write(selected ? "[" : " ", at: origin, style: bracketStyle)
             painter.write("██", at: origin + Point(x: 1, y: 0), style: CellStyle(foreground: .named(color)))
             painter.write(selected ? "]" : " ", at: origin + Point(x: 3, y: 0), style: bracketStyle)
+            painter.write(color.rawValue, at: origin + Point(x: 5, y: 0),
+                          style: CellStyle(flags: selected ? .bold : []))
         }
     }
 
