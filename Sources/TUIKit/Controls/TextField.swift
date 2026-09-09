@@ -128,7 +128,7 @@ public final class TextField: TUIView {
         adjustScroll(width: width)
 
         let characters = Array(text)
-        let visibleEnd = min(characters.count, scrollOffset + width)
+        let visibleEnd = lastIndex(fitting: width, from: scrollOffset, in: characters)
 
         if scrollOffset < visibleEnd {
             let visible = String(characters[scrollOffset..<visibleEnd])
@@ -145,31 +145,98 @@ public final class TextField: TUIView {
                 style.flags.insert(.inverse)
             }
 
-            for index in selected where index >= scrollOffset && index < visibleEnd {
-                painter.set(
-                    TerminalCell(character: characters[index], style: style),
-                    at: Point(x: index - scrollOffset, y: 0)
+            // Written as a run rather than cell by cell: `painter.write`
+            // advances by display width, so a wide character covers both of
+            // its columns. Setting one cell each left the right half of every
+            // CJK glyph unselected.
+            let start = max(selected.lowerBound, scrollOffset)
+            let end = min(selected.upperBound, visibleEnd)
+
+            if start < end {
+                painter.write(
+                    String(characters[start..<end]),
+                    at: Point(x: column(of: start, in: characters), y: 0),
+                    style: style
                 )
             }
         }
 
         if isFirstResponder {
-            let cursorColumn = cursorIndex - scrollOffset
-            let underCursor: Character
+            let underCursor: String
 
             if cursorIndex < characters.count {
-                underCursor = characters[cursorIndex]
+                underCursor = String(characters[cursorIndex])
             } else {
                 underCursor = " "
             }
 
             var cursorStyle = field
             cursorStyle.flags.insert(.inverse)
-            painter.set(
-                TerminalCell(character: underCursor, style: cursorStyle),
-                at: Point(x: cursorColumn, y: 0)
+            painter.write(
+                underCursor,
+                at: Point(x: column(of: cursorIndex, in: characters), y: 0),
+                style: cursorStyle
             )
         }
+    }
+
+    // MARK: - Columns and indices
+
+    // Columns between the scroll offset and `index`.
+    //
+    // **The field indexes characters and the terminal advances columns**, and
+    // the two stop agreeing the moment the text is not Latin. Everything the
+    // draw and the hit test place on screen goes through here, so `日本` is
+    // four columns wide rather than two and a caret after it lands where the
+    // eye expects.
+    private func column(of index: Int, in characters: [Character]) -> Int {
+        guard index > scrollOffset else {
+            return 0
+        }
+
+        return characters[scrollOffset..<min(index, characters.count)]
+            .reduce(0) { $0 + DisplayWidth.of($1) }
+    }
+
+    // The first index past what fits in `columns` starting at `from`.
+    //
+    // A character that would half-fit is left out: half of a `日` is not a
+    // character, it is a corrupted cell.
+    private func lastIndex(fitting columns: Int, from start: Int, in characters: [Character]) -> Int {
+        var used = 0
+        var index = start
+
+        while index < characters.count {
+            let next = DisplayWidth.of(characters[index])
+
+            if used + next > columns {
+                break
+            }
+
+            used += next
+            index += 1
+        }
+
+        return index
+    }
+
+    // The index a column lands on, for a click.
+    private func index(atColumn column: Int, in characters: [Character]) -> Int {
+        var used = 0
+        var index = scrollOffset
+
+        while index < characters.count {
+            let next = DisplayWidth.of(characters[index])
+
+            if used + next > column {
+                break
+            }
+
+            used += next
+            index += 1
+        }
+
+        return index
     }
 
     /// Editing keys, cursor movement, and submit.
@@ -301,11 +368,11 @@ public final class TextField: TUIView {
             // lands first, and the ladder has to know which rung it was on.
             selectionBeforeClick = selectedRange
             clearSelection()
-            moveCursor(to: scrollOffset + mouse.position.x)
+            moveCursor(to: index(atColumn: mouse.position.x, in: Array(text)))
             return true
 
         case .click where mouse.clickCount >= 2:
-            escalateSelection(at: scrollOffset + mouse.position.x)
+            escalateSelection(at: index(atColumn: mouse.position.x, in: Array(text)))
             return true
 
         default:
@@ -449,15 +516,23 @@ public final class TextField: TUIView {
 
     // Keeps the cursor inside the visible window.
     private func adjustScroll(width: Int) {
+        let characters = Array(text)
+
         if cursorIndex < scrollOffset {
             scrollOffset = cursorIndex
         }
 
-        if cursorIndex > scrollOffset + width - 1 {
-            scrollOffset = cursorIndex - width + 1
+        // **Scroll until the caret fits, in columns.** The old form subtracted
+        // a character count from a column budget — two different units — so a
+        // field of CJK scrolled roughly half as far as it needed to and the
+        // caret sat off the right-hand end. Stepping one character at a time
+        // is exact whatever mix of widths the text holds.
+        while cursorIndex > scrollOffset,
+              column(of: cursorIndex, in: characters) > max(0, width - 1) {
+            scrollOffset += 1
         }
 
-        scrollOffset = max(0, min(scrollOffset, max(0, text.count - width + 1)))
+        scrollOffset = max(0, min(scrollOffset, characters.count))
     }
 }
 

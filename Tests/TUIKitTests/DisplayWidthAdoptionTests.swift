@@ -167,3 +167,57 @@ private func render(_ view: TUIView, width: Int, height: Int) -> [String] {
     #expect(Link("日本語", url: "https://example.com").intrinsicContentSize?.width == 6)
     #expect(ToggleButton("日本語").intrinsicContentSize?.width == 6 + 2)
 }
+
+// ── TextField's scroll model (U3's named remainder) ──────────────────────
+
+@Test @MainActor func aTextFieldScrollsByColumnsNotCharacters() {
+    let field = TextField()
+    field.setText("日本語の犬です")          // seven characters, fourteen columns
+    field.frame = Rect(x: 0, y: 0, width: 8, height: 1)
+
+    let window = Window(frame: Rect(x: 0, y: 0, width: 8, height: 1))
+    window.addSubview(field)
+    window.makeFirstResponder(field)
+    // `setText` leaves the caret at the end, which is the case that scrolls.
+
+    let line = SceneRenderer(root: window)
+        .render(size: Size(width: 8, height: 1)).textLines()[0]
+
+    // Whatever it shows, it must not overrun the field: the old form
+    // subtracted a character count from a column budget and scrolled about
+    // half as far as it had to, leaving the caret off the right-hand end.
+    #expect(DisplayWidth.of(line) <= 8)
+    #expect(line.contains("す"), "the caret's own character has to be on screen")
+}
+
+@Test @MainActor func aTextFieldNeverDrawsHalfAWideCharacter() {
+    let field = TextField()
+    field.setText("日本語")                  // six columns
+    field.frame = Rect(x: 0, y: 0, width: 5, height: 1)   // room for two and a half
+
+    let window = Window(frame: Rect(x: 0, y: 0, width: 5, height: 1))
+    window.addSubview(field)
+
+    let line = SceneRenderer(root: window)
+        .render(size: Size(width: 5, height: 1)).textLines()[0]
+
+    #expect(DisplayWidth.of(line.trimmingCharacters(in: .whitespaces)) <= 5,
+            "half of a 日 is not a character, it is a corrupted cell")
+}
+
+@Test @MainActor func clickingAWideCharacterLandsOnIt() {
+    let field = TextField()
+    field.setText("日本語")
+    field.frame = Rect(x: 0, y: 0, width: 10, height: 1)
+
+    let window = Window(frame: Rect(x: 0, y: 0, width: 10, height: 1))
+    window.addSubview(field)
+    window.makeFirstResponder(field)
+
+    // Column 2 is the start of 本 — the second character, not the third.
+    _ = field.mouseEvent(MouseInput(position: Point(x: 2, y: 0), action: .press, button: .left))
+    _ = field.keyDown(KeyInput(key: .character("X")))
+    #expect(field.text == "日X本語",
+            "a click at column 2 is the caret before the second character")
+}
+
