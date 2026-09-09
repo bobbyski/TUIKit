@@ -139,6 +139,22 @@ public final class LevelIndicator: TUIView {
             filledStyle.foreground = fill
         }
 
+        // Rounded segments where the terminal has vectors (Phase 10): the
+        // cells below still carry the reading, and are what draws everywhere
+        // else (ground rule 8).
+        if let chrome = painter.chrome, chrome.covers(bounds),
+           let fillInk = ChromeColor(fill == .standard ? theme.foreground : fill),
+           let emptyInk = ChromeColor(theme.placeholderForeground) {
+            for cell in 0..<min(maximum, bounds.size.width) {
+                chrome.rect(
+                    "segment-\(cell)",
+                    ChromeRect(x: Double(cell) + 0.1, y: 0.2, width: 0.8, height: 0.6),
+                    fill: cell < value ? fillInk : emptyInk,
+                    radius: 0.2
+                )
+            }
+        }
+
         for cell in 0..<min(maximum, bounds.size.width) {
             let filled = cell < value
             painter.set(

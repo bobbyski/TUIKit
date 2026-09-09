@@ -72,3 +72,75 @@ private func commands(for bar: ProgressIndicator, width: Int, chrome: Bool) -> [
     #expect(low != nil && high != nil)
     #expect(low != high, "a vector fill does not round to the nearest column")
 }
+
+// The rest of the wider control pass: the two other controls whose cell form
+// rounds a number to the nearest column.
+
+@MainActor
+private func chromeCommands(for view: TUIView, width: Int, height: Int = 1) -> [ChromeCommand] {
+    let window = Window(frame: Rect(x: 0, y: 0, width: width, height: height))
+    // A theme, because vector chrome is drawn in resolved colours and the
+    // default palette answers `.standard` — "whatever the terminal uses" —
+    // which has no RGB to hand a vector renderer. A control that cannot name
+    // its colours correctly draws cells instead, which is the right answer.
+    window.theme = .turbo
+    view.frame = Rect(x: 0, y: 0, width: width, height: height)
+    window.addSubview(view)
+
+    let renderer = SceneRenderer(root: window)
+    renderer.chromeEnabled = true
+    _ = renderer.render(size: Size(width: width, height: height))
+    return renderer.chromeCommands
+}
+
+@Test @MainActor func aSliderDrawsAVectorTrackAndHandle() {
+    let slider = Slider(value: 50, in: 0...100)
+
+    let drawn = chromeCommands(for: slider, width: 20)
+    #expect(drawn.contains { $0.id.contains("track") })
+    #expect(drawn.contains { $0.id.contains("handle") })
+}
+
+@Test @MainActor func aSlidersHandleIsSubCell() {
+    // 42 and 47 of 100 land on the same column of a twenty-cell track and on
+    // different vector positions. That is the whole reason to draw it.
+    func handleX(_ value: Int) -> Double? {
+        let slider = Slider(value: value, in: 0...100)
+        return chromeCommands(for: slider, width: 20)
+            .first { $0.id.contains("handle") }
+            .flatMap { command in
+                if case .rect(let rect, _, _, _, _, _) = command.shape { return rect.x }
+                return nil
+            }
+    }
+
+    #expect(handleX(42) != nil)
+    #expect(handleX(42) != handleX(47), "a vector handle does not round to a column")
+}
+
+@Test @MainActor func aLevelIndicatorDrawsOneSegmentPerCell() {
+    let level = LevelIndicator(value: 3, maximum: 5)
+
+    let drawn = chromeCommands(for: level, width: 10)
+    #expect(drawn.filter { $0.id.contains("segment") }.count == 5,
+            "every segment is drawn, filled or not — an empty one is part of the reading")
+}
+
+@Test @MainActor func theseControlsStillDrawWithoutChrome() {
+    // Ground rule 8: the cell path is the one that must work.
+    let window = Window(frame: Rect(x: 0, y: 0, width: 20, height: 2))
+    let slider = Slider(value: 50, in: 0...100)
+    slider.frame = Rect(x: 0, y: 0, width: 20, height: 1)
+    let level = LevelIndicator(value: 3, maximum: 5)
+    level.frame = Rect(x: 0, y: 1, width: 20, height: 1)
+    window.addSubview(slider)
+    window.addSubview(level)
+
+    let renderer = SceneRenderer(root: window)
+    let lines = renderer.render(size: Size(width: 20, height: 2)).textLines()
+    #expect(renderer.chromeCommands.isEmpty)
+    #expect(lines[0].contains("█"), "the slider still has a cell handle")
+    #expect(lines[1].trimmingCharacters(in: .whitespaces).isEmpty == false,
+            "and the level indicator still has cells")
+}
+

@@ -192,6 +192,52 @@ public final class Slider: TUIView {
         }
 
         painter.set(TerminalCell(character: "█", style: handleStyle), at: point(along: handleOffset))
+
+        // A real track and a real handle where the terminal has vectors
+        // (Phase 10). A cell handle can only sit on a whole column, so it
+        // reports the value to the nearest cell: on a twenty-cell track that
+        // is five percent of the range. The vector one does not round.
+        //
+        // Ground rule 8: the cells above are drawn either way and are the
+        // path that must work; this adds to them rather than replacing them.
+        if let chrome = painter.chrome, chrome.covers(bounds),
+           let trackColor = ChromeColor(theme.borderForeground),
+           let handleColor = ChromeColor(handleStyle.foreground) {
+            drawVectorTrack(chrome, length: length, track: trackColor, handle: handleColor)
+        }
+    }
+
+    // The vector track: a thin rounded rail with the handle at its exact
+    // fraction of the range rather than at the nearest column.
+    private func drawVectorTrack(
+        _ chrome: ChromeSurface,
+        length: Int,
+        track: ChromeColor,
+        handle: ChromeColor
+    ) {
+        // The exact fraction, not the cell the handle landed on: the whole
+        // reason to draw this is that a cell handle rounds the value to the
+        // nearest column, which on a twenty-cell track is five percent.
+        let valueSpan = range.upperBound - range.lowerBound
+        let fraction = valueSpan > 0
+            ? Double(value - range.lowerBound) / Double(valueSpan)
+            : 0
+        let span = Double(max(1, length - 1))
+        let position = span * fraction
+
+        switch orientation {
+        case .horizontal:
+            chrome.rect("track", ChromeRect(x: 0, y: 0.35, width: Double(length), height: 0.3),
+                        fill: track, radius: 0.15)
+            chrome.rect("handle", ChromeRect(x: position, y: 0, width: 1, height: 1),
+                        fill: handle, radius: 0.4)
+
+        case .vertical:
+            chrome.rect("track", ChromeRect(x: 0.35, y: 0, width: 0.3, height: Double(length)),
+                        fill: track, radius: 0.15)
+            chrome.rect("handle", ChromeRect(x: 0, y: span - position, width: 1, height: 1),
+                        fill: handle, radius: 0.4)
+        }
     }
 
     /// Arrows step; Home/End jump to the bounds.
