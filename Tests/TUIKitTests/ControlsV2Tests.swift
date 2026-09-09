@@ -235,3 +235,30 @@ private func makePopUp(buttonY: Int, windowHeight: Int = 10) -> (PopUpButton, Wi
     #expect(top.frame.size.height == 3)
     #expect(bottom.frame == Rect(x: 0, y: 4, width: 20, height: 4))
 }
+
+// A field has to say when editing *finished*, not only when it changed.
+// `onChanged` fires per keystroke — too early to judge a half-typed number —
+// and `onSubmit` only fires on Return, so a value typed and then Tabbed away
+// from was never judged at all.
+@Test @MainActor func aTextFieldReportsWhenEditingBeginsAndEnds() {
+    let window = Window(frame: Rect(x: 0, y: 0, width: 20, height: 3))
+    let field = TextField()
+    field.frame = Rect(x: 0, y: 0, width: 10, height: 1)
+    let other = TextField()
+    other.frame = Rect(x: 0, y: 1, width: 10, height: 1)
+    window.addSubview(field)
+    window.addSubview(other)
+
+    var began = 0
+    var ended: [String] = []
+    field.onBeginEditing = { began += 1 }
+    field.onEndEditing = { ended.append($0) }
+
+    _ = window.makeFirstResponder(field)
+    #expect(began == 1)
+    #expect(ended.isEmpty, "nothing has ended yet")
+
+    field.setText("42")
+    _ = window.makeFirstResponder(other)
+    #expect(ended == ["42"], "the final text, when focus left")
+}

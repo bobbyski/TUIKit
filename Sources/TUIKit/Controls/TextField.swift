@@ -36,6 +36,28 @@ public final class TextField: TUIView {
     /// the one a `TokenField` wrapping it needs ("remove the last token").
     public var onDeleteBackwardAtStart: () -> Void = {}
 
+    /// Called when the field takes keyboard focus.
+    public var onBeginEditing: () -> Void = {}
+
+    /// Called with the final text when the field loses keyboard focus.
+    ///
+    /// **The hook validation needs, and the one this control did not have.**
+    /// `onChanged` fires per keystroke, which is too early to judge a half-
+    /// typed number, and `onSubmit` only fires on Return — so a value typed
+    /// and then Tabbed away from was never judged at all. Downstream that
+    /// meant a mistyped filter value in ActiveUI's query designer was
+    /// silently dropped on this backend, which is precisely what its AppKit
+    /// arm exists to prevent.
+    public var onEndEditing: (String) -> Void = { _ in }
+
+    public override func didBecomeFirstResponder() {
+        onBeginEditing()
+    }
+
+    public override func didResignFirstResponder() {
+        onEndEditing(text)
+    }
+
     // Cursor position as a character offset into `text`.
     private var cursorIndex = 0
 

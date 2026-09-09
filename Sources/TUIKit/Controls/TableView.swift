@@ -53,12 +53,74 @@ public final class TableView: TUIView {
     }
 
     /// Row data: one string per column, outer array is rows.
+    ///
+    /// Ignored while ``rowSource`` is set.
     public var rows: [[String]] {
         didSet {
-            navigation.count = rows.count
+            navigation.count = rowCount
             navigation.select(navigation.selectedIndex)
             setNeedsDisplay()
         }
+    }
+
+    /// Pulls rows on demand instead of holding them.
+    ///
+    /// **The seam a result set larger than the window needs.** `rows` is an
+    /// array, so filling it means building every row — and the draw loop only
+    /// ever touches the twenty or so that fit. A database view over ssh is
+    /// the case that makes the difference plain: fifty thousand rows returned,
+    /// twenty on screen, and the array form builds all fifty thousand to draw
+    /// the twenty.
+    ///
+    /// Set this and `rows` is not consulted. Call ``reloadRows()`` when the
+    /// count changes.
+    public struct RowSource {
+        /// How many rows there are now.
+        public let count: @MainActor () -> Int
+
+        /// One row's cells, one string per column.
+        public let cells: @MainActor (Int) -> [String]
+
+        /// Creates a source.
+        /// - Parameters:
+        ///   - count: How many rows there are now.
+        ///   - cells: One row's cells, by index.
+        public init(count: @escaping @MainActor () -> Int,
+                    cells: @escaping @MainActor (Int) -> [String]) {
+            self.count = count
+            self.cells = cells
+        }
+    }
+
+    /// Where rows come from, when they are not held in ``rows``.
+    public var rowSource: RowSource? {
+        didSet {
+            reloadRows()
+        }
+    }
+
+    /// Re-reads the row count from ``rowSource`` and repaints.
+    ///
+    /// Only the count: the cells themselves are pulled as they are drawn, so
+    /// there is nothing else to refresh.
+    public func reloadRows() {
+        navigation.count = rowCount
+        navigation.select(navigation.selectedIndex)
+        setNeedsDisplay()
+    }
+
+    // How many rows there are, from whichever side is supplying them.
+    private var rowCount: Int {
+        rowSource?.count() ?? rows.count
+    }
+
+    // One row's cells, from whichever side is supplying them.
+    private func cells(at index: Int) -> [String]? {
+        if let rowSource {
+            return index < rowSource.count() ? rowSource.cells(index) : nil
+        }
+
+        return index < rows.count ? rows[index] : nil
     }
 
     /// Called when the selected row changes.
@@ -83,7 +145,7 @@ public final class TableView: TUIView {
         self.columns = columns
         self.rows = rows
         super.init(frame: .zero)
-        navigation.count = rows.count
+        navigation.count = rowCount
     }
 
     /// Index of the selected row, when any.
@@ -150,7 +212,7 @@ public final class TableView: TUIView {
         for viewportRow in 0..<rowViewportHeight {
             let index = navigation.scrollOffset + viewportRow
 
-            guard index < rows.count else {
+            guard let rowCells = cells(at: index) else {
                 break
             }
 
@@ -165,7 +227,7 @@ public final class TableView: TUIView {
             }
 
             painter.write(
-                composeLine(cells: rows[index], widths: widths, total: width),
+                composeLine(cells: rowCells, widths: widths, total: width),
                 at: Point(x: 0, y: 1 + viewportRow),
                 style: style
             )
@@ -189,7 +251,7 @@ public final class TableView: TUIView {
 
         let row = scrollOffset + point.y - 1
 
-        guard row < rows.count else {
+        guard row < rowCount else {
             return nil
         }
 
@@ -224,7 +286,7 @@ public final class TableView: TUIView {
             return true
 
         case .end:
-            moveSelection(to: rows.count - 1)
+            moveSelection(to: rowCount - 1)
             return true
 
         case .enter:
@@ -259,7 +321,7 @@ public final class TableView: TUIView {
 
             let index = navigation.scrollOffset + mouse.position.y - 1
 
-            guard index < rows.count else {
+            guard index < rowCount else {
                 return false
             }
 
