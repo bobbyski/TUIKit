@@ -270,6 +270,45 @@ public final class App {
         window.removeFromSuperview()
     }
 
+    /// Presents a sheet on its host window (PLAN 11.2).
+    ///
+    /// The sheet is sized to its content, anchored under the host's title
+    /// row, and made key. The host is blocked for as long as it is up; the
+    /// rest of the stack is not.
+    ///
+    /// - Parameter sheet: The sheet, built with the window it belongs to.
+    public func presentSheet(_ sheet: Sheet) {
+        guard let host = sheet.host else {
+            return
+        }
+
+        // One sheet per window: presenting a second replaces the first.
+        dismissSheet(on: host)
+
+        if sheet.frame.size.width == 0 || sheet.frame.size.height == 0 {
+            let size = sheet.intrinsicContentSize ?? Size(width: 40, height: 8)
+            sheet.frame = Rect(origin: .zero, size: size)
+        }
+
+        present(sheet)
+        sheet.anchor(in: desktop.bounds)
+        host.attachedSheet = sheet
+        activate(sheet)
+    }
+
+    /// Takes a window's sheet down, if it has one.
+    ///
+    /// - Parameter host: The window that owns the sheet.
+    public func dismissSheet(on host: Window) {
+        guard let sheet = host.attachedSheet else {
+            return
+        }
+
+        host.attachedSheet = nil
+        dismiss(sheet)
+        activate(host)
+    }
+
     /// Raises a presented window to the top of the stack, making it key.
     ///
     /// Clicking a non-modal stack does this automatically; call it directly
@@ -551,11 +590,20 @@ public final class App {
             if mouse.action == .press,
                mouse.button == .left,
                !key.isModal,
-               let target = windows.last(where: { window in
+               let hitWindow = windows.last(where: { window in
                    window.hitTest(mouse.position - window.frame.origin) != nil
-               }),
-               target !== key {
-                activate(target)
+               }) {
+                // A window with a sheet up hands its presses to the sheet
+                // (PLAN 11.2). That is the whole of "blocks only that
+                // window": the press is not swallowed app-wide, it is
+                // redirected — so it lands nowhere in the host, and every
+                // other window in the stack still activates normally.
+                let target = hitWindow.attachedSheet ?? hitWindow
+
+                if target !== key {
+                    activate(target)
+                }
+
                 window = target
             }
 
@@ -792,6 +840,13 @@ public final class App {
         // Maximized floating windows track the new desktop size too.
         for window in windows {
             (window as? FloatingWindow)?.reflowMaximizeIfNeeded()
+        }
+
+        // A sheet is attached to its host, so a resize that moves the host
+        // has to move it too — otherwise the thing it visibly hangs from
+        // slides out from under it (PLAN 11.2).
+        for window in windows {
+            window.attachedSheet?.anchor(in: desktop.bounds)
         }
     }
 

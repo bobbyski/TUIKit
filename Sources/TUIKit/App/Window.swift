@@ -46,6 +46,13 @@ open class Window: TUIView {
     /// key. `Dialog` is modal by default; plain windows are not.
     public var isModal = false
 
+    /// The sheet hanging from this window, if any (PLAN 11.2).
+    ///
+    /// While it is set, presses aimed at this window are routed to the sheet
+    /// instead — which is what "blocks only that window" means. Every other
+    /// window in the stack stays live.
+    public internal(set) weak var attachedSheet: Sheet?
+
     /// Edge panels that slide over the content. See ``SlideOut``.
     ///
     /// Storage only — the API and the geometry live in `SlideOut.swift`,
