@@ -55,6 +55,35 @@ public final class RadioGroup: TUIView {
     /// - Parameters:
     ///   - index: Option to select.
     ///   - notify: Whether `onSelectionChanged` fires. Defaults to silent.
+    /// Clears the selection.
+    ///
+    /// **The way back to nothing.** `selectedIndex` is optional, so a group
+    /// with no choice made is a state the type models — but `select(_:)`
+    /// guards on a valid index, so once something was chosen there was no
+    /// call that could un-choose it. Passing -1 did nothing, silently.
+    ///
+    /// ActiveUI is the case that needs it: its radio *group* owns the mutual
+    /// exclusion and drives one single-option group per row, so telling a row
+    /// "you are not the one" is the whole mechanism. Without this every row
+    /// that had ever been picked stayed marked, and a group of three showed
+    /// three filled circles.
+    ///
+    /// - Parameter notify: Whether `onSelectionChanged` fires. Off by
+    ///   default: clearing is normally the owner correcting the view, not the
+    ///   user making a choice.
+    public func clearSelection(notify: Bool = false) {
+        guard selectedIndex != nil else {
+            return
+        }
+
+        selectedIndex = nil
+        setNeedsDisplay()
+
+        if notify {
+            onSelectionChanged(-1)
+        }
+    }
+
     public func select(_ index: Int, notify: Bool = false) {
         guard options.indices.contains(index), index != selectedIndex else {
             return

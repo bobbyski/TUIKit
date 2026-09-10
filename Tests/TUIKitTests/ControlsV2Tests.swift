@@ -262,3 +262,26 @@ private func makePopUp(buttonY: Int, windowHeight: Int = 10) -> (PopUpButton, Wi
     _ = window.makeFirstResponder(other)
     #expect(ended == ["42"], "the final text, when focus left")
 }
+
+// `selectedIndex` is optional, so "nothing chosen" is a state the type models
+// — but `select(_:)` guards on a valid index, so once something was chosen
+// there was no call that could un-choose it, and -1 did nothing silently.
+@Test @MainActor func aRadioGroupCanBeReturnedToNoSelection() {
+    let group = RadioGroup(["One", "Two"], selectedIndex: 1)
+    #expect(group.selectedIndex == 1)
+
+    group.select(-1)
+    #expect(group.selectedIndex == 1, "an invalid index is still ignored")
+
+    group.clearSelection()
+    #expect(group.selectedIndex == nil)
+
+    var reported: [Int] = []
+    group.onSelectionChanged = { reported.append($0) }
+    group.clearSelection(notify: true)
+    #expect(reported.isEmpty, "already clear: nothing changed, so nothing is reported")
+
+    group.select(0, notify: true)
+    group.clearSelection(notify: true)
+    #expect(reported == [0, -1])
+}
