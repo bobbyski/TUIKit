@@ -57,8 +57,8 @@ private func bareView(_ bytes: [UInt8], baseAddress: UInt64 = 0) -> HexView {
     let view = bareView(Array(repeating: 0xAA, count: 64))
     view.fitSnapsToGroups = false
 
-    // Four columns per byte over the address and gaps.
-    #expect(view.bytesThatFit(width: 4 + 4 - 1 + 4 * 10) == 10)
+    // Four columns per byte over the address, the gaps, and one group gap.
+    #expect(view.bytesThatFit(width: 4 + 2 + (10 * 3 - 1 + 1) + 2 + 10) == 10)
 
     view.bytesPerRow = 16
     #expect(view.bytesThatFit(width: 30) == 16, "pinned wins, and the row scrolls off instead")
@@ -67,9 +67,10 @@ private func bareView(_ bytes: [UInt8], baseAddress: UInt64 = 0) -> HexView {
 @Test @MainActor func aFittedRowHoldsAWholeNumberOfGroups() {
     let view = bareView(Array(repeating: 0x55, count: 64))
 
-    let raw = view.bytesThatFit(width: 4 + 3 + 4 * 11)
+    let width = 4 + 2 + (11 * 3 - 1 + 1) + 2 + 11   // eleven bytes' worth exactly
+    let raw = view.bytesThatFit(width: width)
     view.fitSnapsToGroups = false
-    let free = view.bytesThatFit(width: 4 + 3 + 4 * 11)
+    let free = view.bytesThatFit(width: width)
 
     #expect(free == 11)
     #expect(raw == 8, "snapped down to the group, so the addresses step by round numbers")
@@ -302,4 +303,21 @@ private func bareView(_ bytes: [UInt8], baseAddress: UInt64 = 0) -> HexView {
 
     let rows = render(view, width: 60, height: 4)
     #expect(rows[1].hasPrefix("0000"), "grid under the bar")
+}
+
+@Test @MainActor func aGroupGetsItsWiderGap() {
+    let view = bareView(Array(0x00...0x0F))
+    view.bytesPerRow = 16
+
+    let line = render(view, width: 80, height: 1)[0]
+    #expect(line.contains("06 07  08 09"), "a double space after each eight — the rhythm a dump is counted by")
+
+    // Hit-testing walks the same geometry: byte 8's high nibble sits one
+    // gap column further right.
+    _ = view.mouseEvent(MouseInput(position: Point(x: 4 + 2 + 8 * 3 + 1, y: 0), action: .press, button: .left))
+    #expect(view.caret == 8 && view.caretNibble == 0)
+
+    // The gap itself clamps to its group's last byte rather than missing.
+    _ = view.mouseEvent(MouseInput(position: Point(x: 4 + 2 + 8 * 3 - 1, y: 0), action: .press, button: .left))
+    #expect(view.caret == 7)
 }

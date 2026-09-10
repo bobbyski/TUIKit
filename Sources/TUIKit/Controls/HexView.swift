@@ -305,32 +305,51 @@ public final class HexView: TUIView {
         max(1, bounds.size.height - gridTop)
     }
 
+    // The wider gap after each group of hex pairs — the column rhythm a
+    // dump is counted by. `bytesPerGroup` 0 or 1 means no grouping.
+    private var groupSize: Int {
+        bytesPerGroup > 1 ? bytesPerGroup : 0
+    }
+
+    // Extra gap columns to the left of hex column `column`.
+    private func gaps(beforeColumn column: Int) -> Int {
+        groupSize > 0 ? column / groupSize : 0
+    }
+
+    // The hex pane's width: pairs, their single spaces, and the group gaps.
+    private func hexWidth(perRow: Int) -> Int {
+        perRow * 3 - 1 + (groupSize > 0 ? (perRow - 1) / groupSize : 0)
+    }
+
     private func rowWidth(perRow: Int) -> Int {
-        // address, two spaces, the hex pairs — and the text column after two
+        // address, two spaces, the hex pane — and the text column after two
         // more, when it is shown.
-        let hex = addressDigits + 2 + (perRow * 3 - 1)
+        let hex = addressDigits + 2 + hexWidth(perRow: perRow)
         return showsTextColumn ? hex + 2 + perRow : hex
     }
 
     /// How many bytes fit a row of `width` columns.
     ///
     /// With the text column, each byte costs four columns — two hex digits,
-    /// the space after them, and one character of text; without it, three.
+    /// the space after them, and one character of text; without it, three —
+    /// plus the group gap after every eight.
     func bytesThatFit(width: Int) -> Int {
         guard bytesPerRow == 0 else { return bytesPerRow }
 
-        let cost = showsTextColumn ? 4 : 3
-        let fixed = addressDigits + (showsTextColumn ? 4 : 2) - 1
-        let raw = (width - fixed) / cost
+        var count = Swift.max(1, (width - addressDigits) / 3)
+
+        while count > 1, rowWidth(perRow: count) > width {
+            count -= 1
+        }
 
         guard fitSnapsToGroups, bytesPerGroup > 1 else {
-            return Swift.max(1, raw)
+            return count
         }
 
         // Down to a whole group -- see `fitSnapsToGroups`. Narrower than one
         // group shows what it can rather than nothing.
-        let groups = raw / bytesPerGroup
-        return groups > 0 ? groups * bytesPerGroup : Swift.max(1, raw)
+        let groups = count / bytesPerGroup
+        return groups > 0 ? groups * bytesPerGroup : count
     }
 
     // MARK: - Drawing
@@ -347,7 +366,7 @@ public final class HexView: TUIView {
         let perRow = bytesThatFit(width: width)
         let digits = addressDigits
         let hexStart = digits + 2
-        let textStart = hexStart + perRow * 3 - 1 + 2
+        let textStart = hexStart + hexWidth(perRow: perRow) + 2
 
         scrollCaretIntoView(perRow: perRow, rows: gridRows)
 
@@ -365,7 +384,7 @@ public final class HexView: TUIView {
 
             for (column, offset) in (start..<end).enumerated() {
                 painter.write(String(format: "%02X", bytes[offset]),
-                              at: Point(x: hexStart + column * 3, y: y),
+                              at: Point(x: hexStart + column * 3 + gaps(beforeColumn: column), y: y),
                               style: CellStyle())
             }
 
@@ -450,7 +469,7 @@ public final class HexView: TUIView {
         var marker = CellStyle()
         marker.flags.insert(.underline)
 
-        let hexX = hexStart + column * 3
+        let hexX = hexStart + column * 3 + gaps(beforeColumn: column)
         let character = encoding.isSingleByte
             ? String(encoding.cells(for: [bytes[caret]]).first?.character ?? unprintable)
             : nil
@@ -649,7 +668,7 @@ public final class HexView: TUIView {
     func byteOffset(at point: Point, perRow: Int) -> (offset: Int, inText: Bool, nibble: Int)? {
         let digits = addressDigits
         let hexStart = digits + 2
-        let hexEnd = hexStart + perRow * 3 - 1
+        let hexEnd = hexStart + hexWidth(perRow: perRow)
         let textStart = hexEnd + 2
         let row = topRow + point.y - gridTop
 
@@ -661,8 +680,22 @@ public final class HexView: TUIView {
 
         switch point.x {
         case hexStart..<hexEnd:
-            column = (point.x - hexStart) / 3
-            nibble = (point.x - hexStart) % 3 == 1 ? 1 : 0
+            var offset = point.x - hexStart
+
+            if groupSize > 0 {
+                // A group block is its pairs, their spaces, and the gap.
+                let block = groupSize * 3 + 1
+                let group = offset / block
+                // A click on the gap itself clamps to the group's last byte.
+                let within = Swift.min(offset % block, groupSize * 3 - 1)
+                offset = group * groupSize * 3 + within
+                column = group * groupSize + within / 3
+                nibble = within % 3 == 1 ? 1 : 0
+            } else {
+                column = offset / 3
+                nibble = offset % 3 == 1 ? 1 : 0
+            }
+
             inText = false
         case textStart..<(textStart + perRow) where showsTextColumn:
             column = point.x - textStart
