@@ -37,6 +37,7 @@ is the showcase — PLAN rule: every new control gets a gallery spot.
 | AUIBezierPath | Chained path — lines, curves, arcs | `ChromeCommand.polyline/.polygon/.sector` | 🟡 | Polylines/polygons/sectors only; no general curve path, VTG only. (VTG protocol has `path` with cubics — `ChromeSectorPath` already emits it) |
 | AUIGradientRing | Animated gradient border with blurred glow | `verticalGradient` chrome | ➖ | Decorative; no animation story in chrome. Skip |
 | AUILogView (+ Logging suite) | Log console: levels, filter, follow, copy | `LogView` (+ `TUILogger`/`LogStore`/destinations/`LogLineFormatter`) | ✅ | 2026-09-02: full port of ActiveUI's Logging/; rows colored by level, columns drop as the view narrows |
+| AUIHexView | Hex viewer/editor: encodings, fit, modes | `HexView` (+ `ByteEncoding`) | ✅ | 2026-09-09 parity: Bytes/Text control bar, fit or pinned rows/columns, editable (nibble typing, per-encoding text typing) and read-only (caret, no cursor), block/underline cursor, ASCII/EBCDIC-037/UTF-8/UTF-16 with characters drawn across their bytes; ActiveUI's terminal arm binds it |
 | AUIImageView | Images and symbols, scaled/tinted/framed | `ImageView` | ✅ | Wave B (16.20): card + menu in cells, pixels under VTG (overlay plane where the terminal cannot draw raster under text) |
 | AUIImageViewer | Zoom/pan image view with drop | `ImageViewer` | ✅ | Wave B (16.20): zoom/pan keys under VTG |
 | AUIGauge | Dial, ring, bar or needle gauge | `Gauge` | ✅ | Wave B (16.12): bar in cells, ring/dial under VTG, thresholds |

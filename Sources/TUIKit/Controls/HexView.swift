@@ -1,27 +1,31 @@
 import Foundation
 
-/// A hex dump: addresses, bytes, and what those bytes say.
+/// A hex editor: addresses, bytes, and what those bytes say in ASCII,
+/// EBCDIC, UTF-8 or UTF-16.
 ///
-///     let view = HexView(bytes: [UInt8](contents))
-///     view.baseAddress = 0x1000
+///     let view = HexView(bytes: [UInt8](contents))   // fits the width
+///     view.encoding = .utf8
 ///     view.onEdit = { offset, byte in patch(offset, byte) }
 ///
 /// **Three columns of fixed-width text, which is the one shape a terminal
-/// renders better than any canvas.** A hex view reached TUIKit late because
-/// ActiveUI drew one with `CGContext` on macOS, and the terminal port took
-/// that implementation for the definition — it composed rows into a `Label`
-/// instead, which reads correctly and cannot carry a caret. This is the
-/// control that can.
+/// renders better than any canvas.** The grid sits under an optional control
+/// bar — a Bytes picker (Fit, 4 … 64) and a Text picker over
+/// ``encodingChoices`` — the same bar `AUIHexView` wears, because the two
+/// are one control on two backends.
 ///
 /// **Fitting is the default.** `bytesPerRow = 0` puts as many bytes on a row
 /// as the width allows, so the view re-flows with the window; pin it to 8 or
-/// 16 to compare two dumps side by side.
+/// 16 to compare two dumps side by side. `rowsShown` pins the height the
+/// same way.
 ///
-/// The text column is decoded by ``character(for:)``, a closure rather than an
-/// encoding enum: a terminal has no opinion about EBCDIC, and the caller
-/// already knows which encoding it means.
+/// **Editable is the default; read-only is a mode.** `isEditable = false`
+/// keeps the caret and the address callback — they are most of what a
+/// *viewer* is for — but draws no cursor: a cursor is a promise that typing
+/// will land, and a read-only view is not accepting any.
 @MainActor
 public final class HexView: TUIView {
+    // MARK: - What is shown
+
     /// The bytes on show.
     public var bytes: [UInt8] {
         didSet {
@@ -30,14 +34,38 @@ public final class HexView: TUIView {
         }
     }
 
-    /// The address the first byte is labelled with.
+    /// The address the first byte is labelled with. A window onto a file at
+    /// an offset, or a dump of memory, does not start at zero.
     public var baseAddress: UInt64 = 0 {
         didSet { setNeedsDisplay() }
     }
 
-    /// Bytes per row, or 0 to fit the width.
+    /// Bytes per row, or **0 to fit the width** — the default.
     public var bytesPerRow = 0 {
-        didSet { setNeedsDisplay() }
+        didSet {
+            guard bytesPerRow != oldValue else { return }
+
+            // The picker is a view of this property, not a second copy of
+            // it: set in code, it has to move too.
+            if let index = Self.widthChoices.firstIndex(of: bytesPerRow) {
+                widthPicker.select(index)
+            }
+
+            setNeedsDisplay()
+        }
+    }
+
+    /// Rows of bytes on show, or **0 to fit the height** — the default.
+    ///
+    /// Pinned, the view's natural height is exactly this many rows (plus the
+    /// control bar when shown) and the grid scrolls inside it.
+    public var rowsShown = 0 {
+        didSet {
+            guard rowsShown != oldValue else { return }
+
+            setNeedsLayout()
+            setNeedsDisplay()
+        }
     }
 
     /// How many bytes a fitted row rounds down to a whole number of.
@@ -55,8 +83,98 @@ public final class HexView: TUIView {
         didSet { setNeedsDisplay() }
     }
 
-    /// Whether typing hex digits edits the bytes.
-    public var isEditable = false
+    /// Whether the text column is drawn.
+    public var showsTextColumn = true {
+        didSet {
+            guard showsTextColumn != oldValue else { return }
+
+            if !showsTextColumn {
+                isEditingText = false
+            }
+
+            setNeedsDisplay()
+        }
+    }
+
+    /// How the bytes are read into the text column.
+    ///
+    /// In a multi-byte encoding (UTF-8, UTF-16) a character is drawn ACROSS
+    /// its bytes, and the text column stops accepting the caret — overtyping
+    /// a one-byte character with a three-byte one in a fixed-length buffer
+    /// is not an edit. The hex column stays editable in every encoding,
+    /// because a byte is a byte.
+    public var encoding: ByteEncoding = .ascii {
+        didSet {
+            guard encoding != oldValue else { return }
+
+            if !encoding.isSingleByte, isEditingText {
+                isEditingText = false
+            }
+
+            syncEncodingPicker()
+            setNeedsDisplay()
+        }
+    }
+
+    /// What the Text picker offers.
+    public var encodingChoices: [ByteEncoding] = ByteEncoding.standard {
+        didSet { rebuildEncodingPicker() }
+    }
+
+    /// What stands in for a byte the encoding will not show.
+    public var unprintable: Character = "." {
+        didSet {
+            if unprintable != oldValue { setNeedsDisplay() }
+        }
+    }
+
+    // MARK: - Editing
+
+    /// Whether typing changes bytes. On by default; off is the viewer mode —
+    /// the caret and ``onCaretMoved`` keep working, but no cursor is drawn
+    /// and typing changes nothing.
+    public var isEditable = true {
+        didSet {
+            if isEditable != oldValue { setNeedsDisplay() }
+        }
+    }
+
+    /// The two ways the edit cursor is drawn.
+    public enum CursorStyle: Sendable {
+        /// The cell inverted under the caret. The default.
+        case block
+
+        /// The classic bar: an underline beneath the character.
+        case underline
+    }
+
+    /// How the edit cursor is drawn.
+    public var cursorStyle: CursorStyle = .block {
+        didSet { setNeedsDisplay() }
+    }
+
+    /// Whether the bar with the Bytes and Text pickers is shown.
+    ///
+    /// Hide it for an inspector pane that is exactly as big as it says —
+    /// the "eight bytes a row, three rows, no chrome" shape.
+    public var showsControlBar = true {
+        didSet {
+            guard showsControlBar != oldValue else { return }
+
+            for control in barControls {
+                control.isHidden = !showsControlBar
+            }
+
+            setNeedsLayout()
+            setNeedsDisplay()
+        }
+    }
+
+    // MARK: - Reporting
+
+    /// Called with the whole buffer after an edit. Copy-on-write, so handing
+    /// it over costs nothing until somebody keeps it.
+    public var onChange: (([UInt8]) -> Void)?
 
     /// Called with the offset and the new value when a byte is edited.
     public var onEdit: ((Int, UInt8) -> Void)?
@@ -64,25 +182,41 @@ public final class HexView: TUIView {
     /// Called when the caret moves, with its byte offset.
     public var onCaretMoved: ((Int) -> Void)?
 
-    /// How a byte is shown in the text column.
-    ///
-    /// Printable ASCII by default; hand it something else for Latin-1, for a
-    /// code page, or for the caller's own idea of printable.
-    public var character: (UInt8) -> Character = { byte in
-        (0x20...0x7E).contains(byte) ? Character(UnicodeScalar(byte)) : "."
-    }
+    // MARK: - Where the caret is
 
-    /// The byte the caret sits on.
+    /// The byte the caret is on.
     public private(set) var caret = 0
 
-    /// Which column the caret is in. Tab moves between them.
+    /// Which half of the byte the caret is on in the hex column: 0 is the
+    /// high nibble. Two keystrokes per byte, high nibble first, the way a
+    /// hex editor has typed since there were hex editors.
+    public private(set) var caretNibble = 0
+
+    /// Whether the caret is in the text column. Tab crosses over — in a
+    /// single-byte encoding.
     public private(set) var isEditingText = false
 
-    // The first row on screen.
+    // The first row of bytes on screen.
     private var topRow = 0
 
-    // Half-typed byte: the first of the two hex digits, when there is one.
-    private var pendingDigit: UInt8?
+    // MARK: - The control bar
+
+    /// The row widths the Bytes picker offers. 0 is "Fit".
+    public static let widthChoices = [0, 4, 8, 16, 24, 32, 64]
+
+    /// What a width choice is called in the picker.
+    nonisolated static func widthChoiceName(_ count: Int) -> String {
+        count == 0 ? "Fit" : String(count)
+    }
+
+    private let bytesLabel = Label("Bytes")
+    private let textLabel = Label("Text")
+    private let widthPicker = PopUpButton(items: HexView.widthChoices.map(HexView.widthChoiceName), selectedIndex: 0)
+    private let encodingPicker = PopUpButton()
+
+    private var barControls: [TUIView] {
+        [bytesLabel, widthPicker, textLabel, encodingPicker]
+    }
 
     /// Creates a hex view.
     ///
@@ -93,6 +227,19 @@ public final class HexView: TUIView {
         self.bytes = bytes
         self.baseAddress = baseAddress
         super.init(frame: .zero)
+
+        var quiet = CellStyle()
+        quiet.flags.insert(.dim)
+        bytesLabel.style = quiet
+        textLabel.style = quiet
+
+        widthPicker.onSelectionChanged = { [weak self] index in
+            guard let self, Self.widthChoices.indices.contains(index) else { return }
+            bytesPerRow = Self.widthChoices[index]
+        }
+
+        rebuildEncodingPicker()
+        barControls.forEach(addSubview)
     }
 
     /// A hex view takes keyboard focus: it has a caret.
@@ -100,11 +247,45 @@ public final class HexView: TUIView {
         true
     }
 
-    /// Sixteen bytes a row, and as many rows as there are.
+    /// A pinned row width exactly; sixteen bytes' worth when fitting. A
+    /// pinned `rowsShown` exactly; every row when fitting.
     public override var intrinsicContentSize: Size? {
         let perRow = bytesPerRow > 0 ? bytesPerRow : 16
-        let rows = max(1, (bytes.count + perRow - 1) / perRow)
-        return Size(width: rowWidth(perRow: perRow), height: rows)
+        let rows = rowsShown > 0 ? rowsShown : max(1, (bytes.count + perRow - 1) / perRow)
+        return Size(width: rowWidth(perRow: perRow), height: rows + (showsControlBar ? 1 : 0))
+    }
+
+    /// The pickers take the top row when the bar is shown.
+    public override func layoutSubviews() {
+        super.layoutSubviews()
+
+        guard showsControlBar, bounds.size.width > 0 else { return }
+
+        var x = 0
+
+        for control in [bytesLabel, widthPicker, textLabel, encodingPicker] {
+            let width = min(control.intrinsicContentSize?.width ?? 6, max(0, bounds.size.width - x))
+            control.frame = Rect(x: x, y: 0, width: width, height: 1)
+            x += width + 1
+        }
+    }
+
+    private func rebuildEncodingPicker() {
+        encodingPicker.items = encodingChoices.map(\.name)
+        syncEncodingPicker()
+
+        encodingPicker.onSelectionChanged = { [weak self] index in
+            guard let self, encodingChoices.indices.contains(index) else { return }
+            encoding = encodingChoices[index]
+        }
+
+        setNeedsLayout()
+    }
+
+    private func syncEncodingPicker() {
+        if let index = encodingChoices.firstIndex(of: encoding) {
+            encodingPicker.select(index)
+        }
     }
 
     // MARK: - Geometry
@@ -115,19 +296,32 @@ public final class HexView: TUIView {
         return max(4, String(last, radix: 16).count)
     }
 
+    // The grid starts under the control bar.
+    private var gridTop: Int {
+        showsControlBar ? 1 : 0
+    }
+
+    private var gridRows: Int {
+        max(1, bounds.size.height - gridTop)
+    }
+
     private func rowWidth(perRow: Int) -> Int {
-        // address, two spaces, the hex pairs, two spaces, the text column.
-        addressDigits + 2 + (perRow * 3 - 1) + 2 + perRow
+        // address, two spaces, the hex pairs — and the text column after two
+        // more, when it is shown.
+        let hex = addressDigits + 2 + (perRow * 3 - 1)
+        return showsTextColumn ? hex + 2 + perRow : hex
     }
 
     /// How many bytes fit a row of `width` columns.
     ///
-    /// Each byte costs four columns — two hex digits, the space after them,
-    /// and one character in the text column — over the address and gaps.
+    /// With the text column, each byte costs four columns — two hex digits,
+    /// the space after them, and one character of text; without it, three.
     func bytesThatFit(width: Int) -> Int {
         guard bytesPerRow == 0 else { return bytesPerRow }
-        let fixed = addressDigits + 4 - 1
-        let raw = (width - fixed) / 4
+
+        let cost = showsTextColumn ? 4 : 3
+        let fixed = addressDigits + (showsTextColumn ? 4 : 2) - 1
+        let raw = (width - fixed) / cost
 
         guard fitSnapsToGroups, bytesPerGroup > 1 else {
             return Swift.max(1, raw)
@@ -139,18 +333,13 @@ public final class HexView: TUIView {
         return groups > 0 ? groups * bytesPerGroup : Swift.max(1, raw)
     }
 
-    /// The row and column the caret is on, for the drawing pass.
-    private func position(of offset: Int, perRow: Int) -> (row: Int, column: Int) {
-        (offset / perRow, offset % perRow)
-    }
-
     // MARK: - Drawing
 
     public override func draw(_ painter: Painter) {
         let width = bounds.size.width
         let height = bounds.size.height
 
-        guard width > 0, height > 0 else {
+        guard width > 0, height > gridTop else {
             return
         }
 
@@ -160,59 +349,130 @@ public final class HexView: TUIView {
         let hexStart = digits + 2
         let textStart = hexStart + perRow * 3 - 1 + 2
 
-        scrollCaretIntoView(perRow: perRow, rows: height)
+        scrollCaretIntoView(perRow: perRow, rows: gridRows)
 
-        for screenRow in 0..<height {
+        for screenRow in 0..<gridRows {
             let start = (topRow + screenRow) * perRow
 
             guard start < bytes.count else {
                 break
             }
 
+            let y = gridTop + screenRow
             let end = Swift.min(bytes.count, start + perRow)
             let address = String(format: "%0\(digits)llX", baseAddress &+ UInt64(start))
-            painter.write(address, at: Point(x: 0, y: screenRow), style: theme.placeholder)
+            painter.write(address, at: Point(x: 0, y: y), style: theme.placeholder)
 
             for (column, offset) in (start..<end).enumerated() {
-                let byte = bytes[offset]
-                let hexStyle = style(for: offset, inText: false, theme: theme)
-                let textStyle = style(for: offset, inText: true, theme: theme)
-
-                painter.write(String(format: "%02X", byte),
-                              at: Point(x: hexStart + column * 3, y: screenRow),
-                              style: hexStyle)
-                painter.write(String(character(byte)),
-                              at: Point(x: textStart + column, y: screenRow),
-                              style: textStyle)
+                painter.write(String(format: "%02X", bytes[offset]),
+                              at: Point(x: hexStart + column * 3, y: y),
+                              style: CellStyle())
             }
+
+            if showsTextColumn {
+                drawText(painter, rowStart: start, rowEnd: end, at: Point(x: textStart, y: y))
+            }
+
+            drawCursor(painter, rowStart: start, rowEnd: end, y: y, hexStart: hexStart, textStart: textStart, theme: theme)
         }
     }
 
-    // The caret is drawn as the cell it is on, inverted — in whichever column
-    // has it. The other column marks the same byte more quietly, so you can
-    // see what you are editing on both sides at once.
-    private func style(for offset: Int, inText: Bool, theme: ResolvedTheme) -> CellStyle {
-        guard offset == caret else {
-            return CellStyle()
+    /// The text column for one row: characters drawn ACROSS their bytes.
+    ///
+    /// **Decoded from a window that starts before the row.** A UTF-8
+    /// character can straddle the top edge of the row, and starting the
+    /// decoder at the first visible byte would read the tail of that
+    /// character as rubbish — `windowStart(before:in:)` backs up to a lead
+    /// byte. It reads PAST the row too: a character straddling the end of a
+    /// row is not a broken sequence, and a row whose last character is a dot
+    /// because the window stopped mid-character is a lie about the bytes.
+    private func drawText(_ painter: Painter, rowStart: Int, rowEnd: Int, at origin: Point) {
+        let start = encoding.windowStart(before: rowStart, in: bytes)
+        let window = Swift.min(bytes.count, rowEnd + encoding.maximumBytesPerCharacter - 1)
+
+        guard start < window else { return }
+
+        var quiet = CellStyle()
+        quiet.flags.insert(.dim)
+
+        var position = start
+
+        for cell in encoding.cells(for: bytes[start..<window]) {
+            defer { position += cell.byteCount }
+
+            // Cells that ended before this row began are only here to get
+            // the decoder in step; they are drawn on the row they belong to.
+            guard position + cell.byteCount > rowStart, position < rowEnd else { continue }
+
+            let column = position - rowStart
+
+            guard column >= 0 else { continue }
+
+            let character = cell.character ?? unprintable
+            let span = Swift.min(cell.byteCount, rowEnd - position)
+
+            // Centred over the bytes it occupies, so a three-byte character
+            // sits over its three bytes rather than at the first of them.
+            let x = origin.x + column + Swift.max(0, (span - DisplayWidth.of(character)) / 2)
+            painter.write(String(character), at: Point(x: x, y: origin.y),
+                          style: cell.character == nil ? quiet : CellStyle())
         }
+    }
 
-        var style = CellStyle()
+    /// The edit cursor — on the nibble (or character) the next keystroke
+    /// replaces — and a quiet mark on the same byte in the other column. A
+    /// read-only view draws neither: a cursor is a promise that typing will
+    /// land, and this view is not accepting any.
+    private func drawCursor(_ painter: Painter, rowStart: Int, rowEnd: Int, y: Int, hexStart: Int, textStart: Int, theme: ResolvedTheme) {
+        guard isEditable, !bytes.isEmpty, (rowStart..<rowEnd).contains(caret) else { return }
 
-        if inText == isEditingText {
-            style = theme.selection
+        let column = caret - rowStart
+        let digits = String(format: "%02X", bytes[caret])
+
+        var cursor = CellStyle()
+
+        switch cursorStyle {
+        case .block:
+            cursor = theme.selection
 
             if isFirstResponder {
-                style.flags.insert(.bold)
+                cursor.flags.insert(.bold)
             }
-        } else {
-            style.flags.insert(.underline)
+
+        case .underline:
+            cursor.flags.insert(.underline)
+
+            if isFirstResponder {
+                cursor.flags.insert(.bold)
+            }
         }
 
-        return style
+        var marker = CellStyle()
+        marker.flags.insert(.underline)
+
+        let hexX = hexStart + column * 3
+        let character = encoding.isSingleByte
+            ? String(encoding.cells(for: [bytes[caret]]).first?.character ?? unprintable)
+            : nil
+
+        if isEditingText {
+            // The cursor rides the character; the byte's digits carry the
+            // quiet mark.
+            painter.write(character ?? " ", at: Point(x: textStart + column, y: y), style: cursor)
+            painter.write(digits, at: Point(x: hexX, y: y), style: marker)
+        } else {
+            // On the nibble the next keystroke replaces.
+            let nibble = digits[digits.index(digits.startIndex, offsetBy: caretNibble)]
+            painter.write(String(nibble), at: Point(x: hexX + caretNibble, y: y), style: cursor)
+
+            if showsTextColumn, encoding.isSingleByte, let character {
+                painter.write(character, at: Point(x: textStart + column, y: y), style: marker)
+            }
+        }
     }
 
     private func scrollCaretIntoView(perRow: Int, rows: Int) {
-        let row = position(of: caret, perRow: perRow).row
+        let row = caret / perRow
 
         if row < topRow {
             topRow = row
@@ -233,20 +493,30 @@ public final class HexView: TUIView {
         let perRow = bytesThatFit(width: max(1, bounds.size.width))
 
         switch key.key {
-        case .left:      return moveCaret(by: -1)
-        case .right:     return moveCaret(by: 1)
-        case .up:        return moveCaret(by: -perRow)
-        case .down:      return moveCaret(by: perRow)
-        case .pageUp:    return moveCaret(by: -perRow * max(1, bounds.size.height))
-        case .pageDown:  return moveCaret(by: perRow * max(1, bounds.size.height))
-        case .home:      return moveCaret(to: 0)
-        case .end:       return moveCaret(to: bytes.count - 1)
+        case .left:      stepBack(); return true
+        case .right:     stepForward(); return true
+        case .up:        return moveCaret(to: caret - perRow, nibble: caretNibble)
+        case .down:      return moveCaret(to: caret + perRow, nibble: caretNibble)
+
+        case .home:
+            // The row's edges — a dump is read a row at a time.
+            return moveCaret(to: caret - caret % perRow)
+
+        case .end:
+            return moveCaret(to: Swift.min(caret - caret % perRow + perRow - 1, bytes.count - 1))
+
+        case .pageUp:
+            return moveCaret(to: caret - perRow * gridRows, nibble: caretNibble)
+
+        case .pageDown:
+            return moveCaret(to: caret + perRow * gridRows, nibble: caretNibble)
 
         case .tab:
-            // Tab crosses to the other column rather than leaving the view:
-            // a hex editor's two halves are one control.
+            // Tab crosses to the other column rather than leaving the view —
+            // in a single-byte encoding; see ``encoding``.
+            guard showsTextColumn, encoding.isSingleByte else { return false }
             isEditingText.toggle()
-            pendingDigit = nil
+            caretNibble = 0
             setNeedsDisplay()
             return true
 
@@ -259,20 +529,17 @@ public final class HexView: TUIView {
     }
 
     /// Types one character at the caret.
-    ///
-    /// In the hex column that is a hex digit, and **two of them make a byte**
-    /// — the first is held, the second commits and steps on. In the text
-    /// column it is the byte itself, which is only meaningful for a
-    /// single-byte encoding, so the caller decides by setting
-    /// ``character(for:)`` to match.
     private func type(_ typed: Character) -> Bool {
         guard isEditable, !bytes.isEmpty else {
             return false
         }
 
         if isEditingText {
-            guard let ascii = typed.asciiValue else { return false }
-            commit(ascii)
+            // Only reachable in a single-byte encoding; the byte is whatever
+            // this encoding writes the character as.
+            guard let byte = encoding.byte(for: typed) else { return false }
+            write(byte, at: caret)
+            stepForward()
             return true
         }
 
@@ -280,40 +547,61 @@ public final class HexView: TUIView {
             return false
         }
 
-        if let first = pendingDigit {
-            commit(first << 4 | UInt8(digit))
-            pendingDigit = nil
-        } else {
-            pendingDigit = UInt8(digit)
-            setNeedsDisplay()
-        }
-
+        // Half a byte at a time, high nibble first.
+        let old = bytes[caret]
+        let new = caretNibble == 0
+            ? (old & 0x0F) | (UInt8(digit) << 4)
+            : (old & 0xF0) | UInt8(digit)
+        write(new, at: caret)
+        stepForward()
         return true
     }
 
-    private func commit(_ byte: UInt8) {
-        bytes[caret] = byte
-        onEdit?(caret, byte)
-        _ = moveCaret(by: 1)
+    private func write(_ byte: UInt8, at offset: Int) {
+        bytes[offset] = byte
+        onEdit?(offset, byte)
+        onChange?(bytes)
         setNeedsDisplay()
     }
 
-    @discardableResult
-    private func moveCaret(by delta: Int) -> Bool {
-        moveCaret(to: caret + delta)
+    // MARK: - Stepping
+
+    /// One nibble forward in the hex column, one byte in the text column.
+    private func stepForward() {
+        if !isEditingText, caretNibble == 0 {
+            caretNibble = 1
+            setNeedsDisplay()
+        } else {
+            _ = moveCaret(to: Swift.min(caret + 1, Swift.max(0, bytes.count - 1)))
+        }
+    }
+
+    private func stepBack() {
+        if !isEditingText, caretNibble == 1 {
+            caretNibble = 0
+            setNeedsDisplay()
+        } else {
+            _ = moveCaret(to: Swift.max(0, caret - 1), nibble: isEditingText ? 0 : 1)
+        }
     }
 
     @discardableResult
-    private func moveCaret(to offset: Int) -> Bool {
+    private func moveCaret(to offset: Int, nibble: Int = 0) -> Bool {
         let target = Swift.min(Swift.max(offset, 0), Swift.max(0, bytes.count - 1))
+        let targetNibble = Swift.min(Swift.max(0, nibble), 1)
 
-        guard target != caret else {
+        guard target != caret || targetNibble != caretNibble else {
             return false
         }
 
+        let moved = target != caret
         caret = target
-        pendingDigit = nil
-        onCaretMoved?(caret)
+        caretNibble = targetNibble
+
+        if moved {
+            onCaretMoved?(caret)
+        }
+
         setNeedsDisplay()
         return true
     }
@@ -343,8 +631,12 @@ public final class HexView: TUIView {
             guard let hit = byteOffset(at: mouse.position, perRow: perRow) else {
                 return false
             }
-            isEditingText = hit.inText
-            _ = moveCaret(to: hit.offset)
+
+            owningWindow?.makeFirstResponder(self)
+            // The text column takes the caret only where it takes typing.
+            isEditingText = hit.inText && encoding.isSingleByte
+            _ = moveCaret(to: hit.offset, nibble: hit.nibble)
+            setNeedsDisplay()
             return true
 
         default:
@@ -352,22 +644,27 @@ public final class HexView: TUIView {
         }
     }
 
-    /// The byte a click landed on, and which column it was in.
-    func byteOffset(at point: Point, perRow: Int) -> (offset: Int, inText: Bool)? {
+    /// The byte a click landed on, which column it was in, and — in the hex
+    /// column — which nibble.
+    func byteOffset(at point: Point, perRow: Int) -> (offset: Int, inText: Bool, nibble: Int)? {
         let digits = addressDigits
         let hexStart = digits + 2
         let hexEnd = hexStart + perRow * 3 - 1
         let textStart = hexEnd + 2
-        let row = topRow + point.y
+        let row = topRow + point.y - gridTop
+
+        guard point.y >= gridTop else { return nil }
 
         let column: Int
         let inText: Bool
+        var nibble = 0
 
         switch point.x {
         case hexStart..<hexEnd:
             column = (point.x - hexStart) / 3
+            nibble = (point.x - hexStart) % 3 == 1 ? 1 : 0
             inText = false
-        case textStart..<(textStart + perRow):
+        case textStart..<(textStart + perRow) where showsTextColumn:
             column = point.x - textStart
             inText = true
         default:
@@ -380,6 +677,6 @@ public final class HexView: TUIView {
             return nil
         }
 
-        return (offset, inText)
+        return (offset, inText, nibble)
     }
 }
