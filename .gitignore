@@ -5,3 +5,7 @@ xcuserdata/
 DerivedData/
 .swiftpm/
 .netrc
+.build-claude/
+.build-basicc/
+.freebird/
+.freebirdStudio/
