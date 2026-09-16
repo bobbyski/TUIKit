@@ -147,6 +147,17 @@ open class CodeEditorView: TUIView, BorderScrollable {
     /// Called when the caret moves.
     public var onCursorMoved: (TextPosition) -> Void = { _ in }
 
+    /// Offered every key before the editor acts on it; return `true` to take
+    /// it. A completion list uses this for the arrows, Return, Tab and Escape
+    /// while it is showing — the editor cannot be subclassed for it, since
+    /// the view a host actually uses (`ColumnRuledEditorView`) is final.
+    public var interceptsKey: (KeyInput) -> Bool = { _ in false }
+
+    /// Told about each key the editor handled itself, after the edit. The
+    /// counterpart of `interceptsKey`, for what reacts to typing rather than
+    /// replacing it: by the time this runs, auto-pairing and the rest have.
+    public var didHandleKey: (KeyInput) -> Void = { _ in }
+
     /// The clipboard cut/copy/paste use.
     ///
     /// **Defaults to the app's**, found through the window, rather than
@@ -255,6 +266,27 @@ open class CodeEditorView: TUIView, BorderScrollable {
     /// IDE's status strip needs no changes.
     public var cursorPosition: Point {
         Point(x: engine.selection.head.column, y: engine.selection.head.line)
+    }
+
+    /// The caret's cell in the view's own coordinates, or nil when it is
+    /// scrolled out of sight — folded away, above or below the rows showing,
+    /// or past either side. For drawing something beside the caret: the
+    /// scroll offsets and the gutter that place it are the view's own.
+    public var caretCell: Point? {
+        let head = engine.selection.head
+        let visible = visibleDocumentLines
+        guard let index = visible.firstIndex(of: head.line) else {
+            return nil
+        }
+
+        let first = visible.firstIndex(where: { $0 >= topLine }) ?? visible.count
+        let row = index - first
+        let column = head.column - leftColumn
+        guard row >= 0, row < bounds.size.height, column >= 0, column < textWidth else {
+            return nil
+        }
+
+        return Point(x: gutterColumns + column, y: row)
     }
 
     /// Whether anything is selected.
@@ -722,6 +754,19 @@ open class CodeEditorView: TUIView, BorderScrollable {
     /// The entire keyboard model in one place, and the only part of editing
     /// that knows what a key is.
     open override func keyDown(_ key: KeyInput) -> Bool {
+        if interceptsKey(key) {
+            return true
+        }
+
+        guard handleKey(key) else {
+            return false
+        }
+
+        didHandleKey(key)
+        return true
+    }
+
+    private func handleKey(_ key: KeyInput) -> Bool {
         let shift = key.modifiers.contains(.shift)
         let word = key.modifiers.contains(.alt)
 

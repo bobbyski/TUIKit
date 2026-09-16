@@ -488,3 +488,36 @@ private func styles(_ editor: CodeEditorView, row: Int, width: Int = 44, height:
     #expect(editor.text == "var value = 1")
     #expect(editor.hasSelection == false)
 }
+
+// MARK: - Hooks for what draws beside the caret
+
+@Test @MainActor func theCaretCellFollowsTheGutterAndTheScroll() {
+    let text = (1...30).map { "line \($0)" }.joined(separator: "\n")
+    let editor = CodeEditorView(text: text, language: "text")
+    _ = render(editor, width: 44, height: 8)
+
+    editor.select(from: TextPosition(line: 2, column: 4), to: TextPosition(line: 2, column: 4))
+    #expect(editor.caretCell == Point(x: editor.gutterColumns + 4, y: 2))
+
+    editor.setScrollOffset(vertical: 20)
+    #expect(editor.caretCell == nil, "scrolled out of sight")
+
+    editor.select(from: TextPosition(line: 21, column: 0), to: TextPosition(line: 21, column: 0))
+    let cell = editor.caretCell
+    #expect(cell?.x == editor.gutterColumns)
+    #expect(cell.map { (0..<8).contains($0.y) } == true)
+}
+
+@Test @MainActor func aKeyCanBeTakenBeforeTheEditorAndSeenAfterIt() {
+    let editor = CodeEditorView(text: "", language: "text")
+    var seen: [KeyInput] = []
+    editor.interceptsKey = { $0.key == .tab }
+    editor.didHandleKey = { seen.append($0) }
+
+    #expect(editor.keyDown(KeyInput(key: .tab)))
+    #expect(editor.text == "", "the intercepted Tab inserted nothing")
+
+    #expect(editor.keyDown(KeyInput(key: .character("a"))))
+    #expect(editor.text == "a")
+    #expect(seen == [KeyInput(key: .character("a"))], "told after the edit, and only of what it handled")
+}

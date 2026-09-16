@@ -54,6 +54,15 @@ private let esc: UInt8 = 0x1B
     ])
 }
 
+@Test func decodesControlSpace() {
+    var decoder = ANSIInputDecoder()
+
+    // NUL is what a terminal sends for Ctrl+Space.
+    let events = decoder.feed([0x00])
+
+    #expect(events == [.key(KeyInput(key: .character(" "), modifiers: .control))])
+}
+
 @Test func decodesUTF8MultibyteCharacters() {
     var decoder = ANSIInputDecoder()
 

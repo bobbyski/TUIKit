@@ -139,6 +139,12 @@ public struct ANSIInputDecoder: Sendable {
             state = .escape
             return []
 
+        case 0x00:
+            // NUL, which is what a terminal sends for Ctrl+Space (and
+            // Ctrl+@, the same byte). Dropped before this, so the chord that
+            // opens a completion list in every editor did nothing.
+            return [.key(KeyInput(key: .character(" "), modifiers: .control))]
+
         case 0x0D, 0x0A:
             return [.key(KeyInput(key: .enter))]
 
