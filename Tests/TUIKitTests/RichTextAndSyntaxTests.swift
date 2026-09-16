@@ -364,3 +364,23 @@ private func renderedBuffer(_ view: TUIKit.TUIView, size: TUIKit.Size) -> CellBu
 
     #expect(editor.text == "let x = 1")
 }
+
+@Test @MainActor func aMarkdownViewReportsTheHeightThatShowsAllOfIt() {
+    let view = MarkdownView(markdown: "Works out how heavy a body is, using the **standard** table.\n\n- one\n- two")
+    let rows = view.renderedLineCount(width: 30)
+    #expect(rows >= 4, "a wrapped paragraph, a blank row, two items")
+    let lines = renderedBuffer(view, size: TUIKit.Size(width: 30, height: rows)).textLines()
+    #expect(lines.last?.hasPrefix("• two") == true, "all of it fits in that height")
+
+    view.isFocusable = false
+    #expect(!view.acceptsFirstResponder)
+}
+
+@Test @MainActor func aTextFieldSaysWhereItsCaretIs() {
+    let field = TextField(text: "")
+    for character in "abc" {
+        _ = field.keyDown(KeyInput(key: .character(character)))
+    }
+    _ = field.keyDown(KeyInput(key: .left))
+    #expect(field.cursorPosition == 2)
+}

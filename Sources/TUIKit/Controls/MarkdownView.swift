@@ -23,6 +23,11 @@ public final class MarkdownView: TUIView {
     /// First visible wrapped row.
     public private(set) var scrollOffset = 0
 
+    /// Whether Tab stops on the view to scroll it with the keys. Off for a
+    /// short passage laid out at its full height inside something else —
+    /// documentation in a form — where a stop would only be in the way.
+    public var isFocusable = true
+
     /// Whether the pane shows the source in an editor instead of the
     /// rendering. Not WYSIWYG by decision (Phase 16.24): over SSH, flipping
     /// between a highlighted source and the RichSwift rendering is the
@@ -103,7 +108,15 @@ public final class MarkdownView: TUIView {
     /// Markdown views take keyboard focus to own the scroll keys (the
     /// editor takes it instead while editing).
     public override var acceptsFirstResponder: Bool {
-        !isEditing
+        !isEditing && isFocusable
+    }
+
+    /// How many rows the rendering takes at a width — the height that shows
+    /// all of it, for a view sized to its content rather than scrolled.
+    public func renderedLineCount(width: Int) -> Int {
+        let rendered = Markdown(markdown)
+            .render(in: RenderContext(width: max(1, width - 1), colorMode: .standard, markup: true))
+        return SGRDecoder.lines(from: rendered).flatMap { Self.wrap($0, width: max(1, width - 1)) }.count
     }
 
     /// Draws the visible wrapped slice and the overflow indicator.

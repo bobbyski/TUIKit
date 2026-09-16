@@ -61,6 +61,13 @@ public final class TextField: TUIView {
     // Cursor position as a character offset into `text`.
     private var cursorIndex = 0
 
+    /// The caret, as a character offset into `text` — for what reacts to the
+    /// text before it, like a completion list asking about the word being
+    /// typed.
+    public var cursorPosition: Int {
+        cursorIndex
+    }
+
     // First visible character offset (horizontal scrolling).
     private var scrollOffset = 0
 
