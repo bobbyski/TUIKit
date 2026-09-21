@@ -30,9 +30,13 @@ let vectorTerminalSDKPath = ProcessInfo.processInfo.environment["VECTORTERMINALS
 let package = Package(
     name: "TUIKit",
     platforms: [
-        // macOS 16 is VectorTerminalSDK's floor (Phase 10 VTG chrome). Was
-        // macOS 15 through TUIKit 1.0 — flagged in NEEDS_HUMAN.md.
-        .macOS("16.0"),
+        // macOS 15 (Sequoia): the real floor. Nothing in the family needs a
+        // newer API — VectorTerminalSDK, RichSwift and CodeEditorCore all
+        // allow 15, and there is no @available anywhere in-house. The old
+        // "16.0" was a phantom release the toolchain clamped up to 26,
+        // which silently demanded Tahoe for no gained capability.
+        // (Bobby, 2026-09-21: "please go to 15".)
+        .macOS("15.0"),
     ],
     products: [
         .library(

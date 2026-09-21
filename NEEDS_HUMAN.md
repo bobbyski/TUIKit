@@ -22,7 +22,15 @@ Bobby whenever an entry is added.
 - [ ] Reviewed by human
 - [ ] Human accepted
 
-### `Package.swift` — platform floor raised macOS 15 → 16 (Phase 10)
+### ~~`Package.swift` — platform floor raised macOS 15 → 16 (Phase 10)~~ resolved 2026-09-21
+
+Back to macOS 15, Bobby's call. The reason for 16 evaporated: the local
+VectorTerminalSDK declares 15.0, and no in-house code uses a newer API — a
+full build at a 15.0 deployment target is clean. ("16.0" was never a real
+release anyway; the toolchain clamped it to 26, so the floor was silently
+Tahoe.) Siblings and ActiveUI's terminal arm dropped to 15 in the same sweep.
+
+### (original item, for the record)
 - Added: 2026-07-11 — **Bobby: this changes who can build TUIKit.**
   `VectorTerminalSDK` (the Phase 10 VTG chrome dependency) declares
   `.macOS("16.0")`, and SwiftPM refuses a lower-floor dependent, so TUIKit's
