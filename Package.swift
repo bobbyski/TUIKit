@@ -39,8 +39,16 @@ let package = Package(
         .macOS("15.0"),
     ],
     products: [
+        // Dynamic, not automatic. An automatic library is static, and
+        // SwiftPM then emits no `libTUIKit` at all — it links the objects
+        // straight into each executable it builds. That is invisible while
+        // everything using TUIKit is a target in this package, and a wall
+        // the moment something outside it links TUIKit: a CSharpSwift
+        // program does exactly that (its C# classes subclass TUIKit's),
+        // and had nothing to link against.
         .library(
             name: "TUIKit",
+            type: .dynamic,
             targets: ["TUIKit"]
         ),
         // The source-code editor (Phase 15). A separate product so an app
