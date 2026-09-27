@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 // R8a — the JavaScript highlighting lexer: strings in all three quote forms
 // (template interpolation included), comments, numbers, keywords, and regex
 // literals — which are the reason a keyword matcher cannot do this: `/` is

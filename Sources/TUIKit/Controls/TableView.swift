@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 /// One column of a `TableView`: a header title and a width policy.
 public struct TableColumn: Sendable {
     /// How a column claims horizontal space.

@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 /// Toggleable option rendered as `[x] Label`.
 ///
 /// Space, Return, or a click toggles; the application receives one semantic

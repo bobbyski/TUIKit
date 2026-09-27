@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 /// Cursor state a driver should reflect on the terminal.
 public struct TerminalCursor: Hashable, Sendable {
     /// Cursor position in cell coordinates.

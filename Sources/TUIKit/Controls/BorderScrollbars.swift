@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 /// Border-embedded scrollbars — the Borland/Turbo trick of drawing a window's
 /// scrollbars *into its chrome*: the vertical bar rides the right border and
 /// the horizontal bar rides the bottom border, so the content area never

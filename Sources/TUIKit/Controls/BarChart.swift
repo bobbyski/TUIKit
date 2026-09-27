@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 // `BarChart` — categories against magnitudes, the ActiveUI `AUIBarMark`
 // shape on the TUI side. Cells first, VTG optional, colors from the
 // chartData palette (with per-series overrides), like every chart here.

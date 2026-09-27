@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 /// Lays out children in rows and columns with spans.
 ///
 /// Columns are declared up front; rows grow automatically as children are

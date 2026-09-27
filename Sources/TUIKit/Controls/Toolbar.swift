@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 import Foundation
 
 /// A toolbar/ribbon icon: a glyph for a text terminal, a picture for a

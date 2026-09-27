@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 // R8a — the CSS highlighting lexer, kept lean: it exists first as the
 // `<style>` island inside ``HTMLHighlighter``, and secondarily as
 // `language = "css"` on its own.

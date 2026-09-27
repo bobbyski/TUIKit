@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 /// Shared mutable render destination for one frame.
 ///
 /// A frame render creates one target; every `Painter` handed to the view

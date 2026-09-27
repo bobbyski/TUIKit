@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 import Dispatch
 import Foundation
 import VectorTerminalSDK
@@ -38,6 +42,8 @@ public actor ANSIDriver: TerminalDriver {
     private let inputQueue = DispatchQueue(label: "tuikit.ansidriver.input")
 
     private var originalTermios: termios?
+    // Preserve the caller's file flags across suspend and final shutdown.
+    private var originalInputFlags: Int32?
     private var decoder = ANSIInputDecoder()
     private var readSource: (any DispatchSourceRead)?
     private var resizeSource: (any DispatchSourceSignal)?
@@ -176,6 +182,7 @@ public actor ANSIDriver: TerminalDriver {
         // Non-blocking reads: the dispatch source tells us when bytes exist,
         // and the read call itself can never park a thread.
         let flags = fcntl(inputDescriptor, F_GETFL)
+        if flags != -1 { originalInputFlags = flags }
         _ = fcntl(inputDescriptor, F_SETFL, flags | O_NONBLOCK)
 
         isActive = true
@@ -240,8 +247,9 @@ public actor ANSIDriver: TerminalDriver {
 
         // Blocking stdin again: the child does its own reads, and a
         // non-blocking descriptor it did not ask for would break it.
-        let flags = fcntl(inputDescriptor, F_GETFL)
-        _ = fcntl(inputDescriptor, F_SETFL, flags & ~O_NONBLOCK)
+        if let flags = originalInputFlags {
+            _ = fcntl(inputDescriptor, F_SETFL, flags)
+        }
 
         if var original = originalTermios {
             tcsetattr(inputDescriptor, TCSANOW, &original)
@@ -351,6 +359,11 @@ public actor ANSIDriver: TerminalDriver {
         if var original = originalTermios {
             tcsetattr(inputDescriptor, TCSANOW, &original)
             originalTermios = nil
+        }
+
+        if let flags = originalInputFlags {
+            _ = fcntl(inputDescriptor, F_SETFL, flags)
+            originalInputFlags = nil
         }
 
         isActive = false

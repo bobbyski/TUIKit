@@ -25,6 +25,15 @@ builder over the controls — core implemented, see Phase 12), `Docs/DataBinding
 
 ## Dashboard
 
+**Native eZOS port: 0% (0/4 acceptance groups), planning complete 2026-09-23.**
+Parent milestone is now LLVM Phase 6. Keep ordinary Swift's real `weak`
+semantics; Embedded ownership changes are profile-specific and separately tested.
+[TUIKit work and acceptance plan](Docs/EZOS_PLAN.md). Optional Embedded Swift; full Swift
+remains available. Focused framework port: dependencies, ownership, event driver and bounded editor.
+Implementation is gated by the coordinated SDK/native-tool roadmap. Keep this
+status and the linked component dashboard current; desktop percentages below
+are unchanged.
+
 ```
 Overall Progress  ████████████████████░░░░░░░░░░░░  63%   (73 / 116 items)
 

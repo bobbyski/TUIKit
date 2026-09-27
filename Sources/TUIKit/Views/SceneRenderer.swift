@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 /// Renders a view tree into presentable cell buffers.
 ///
 /// The renderer sits between the view system and a `TerminalDriver`: it

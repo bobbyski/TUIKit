@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 import Foundation
 
 /// The TUIKit application: window stack, input loop, and frame presentation.
@@ -417,6 +421,8 @@ public final class App {
     /// - Throws: Any driver startup error.
     public func run(_ window: Window) async throws {
         try await driver.begin()
+        // Subscribe before drawing: a user can type as soon as the first frame is visible.
+        let inputs = await driver.inputStream()
         isRunning = true
 
         // The driver probed for VectorTerminal Graphics during begin();
@@ -435,7 +441,6 @@ public final class App {
         let (events, continuation) = AsyncStream<LoopEvent>.makeStream()
         eventContinuation = continuation
 
-        let inputs = await driver.inputStream()
         let inputTask = Task {
             for await input in inputs {
                 continuation.yield(.input(input))

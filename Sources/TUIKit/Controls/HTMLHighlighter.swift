@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 // R8a — the HTML highlighting lexer: tags, attribute names and values,
 // comments, doctype, entities, text — and the two embedded islands that
 // matter, `<style>` and `<script>`, handed to the CSS and JavaScript

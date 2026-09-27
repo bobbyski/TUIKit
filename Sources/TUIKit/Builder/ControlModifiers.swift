@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 // Typed, chainable setters for the controls, so the builder can wire events
 // and tweak config inline: `Button("Save") { save() }.style(.tinted)`. Each
 // returns the concrete control (a leaf component), so it keeps composing.

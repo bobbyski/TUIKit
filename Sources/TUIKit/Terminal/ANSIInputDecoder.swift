@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 /// Decodes raw terminal bytes into typed `TerminalInput` events.
 ///
 /// The decoder is pure: bytes in, events out, no I/O and no timers. That

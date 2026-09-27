@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 /// Value chooser: shows the selection, pops a menu to change it.
 ///
 /// ```text
@@ -254,20 +258,19 @@ final class PopUpList: TUIView {
         }
 
         let list = PopUpList(items: items, highlightedIndex: highlightedIndex)
-        let size = list.intrinsicContentSize ?? Size(width: 10, height: 4)
-        let spaceBelow = window.bounds.size.height - (origin.y + 1)
-
-        let y = spaceBelow >= size.height || origin.y < size.height
-            ? origin.y + 1              // below (also when neither fits)
-            : origin.y - size.height    // above
-
+        let natural = list.intrinsicContentSize ?? Size(width: 10, height: 4)
+        let spaceBelow = max(0, window.bounds.size.height - origin.y - 2)
+        let spaceAbove = max(0, origin.y - 1)
+        let below = spaceBelow >= natural.height || spaceBelow >= spaceAbove
+        let height = min(natural.height, max(3, below ? spaceBelow : spaceAbove))
+        let width = min(natural.width, max(1, window.bounds.size.width - 2))
+        let y = below ? origin.y + 1 : origin.y - height
         list.frame = Rect(
-            origin: Point(
-                x: max(0, min(origin.x, window.bounds.size.width - size.width)),
-                y: max(0, y)
-            ),
-            size: size
+            origin: Point(x: max(1, min(origin.x, window.bounds.size.width - width - 1)),
+                          y: max(1, min(y, window.bounds.size.height - height - 1))),
+            size: Size(width: width, height: height)
         )
+        list.revealHighlight()
 
         window.addSubview(list)
         window.makeFirstResponder(list)
@@ -276,6 +279,7 @@ final class PopUpList: TUIView {
 
     private let items: [String]
     private var highlightedIndex: Int
+    private var firstVisibleIndex = 0
     private var isDismissed = false
 
     init(items: [String], highlightedIndex: Int) {
@@ -314,13 +318,15 @@ final class PopUpList: TUIView {
 
         let innerWidth = max(0, bounds.size.width - 4)
 
-        for (index, item) in items.enumerated() {
+        let end = min(items.count, firstVisibleIndex + max(0, bounds.size.height - 2))
+        for index in firstVisibleIndex..<end {
+            let item = items[index]
             let marker = index == highlightedIndex ? "▸" : " "
             let text = Label.truncated(item, width: innerWidth)
             let padded = marker + text + String(repeating: " ", count: max(0, innerWidth - DisplayWidth.of(text))) + " "
             let style = index == highlightedIndex ? theme.selection : CellStyle()
 
-            painter.write(padded, at: Point(x: 1, y: index + 1), style: style)
+            painter.write(padded, at: Point(x: 1, y: index - firstVisibleIndex + 1), style: style)
         }
     }
 
@@ -362,7 +368,8 @@ final class PopUpList: TUIView {
     override func mouseEvent(_ mouse: MouseInput) -> Bool {
         switch mouse.action {
         case .press where mouse.button == .left:
-            choose(mouse.position.y - 1)
+            guard mouse.position.y > 0, mouse.position.y < bounds.size.height - 1 else { return true }
+            choose(firstVisibleIndex + mouse.position.y - 1)
             return true
 
         case .scrollUp:
@@ -407,7 +414,18 @@ final class PopUpList: TUIView {
 
         if clamped != highlightedIndex {
             highlightedIndex = clamped
+            revealHighlight()
             setNeedsDisplay()
         }
     }
+    // Scroll the visible slice with keyboard or wheel navigation, keeping selection reachable.
+    private func revealHighlight() {
+        let capacity = max(1, bounds.size.height - 2)
+        if highlightedIndex < firstVisibleIndex { firstVisibleIndex = highlightedIndex }
+        if highlightedIndex >= firstVisibleIndex + capacity {
+            firstVisibleIndex = highlightedIndex - capacity + 1
+        }
+        firstVisibleIndex = min(firstVisibleIndex, max(0, items.count - capacity))
+    }
+
 }

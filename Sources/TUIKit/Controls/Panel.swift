@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 /// Bordered, titled container — the standard TUIKit chrome.
 ///
 /// A panel draws a single-line box with its title in the top border and

@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 /// Encodes cells and styles into ANSI escape sequences.
 ///
 /// The encoder is pure — bytes in, string out, no terminal state — so it is

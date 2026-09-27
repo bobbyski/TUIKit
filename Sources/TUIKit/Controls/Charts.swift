@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 // Charts (REQUESTS R9–R11): the shared fidelity model and `Sparkline`.
 // `TimelineChart` and `LineChart` live in their own files.
 //

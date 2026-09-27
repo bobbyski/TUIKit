@@ -1,3 +1,7 @@
+# Copyright (c) 2026 Bobby Skinner
+# SPDX-License-Identifier: MIT
+# See the LICENSE file at the repository root for the full text.
+
 # A CHATTY fake VectorTerminal: answers probes, then fires frameStarted /
 # frameCommitted APC replies at every VTG frame command — sometimes split
 # at hostile byte boundaries (ESC at the end of one chunk, the backslash in

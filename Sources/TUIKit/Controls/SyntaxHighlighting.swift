@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 // R8b — the highlighting seam. `SyntaxTextView` colours lines through this
 // protocol; the built-in lexers (HTML, JavaScript, CSS — R8a) are its first
 // implementations, and a consumer with exact tokens of its own (a browser's

@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 // `PieChart` — parts of a whole, the ActiveUI `AUISectorMark` shape on the
 // TUI side, donut included.
 //

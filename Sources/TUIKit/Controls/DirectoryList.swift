@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 /// A single directory's contents, browsed one level at a time.
 ///
 /// Where `DirectoryTree` is a nested outline, `DirectoryList` is the classic

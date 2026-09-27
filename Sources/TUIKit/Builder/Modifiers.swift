@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 /// A component that builds its base, then applies a configuration closure to
 /// the resulting view. The engine behind the structural modifiers.
 public struct Configured<Base: Component>: Component {

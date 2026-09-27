@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 // The next-generation, context-aware theme model (see Docs/Themes.md).
 //
 // A `Theme` is a *slot × context* matrix: a complete `base` palette plus sparse

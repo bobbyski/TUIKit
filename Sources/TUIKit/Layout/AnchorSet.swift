@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 /// Insets from a rectangle's edges, in cells.
 public struct EdgeInsets: Hashable, Codable, Sendable {
     /// Inset from the top edge.

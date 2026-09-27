@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 /// Two thumbs bounding a span on one track, with a minimum gap between them.
 ///
 /// ```text

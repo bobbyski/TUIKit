@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 /// Capacity or rating display: `▮▮▮▯▯` or `★★★☆☆`.
 ///
 /// Read-only by default; set `isEditable` to let arrows, Home/End, and

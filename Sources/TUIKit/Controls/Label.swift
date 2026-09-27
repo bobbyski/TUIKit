@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 /// Horizontal placement of text within a control.
 public enum TextAlignment: Hashable, Sendable {
     /// Text starts at the leading edge.

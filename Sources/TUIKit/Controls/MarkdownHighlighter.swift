@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 /// The Markdown highlighting lexer — what `MarkdownView` shows in its edit
 /// mode, and `language = "markdown"` on its own.
 ///

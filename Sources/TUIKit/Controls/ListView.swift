@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 /// Selection and scrolling state shared by row-oriented controls.
 ///
 /// This is the navigation core that `ListView` uses today and `TableView`

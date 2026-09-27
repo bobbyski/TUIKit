@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 // R11 — `LineChart`: one or more series over time, with labelled axes.
 // The hard part is the axis, not the line: round tick values, labels that
 // fit the gutter, and a fitted domain that rounds out to tick multiples so

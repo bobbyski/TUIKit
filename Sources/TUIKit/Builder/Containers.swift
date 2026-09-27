@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 /// A flexible empty component that soaks up leftover space in a stack,
 /// pushing its neighbours apart (the named form of a spacer view).
 public final class Spacer: TUIView {

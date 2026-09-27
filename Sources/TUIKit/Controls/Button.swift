@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 /// Activatable control rendered as `[ Title ]`.
 ///
 /// The button owns its whole interaction: Return/Space activate it from the

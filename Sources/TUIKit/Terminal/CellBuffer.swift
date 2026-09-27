@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 /// Two-dimensional buffer of terminal cells.
 ///
 /// The buffer is the rendering currency of TUIKit: views draw into buffers,

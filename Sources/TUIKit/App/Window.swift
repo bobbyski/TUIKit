@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 /// Top-level view that owns keyboard focus and input routing — a focus scope.
 ///
 /// Windows are the focus scopes of TUIKit: they track the first responder,

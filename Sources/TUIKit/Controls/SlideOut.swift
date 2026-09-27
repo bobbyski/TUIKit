@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 /// Which edge a slide-out is attached to.
 ///
 /// No `.top`: three edges were asked for, and a fourth is API surface with no

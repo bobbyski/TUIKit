@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 /// Modal window with a message and default/cancel actions.
 ///
 /// A dialog is an ordinary `Window` wearing `Panel` chrome, so modality is

@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 /// In-memory terminal driver for tests and automation.
 ///
 /// The headless driver is a first-class citizen, not a mock: it implements

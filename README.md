@@ -129,7 +129,7 @@ renderers for UI-less applications.
 
 ## License
 
-TUIKit is released under the BSD 3-Clause License. See [`LICENSE`](LICENSE)
-for details.
+TUIKit is released under the MIT License. See [`LICENSE`](LICENSE) for
+details.
 
-Copyright © 2026 Bobby Skinner. All rights reserved.
+Copyright © 2026 Bobby Skinner.

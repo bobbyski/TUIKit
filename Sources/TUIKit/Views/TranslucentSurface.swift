@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 /// Drawing a surface the terminal can be seen through.
 ///
 /// A cell is opaque or it is the terminal's default — there is no cell that

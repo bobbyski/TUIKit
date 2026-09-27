@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Bobby Skinner
+// SPDX-License-Identifier: MIT
+// See the LICENSE file at the repository root for the full text.
+
 /// TUIKit — an AppKit-inspired terminal UI framework for Swift.
 ///
 /// TUIKit layers a familiar desktop architecture over the terminal:
