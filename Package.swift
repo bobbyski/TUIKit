@@ -51,13 +51,11 @@ let package = Package(
             type: .dynamic,
             targets: ["TUIKit"]
         ),
-        // The source-code editor (Phase 15). A separate product so an app
-        // that only needs forms and menus never links grammars or diff
-        // engines; see Docs/CodeEditorPlan.md.
-        .library(
-            name: "TUICodeEditor",
-            targets: ["TUICodeEditor"]
-        ),
+        // The source-code editor (Phase 15) is the sibling package
+        // `Code/TUICodeEditor`, not a second product here: this library is
+        // dynamic, and a second product in this package would carry its own
+        // static copy of the TUIKit target — two TUIKits in any app linking
+        // both, which SwiftPM (and Xcode 27) refuse outright.
     ],
     dependencies: [
         // In-house only — RichSwift renders rich *content* (markup, tables,
@@ -71,10 +69,6 @@ let package = Package(
         // sequences, retained vector scene, under-text layer. Raw VTG bytes
         // live only in the driver layer; plain terminals never see one.
         .package(path: vectorTerminalSDKPath),
-        // The UI-free half of the editor: document, commands, tokenizer,
-        // gutter models. Foundation-only by construction, so it stays
-        // adoptable by a GUI editor. LOCAL PATH while the two co-evolve.
-        .package(path: "../CodeEditorCore"),
     ],
     targets: [
         // Compiler-plugin target implementing the @Bound macro.
@@ -104,17 +98,6 @@ let package = Package(
                 // Bundle.module at startup.
                 .process("Resources"),
             ]
-        ),
-        .target(
-            name: "TUICodeEditor",
-            dependencies: [
-                "TUIKit",
-                .product(name: "CodeEditorCore", package: "CodeEditorCore"),
-            ]
-        ),
-        .testTarget(
-            name: "TUICodeEditorTests",
-            dependencies: ["TUICodeEditor"]
         ),
         .testTarget(
             name: "TUIKitTests",
