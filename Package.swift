@@ -25,10 +25,15 @@ import CompilerPluginSupport
 //
 // Overridable so this survives a machine with a different layout, and so the
 // CI/CD server can point at its own checkouts without editing the manifest.
-let richSwiftPath = ProcessInfo.processInfo.environment["RICHSWIFT_PATH"]
+//
+// `getenv`, not `ProcessInfo`'s environment: swift.org Swift 6.3.1, the release
+// the Linux and Windows cross-compile SDKs pair with, crashes compiling any
+// manifest that reads it against the macOS 27 SDK (ActiveUI's
+// CROSSPLATFORM_PLAN.md, fact 8; TUIKIT_CHANGE_REQUESTS.md R16).
+let richSwiftPath = getenv("RICHSWIFT_PATH").map { String(cString: $0) }
     ?? "/Users/bobby/src/frameworks/RichSwift"
 
-let vectorTerminalSDKPath = ProcessInfo.processInfo.environment["VECTORTERMINALSDK_PATH"]
+let vectorTerminalSDKPath = getenv("VECTORTERMINALSDK_PATH").map { String(cString: $0) }
     ?? "/Users/bobby/AIResearch/GraphicalTerminal/Code/VectorTerminalSDK"
 
 let package = Package(
