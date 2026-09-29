@@ -18,5 +18,7 @@
 /// Requires an explicit type annotation (the macro expands syntactically) and
 /// a reference-type enclosing scope. This is sugar over `Bindings(profile).name`
 /// — see `Docs/DataBinding.md`.
+#if !TUIKIT_NO_MACROS
 @attached(peer, names: arbitrary)
 public macro Bound() = #externalMacro(module: "TUIKitMacros", type: "BoundMacro")
+#endif

@@ -36,6 +36,16 @@ let richSwiftPath = getenv("RICHSWIFT_PATH").map { String(cString: $0) }
 let vectorTerminalSDKPath = getenv("VECTORTERMINALSDK_PATH").map { String(cString: $0) }
     ?? "/Users/bobby/AIResearch/GraphicalTerminal/Code/VectorTerminalSDK"
 
+// Swift macros can be left out, for cross-compiles (ActiveUI's
+// CROSSPLATFORM_PLAN.md). A macro target brings in swift-syntax, and
+// swift-syntax's own manifest reads `ProcessInfo`'s environment, which crashes
+// swift.org Swift 6.3.1, the release the Linux and Windows SDKs pair with.
+// TUIKIT_NO_MACROS=1 leaves out the @Bound macro, its plugin target,
+// swift-syntax, and the demo, whose model is @Bound throughout. Every other
+// target is unchanged, and with the variable unset so is the whole package.
+let macrosEnabled = getenv("TUIKIT_NO_MACROS") == nil
+let noMacroSettings: [SwiftSetting] = macrosEnabled ? [] : [.define("TUIKIT_NO_MACROS")]
+
 let package = Package(
     name: "TUIKit",
     platforms: [
@@ -70,16 +80,18 @@ let package = Package(
         // In-house only — RichSwift renders rich *content* (markup, tables,
         // panels, markdown, syntax); TUIKit owns the interactive layer.
         .package(path: richSwiftPath),
+    ] + (macrosEnabled ? [
         // swift-syntax powers the @Bound data-binding macro only (Data layer,
         // Phase 14.6): the one non-in-house dependency, confined to the macro
         // plugin so the library's runtime stays dependency-free.
         .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "603.0.0"),
+    ] : []) + [
         // In-house VectorTerminal Graphics wrapper (Phase 10): APC escape
         // sequences, retained vector scene, under-text layer. Raw VTG bytes
         // live only in the driver layer; plain terminals never see one.
         .package(path: vectorTerminalSDKPath),
     ],
-    targets: [
+    targets: (macrosEnabled ? [
         // Compiler-plugin target implementing the @Bound macro.
         .macro(
             name: "TUIKitMacros",
@@ -88,14 +100,16 @@ let package = Package(
                 .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
             ]
         ),
+    ] : []) + [
         .target(
             name: "TUIKit",
             dependencies: [
                 .product(name: "RichSwift", package: "RichSwift"),
                 .product(name: "VectorTerminalSDK", package: "VectorTerminalSDK"),
-                "TUIKitMacros",
-            ]
+            ] + (macrosEnabled ? ["TUIKitMacros"] : []),
+            swiftSettings: noMacroSettings
         ),
+    ] + (macrosEnabled ? [
         // TUIKit re-exports RichSwift, so consumers (demo, tests, apps)
         // depend on TUIKit alone and get the RichSwift API automatically.
         .executableTarget(
@@ -108,9 +122,11 @@ let package = Package(
                 .process("Resources"),
             ]
         ),
+    ] : []) + [
         .testTarget(
             name: "TUIKitTests",
-            dependencies: ["TUIKit"]
+            dependencies: ["TUIKit"],
+            swiftSettings: noMacroSettings
         ),
         // `swift run TUIKitGallery` — a launcher that execs the real gallery in
         // the TUIGallery sibling package (it cannot live here: it shows the

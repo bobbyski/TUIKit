@@ -8,8 +8,11 @@ import VectorTerminalSDK
 
 #if canImport(Darwin)
 import Darwin
-#else
+#elseif canImport(Glibc)
 import Glibc
+#elseif canImport(Musl)
+// Static Linux (the musl SDK): the same C library under its own module name.
+import Musl
 #endif
 
 /// Terminal driver for real ANSI/VT terminals on macOS and Linux.

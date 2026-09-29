@@ -16,11 +16,13 @@ private final class Profile {
 
 // A model using the @Bound macro to project `$` bindings — types are inferred
 // from the literal initializers (no explicit annotations needed).
+#if !TUIKIT_NO_MACROS
 @MainActor
 private final class BoundProfile {
     @Bound var name = ""
     @Bound var age = 0
 }
+#endif
 
 // MARK: - Layer 1: ValueControl round-trip
 
@@ -141,6 +143,7 @@ private final class BoundProfile {
 
 // MARK: - Layer 6: @Bound macro
 
+#if !TUIKIT_NO_MACROS
 @Test @MainActor func boundMacroProjectsBindings() {
     let model = BoundProfile()
     model.name = "start"
@@ -162,6 +165,7 @@ private final class BoundProfile {
     #expect(model.name == "edited")
     #expect(model.age == 9)
 }
+#endif
 
 // MARK: - Layer 5: live binding
 
