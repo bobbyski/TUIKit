@@ -38,6 +38,10 @@ public final class App {
     /// Whether the run loop is active.
     public private(set) var isRunning = false
 
+    /// A stop asked for while `run(_:)` was starting up, before its loop
+    /// existed to be woken; the loop honors it the moment it does.
+    private var stopRequestedBeforeLoop = false
+
     /// Whether the app has handed the terminal to another program.
     ///
     /// True only for the duration of ``suspended(_:)``. The run loop is still
@@ -364,6 +368,13 @@ public final class App {
         StopTrace.log("App.stop() — isRunning was \(isRunning)")
         isRunning = false
 
+        // No loop yet: `run(_:)` is still starting (its driver's `begin()`,
+        // say) and would set `isRunning` back to true and then wait forever.
+        // A host's Stop can land in that window.
+        if eventContinuation == nil {
+            stopRequestedBeforeLoop = true
+        }
+
         // Wake the loop. It checks `isRunning` only after handling an event,
         // so a stop from OUTSIDE event processing — a timer body, a task
         // finishing, a child process exiting — would otherwise leave it
@@ -420,6 +431,8 @@ public final class App {
     /// - Parameter window: Initial window to present.
     /// - Throws: Any driver startup error.
     public func run(_ window: Window) async throws {
+        // A stop left over from before this run is not a request to end it.
+        stopRequestedBeforeLoop = false
         try await driver.begin()
         // Subscribe before drawing: a user can type as soon as the first frame is visible.
         let inputs = await driver.inputStream()
@@ -440,6 +453,11 @@ public final class App {
         // animates just like a keypress redraws.
         let (events, continuation) = AsyncStream<LoopEvent>.makeStream()
         eventContinuation = continuation
+        if stopRequestedBeforeLoop {
+            stopRequestedBeforeLoop = false
+            isRunning = false
+            continuation.finish()
+        }
 
         let inputTask = Task {
             for await input in inputs {

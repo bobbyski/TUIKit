@@ -47,6 +47,32 @@ private final class EchoView: TUIView {
     #expect(!app.isRunning)
 }
 
+/// A driver that asks its app to stop while `begin()` runs: the window in
+/// which a host's Stop used to be lost.
+@MainActor
+private final class StopDuringBeginDriver: TerminalDriver {
+    var onBegin: (() -> Void)?
+
+    var size: Size { get async { Size(width: 4, height: 1) } }
+    func begin() async throws { onBegin?() }
+    func end() async {}
+    func present(_ buffer: CellBuffer) async {}
+    func setCursor(_ cursor: TerminalCursor) async {}
+    func inputStream() async -> AsyncStream<TerminalInput> { AsyncStream { _ in } }
+}
+
+@Test(.timeLimit(.minutes(1))) @MainActor func stopDuringStartupStillStops() async throws {
+    // `run()` sets `isRunning` after `begin()` and can only be woken once its
+    // loop exists, so a stop in between used to be undone and the app ran
+    // forever. Reaching the end of this test is the assertion.
+    let driver = StopDuringBeginDriver()
+    let app = App(driver: driver)
+    driver.onBegin = { [weak app] in app?.stop() }
+
+    try await app.run(Window())
+    #expect(!app.isRunning)
+}
+
 @Test @MainActor func suspendedHandsOverTheTerminalAndComesBack() async throws {
     let driver = HeadlessDriver(size: Size(width: 6, height: 2))
     let app = App(driver: driver)
