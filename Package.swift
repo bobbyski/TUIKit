@@ -56,6 +56,9 @@ let package = Package(
         // which silently demanded Tahoe for no gained capability.
         // (Bobby, 2026-09-21: "please go to 15".)
         .macOS("15.0"),
+        // iOS 17 for BASICStudio on iPhone and iPad: the floor ActiveUI's iOS
+        // apps use, and past the iOS 16 that `Duration` needs.
+        .iOS("17.0"),
     ],
     products: [
         // Dynamic, not automatic. An automatic library is static, and

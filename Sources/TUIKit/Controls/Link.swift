@@ -165,6 +165,11 @@ public final class Link: TUIView {
     // Hands a URL to the platform opener without waiting — a blocked main
     // thread is the one thing a link must never cost.
     private static func openExternally(_ url: String) {
+        #if os(iOS)
+        // iOS runs no child processes, so there is no opener to hand the URL
+        // to. A host there that can open links does it itself.
+        _ = url
+        #else
         let process = Process()
 
         #if os(macOS)
@@ -177,5 +182,6 @@ public final class Link: TUIView {
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
         try? process.run()
+        #endif
     }
 }
