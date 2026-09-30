@@ -3,6 +3,9 @@
 // See the LICENSE file at the repository root for the full text.
 
 import Foundation
+#if os(Windows)
+import WinSDK
+#endif
 
 /// A clickable link: underlined text that opens a URL — or hands it to you.
 ///
@@ -169,6 +172,14 @@ public final class Link: TUIView {
         // iOS runs no child processes, so there is no opener to hand the URL
         // to. A host there that can open links does it itself.
         _ = url
+        #elseif os(Windows)
+        // Windows' own opener: the default browser, or whatever handles the
+        // URL's scheme. There is no /usr/bin to find an opener in.
+        _ = url.withCString(encodedAs: UTF16.self) { target in
+            "open".withCString(encodedAs: UTF16.self) { verb in
+                ShellExecuteW(nil, verb, target, nil, nil, SW_SHOWNORMAL)
+            }
+        }
         #else
         let process = Process()
 

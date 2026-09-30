@@ -13,6 +13,8 @@ import Glibc
 #elseif canImport(Musl)
 // Static Linux (the musl SDK): the same C library under its own module name.
 import Musl
+#elseif os(Windows)
+import WinSDK
 #endif
 
 /// Terminal driver for real ANSI/VT terminals on macOS and Linux.
@@ -44,12 +46,21 @@ public actor ANSIDriver: TerminalDriver {
     private let outputQueue = DispatchQueue(label: "tuikit.ansidriver.output")
     private let inputQueue = DispatchQueue(label: "tuikit.ansidriver.input")
 
+    #if os(Windows)
+    // The console's modes as begin() found them: Windows has no termios, and
+    // VectorTerminalSDK's raw mode is the console's equivalent of cfmakeraw.
+    private var originalConsole: TerminalRawMode?
+    // Windows has no dispatch read source for a console, so a thread reads it.
+    private var consolePump: ConsoleInputPump?
+    #else
     private var originalTermios: termios?
     // Preserve the caller's file flags across suspend and final shutdown.
     private var originalInputFlags: Int32?
+    #endif
     private var decoder = ANSIInputDecoder()
     private var readSource: (any DispatchSourceRead)?
-    private var resizeSource: (any DispatchSourceSignal)?
+    // SIGWINCH on POSIX; on Windows, a timer that looks at the console's size.
+    private var resizeSource: (any DispatchSourceProtocol)?
 
     // Ordered hand-off from the read source to the decoder. Chunks are
     // yielded into this stream ON the serial input queue and consumed by
@@ -101,6 +112,9 @@ public actor ANSIDriver: TerminalDriver {
         }
 
         func write(_ data: Data) {
+            #if os(Windows)
+            ANSIDriver.writeAll([UInt8](data))
+            #else
             let bytes = [UInt8](data)
             var offset = 0
 
@@ -126,6 +140,7 @@ public actor ANSIDriver: TerminalDriver {
 
                 break
             }
+            #endif
         }
     }
 
@@ -172,6 +187,17 @@ public actor ANSIDriver: TerminalDriver {
             throw DriverError.alreadyBegan
         }
 
+        #if os(Windows)
+        // Both ends must be a console; raw mode also turns on VT output and
+        // UTF-8, which is what makes the escape sequences below render.
+        var consoleMode: DWORD = 0
+        guard GetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), &consoleMode),
+              GetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), &consoleMode),
+              let raw = TerminalRawMode.enter() else {
+            throw DriverError.notATerminal
+        }
+        originalConsole = raw
+        #else
         guard isatty(inputDescriptor) == 1, isatty(outputDescriptor) == 1 else {
             throw DriverError.notATerminal
         }
@@ -187,6 +213,7 @@ public actor ANSIDriver: TerminalDriver {
         let flags = fcntl(inputDescriptor, F_GETFL)
         if flags != -1 { originalInputFlags = flags }
         _ = fcntl(inputDescriptor, F_SETFL, flags | O_NONBLOCK)
+        #endif
 
         isActive = true
         presentedLines = nil
@@ -248,6 +275,10 @@ public actor ANSIDriver: TerminalDriver {
         // child program gets a normal terminal in its normal state.
         await write("\u{1B}[?1006l\u{1B}[?1002l\u{1B}[?25h\u{1B}[?1049l")
 
+        #if os(Windows)
+        // The child gets the console as the shell left it.
+        originalConsole?.restore()
+        #else
         // Blocking stdin again: the child does its own reads, and a
         // non-blocking descriptor it did not ask for would break it.
         if let flags = originalInputFlags {
@@ -257,6 +288,7 @@ public actor ANSIDriver: TerminalDriver {
         if var original = originalTermios {
             tcsetattr(inputDescriptor, TCSANOW, &original)
         }
+        #endif
 
         isActive = false
     }
@@ -266,6 +298,14 @@ public actor ANSIDriver: TerminalDriver {
     /// The window may have been resized while the child owned the screen, so
     /// the size is re-probed; callers redraw from scratch.
     public func resume() async {
+        #if os(Windows)
+        guard !isActive, originalConsole != nil else {
+            return   // never began, or never suspended
+        }
+
+        // Raw again; the modes to restore are still the ones begin() found.
+        _ = TerminalRawMode.enter()
+        #else
         guard !isActive, originalTermios != nil else {
             return   // never began, or never suspended
         }
@@ -277,6 +317,7 @@ public actor ANSIDriver: TerminalDriver {
 
         let flags = fcntl(inputDescriptor, F_GETFL)
         _ = fcntl(inputDescriptor, F_SETFL, flags | O_NONBLOCK)
+        #endif
 
         isActive = true
         presentedLines = nil
@@ -359,6 +400,10 @@ public actor ANSIDriver: TerminalDriver {
             StopTrace.log("ANSIDriver.end(): restore sequence written")
         }
 
+        #if os(Windows)
+        originalConsole?.restore()
+        originalConsole = nil
+        #else
         if var original = originalTermios {
             tcsetattr(inputDescriptor, TCSANOW, &original)
             originalTermios = nil
@@ -368,6 +413,7 @@ public actor ANSIDriver: TerminalDriver {
             _ = fcntl(inputDescriptor, F_SETFL, flags)
             originalInputFlags = nil
         }
+        #endif
 
         isActive = false
 
@@ -850,6 +896,15 @@ public actor ANSIDriver: TerminalDriver {
             }
         }
 
+        #if os(Windows)
+        // One thread hands over each burst in arrival order, as the read
+        // source does on its serial queue.
+        let pump = ConsoleInputPump()
+        pump.start { bytes in
+            continuation.yield(bytes)
+        }
+        consolePump = pump
+        #else
         let source = DispatchSource.makeReadSource(
             fileDescriptor: inputDescriptor,
             queue: inputQueue
@@ -882,10 +937,15 @@ public actor ANSIDriver: TerminalDriver {
 
         source.activate()
         readSource = source
+        #endif
     }
 
     // Stops the read pipeline started by `startReadSource()`.
     private func stopReadSource() {
+        #if os(Windows)
+        consolePump?.cancel()
+        consolePump = nil
+        #endif
         readSource?.cancel()
         readSource = nil
         inputChunks?.finish()
@@ -951,6 +1011,38 @@ public actor ANSIDriver: TerminalDriver {
     // output queue with a short deadline — before the read source exists, so
     // the reply is ours. `nil` when the terminal does not answer in time.
     private func readCursorReport() async -> (row: Int, column: Int)? {
+        #if os(Windows)
+        return await withCheckedContinuation { (continuation: CheckedContinuation<(row: Int, column: Int)?, Never>) in
+            outputQueue.async {
+                Self.writeAll(Array("\u{1B}[6n".utf8))
+
+                var reader = TerminalInputReader()
+                var collected: [UInt8] = []
+                let deadline = Date().addingTimeInterval(0.3)
+
+                while Date() < deadline {
+                    let remaining = Int32(max(1, deadline.timeIntervalSinceNow * 1000))
+
+                    guard reader.wait(timeoutMilliseconds: remaining) > 0 else {
+                        break
+                    }
+
+                    guard let byte = reader.readByte() else {
+                        continue
+                    }
+
+                    collected.append(byte)
+
+                    if let report = Self.parseCursorReport(collected) {
+                        continuation.resume(returning: report)
+                        return
+                    }
+                }
+
+                continuation.resume(returning: Self.parseCursorReport(collected))
+            }
+        }
+        #else
         let input = inputDescriptor
         let output = outputDescriptor
 
@@ -994,6 +1086,7 @@ public actor ANSIDriver: TerminalDriver {
                 continuation.resume(returning: Self.parseCursorReport(collected))
             }
         }
+        #endif
     }
 
     /// Parses a cursor position report (`ESC [ row ; col R`) out of bytes
@@ -1068,6 +1161,19 @@ public actor ANSIDriver: TerminalDriver {
 
     // Starts SIGWINCH handling for terminal resizes.
     private func startResizeSource() {
+        #if os(Windows)
+        // No SIGWINCH on Windows: look at the console's size four times a
+        // second. handleResize() publishes only a real change.
+        let timer = DispatchSource.makeTimerSource(queue: inputQueue)
+        timer.schedule(deadline: .now() + .milliseconds(250), repeating: .milliseconds(250))
+        timer.setEventHandler { [weak self] in
+            Task { [weak self] in
+                await self?.handleResize()
+            }
+        }
+        timer.activate()
+        resizeSource = timer
+        #else
         signal(SIGWINCH, SIG_IGN)
 
         let source = DispatchSource.makeSignalSource(signal: SIGWINCH, queue: inputQueue)
@@ -1080,6 +1186,7 @@ public actor ANSIDriver: TerminalDriver {
 
         source.activate()
         resizeSource = source
+        #endif
     }
 
     private func handleResize() {
@@ -1108,6 +1215,9 @@ public actor ANSIDriver: TerminalDriver {
 
     // Reads the terminal size from the kernel.
     private static func probeSize(descriptor: Int32) -> Size? {
+        #if os(Windows)
+        return consoleSize()
+        #else
         var window = winsize()
 
         guard ioctl(descriptor, UInt(TIOCGWINSZ), &window) == 0,
@@ -1117,6 +1227,7 @@ public actor ANSIDriver: TerminalDriver {
         }
 
         return Size(width: Int(window.ws_col), height: Int(window.ws_row))
+        #endif
     }
 
     // MARK: - Output
@@ -1124,11 +1235,16 @@ public actor ANSIDriver: TerminalDriver {
     // Writes to the terminal on the output queue so no cooperative thread
     // ever blocks on terminal I/O (never-block requirement).
     private func write(_ text: String) async {
+        #if !os(Windows)
         let descriptor = outputDescriptor
+        #endif
         let bytes = Array(text.utf8)
 
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             outputQueue.async {
+                #if os(Windows)
+                Self.writeAll(bytes)
+                #else
                 var offset = 0
 
                 while offset < bytes.count {
@@ -1161,9 +1277,109 @@ public actor ANSIDriver: TerminalDriver {
                     // A genuine error; stop.
                     break
                 }
+                #endif
 
                 continuation.resume()
             }
         }
     }
 }
+
+#if os(Windows)
+extension ANSIDriver {
+    /// Writes every byte to standard output, continuing after a short write
+    /// as the POSIX writers do after EAGAIN. Stops on a genuine error.
+    fileprivate static func writeAll(_ bytes: [UInt8]) {
+        let output = GetStdHandle(STD_OUTPUT_HANDLE)
+        var offset = 0
+
+        while offset < bytes.count {
+            var written: DWORD = 0
+            let succeeded = bytes[offset...].withUnsafeBytes { pointer in
+                WriteFile(output, pointer.baseAddress, DWORD(pointer.count), &written, nil) != false
+            }
+
+            guard succeeded, written > 0 else {
+                break
+            }
+
+            offset += Int(written)
+        }
+    }
+
+    /// The console's visible window, in cells.
+    fileprivate static func consoleSize() -> Size? {
+        var info = CONSOLE_SCREEN_BUFFER_INFO()
+
+        guard GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &info) else {
+            return nil
+        }
+
+        let width = Int(info.srWindow.Right) - Int(info.srWindow.Left) + 1
+        let height = Int(info.srWindow.Bottom) - Int(info.srWindow.Top) + 1
+
+        guard width > 0, height > 0 else {
+            return nil
+        }
+
+        return Size(width: width, height: height)
+    }
+}
+
+/// Reads the console on a thread of its own: Windows has no dispatch read
+/// source for a console handle. It wakes at least every 100 ms, so a stop is
+/// noticed promptly, and hands each burst of bytes over in arrival order.
+/// The reading itself is VectorTerminalSDK's, which the VTG probe also uses.
+private final class ConsoleInputPump: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stopped = false
+
+    private var isStopped: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return stopped
+    }
+
+    func start(_ deliver: @escaping @Sendable ([UInt8]) -> Void) {
+        let thread = Thread { [self] in
+            var reader = TerminalInputReader()
+
+            while !isStopped {
+                let ready = reader.wait(timeoutMilliseconds: 100)
+
+                if ready < 0 {
+                    // Standard input is gone or is not a console: do not spin.
+                    Thread.sleep(forTimeInterval: 0.1)
+                    continue
+                }
+
+                guard ready > 0 else {
+                    continue
+                }
+
+                var bytes: [UInt8] = []
+
+                repeat {
+                    guard let byte = reader.readByte() else {
+                        break
+                    }
+                    bytes.append(byte)
+                } while bytes.count < 4096 && reader.wait(timeoutMilliseconds: 0) > 0
+
+                if !bytes.isEmpty, !isStopped {
+                    deliver(bytes)
+                }
+            }
+        }
+
+        thread.name = "tuikit.ansidriver.console-input"
+        thread.start()
+    }
+
+    func cancel() {
+        lock.lock()
+        stopped = true
+        lock.unlock()
+    }
+}
+#endif
