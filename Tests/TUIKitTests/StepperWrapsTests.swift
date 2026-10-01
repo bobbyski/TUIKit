@@ -49,3 +49,13 @@ import Testing
     _ = stepper.mouseEvent(MouseInput(position: Point(x: 1, y: 0), action: .press, button: .left))
     #expect(steps == [1, 0], "the buttons stepped \(steps)")
 }
+
+@Test @MainActor func aSegmentedControlCanBeClearedAgain() {
+    let control = SegmentedControl(["One", "Two"], selectedIndex: 1)
+    var reports: [Int] = []
+    control.onSelectionChanged = { reports.append($0) }
+    control.clearSelection()
+    #expect(control.selectedIndex == nil && reports.isEmpty)
+    control.select(0, notify: true)
+    #expect(control.selectedIndex == 0 && reports == [0])
+}

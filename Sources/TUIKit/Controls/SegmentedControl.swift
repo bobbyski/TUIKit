@@ -78,6 +78,25 @@ public final class SegmentedControl: TUIView {
         }
     }
 
+    /// Clears the selection, as `RadioGroup.clearSelection` does: `select`
+    /// takes only a valid index, so once a segment was chosen nothing could
+    /// un-choose it (ActiveUI's `selectedIndex = nil`).
+    ///
+    /// - Parameter notify: Whether `onSelectionChanged` fires, with -1.
+    ///   Defaults to silent.
+    public func clearSelection(notify: Bool = false) {
+        guard selectedIndex != nil else {
+            return
+        }
+
+        selectedIndex = nil
+        setNeedsDisplay()
+
+        if notify {
+            onSelectionChanged(-1)
+        }
+    }
+
     /// Draws each segment; the selected one is inverted.
     public override func draw(_ painter: Painter) {
         var x = 0
