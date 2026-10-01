@@ -217,6 +217,17 @@ public final class HexView: TUIView {
     /// or the view following its caret.
     public var onScroll: ((Int) -> Void)?
 
+    /// How many rows of bytes fit on screen at the current size.
+    public var visibleRowCount: Int {
+        gridRows
+    }
+
+    /// How many rows the bytes take at the current width.
+    public var rowCount: Int {
+        let perRow = bytesThatFit(width: max(1, bounds.size.width))
+        return max(1, (bytes.count + perRow - 1) / perRow)
+    }
+
     /// Puts a row at the top, as far as the bytes allow, without moving the
     /// caret.
     ///
