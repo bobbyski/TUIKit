@@ -367,3 +367,22 @@ import Testing
     #expect(lines[2].hasSuffix("┤"))
     #expect(lines[2].contains("──────"))
 }
+
+@Test @MainActor func comboBoxPassesEditingThrough() {
+    let window = Window(frame: Rect(x: 0, y: 0, width: 24, height: 4))
+    let combo = ComboBox(text: "Menlo", items: ["Menlo", "Monaco"])
+    combo.frame = Rect(x: 0, y: 0, width: 14, height: 1)
+    let other = TextField(text: "")
+    other.frame = Rect(x: 0, y: 2, width: 10, height: 1)
+    window.addSubview(combo)
+    window.addSubview(other)
+    window.layoutIfNeeded()
+
+    var events: [String] = []
+    combo.onBeginEditing = { events.append("begin") }
+    combo.onEndEditing = { events.append("end \($0)") }
+
+    _ = window.focusNext()   // into the combo box's field
+    _ = window.focusNext()   // and out to the other field
+    #expect(events == ["begin", "end Menlo"], "editing reported \(events)")
+}

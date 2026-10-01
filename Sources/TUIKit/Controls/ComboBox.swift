@@ -43,6 +43,14 @@ public final class ComboBox: TUIView {
     /// Called when an item is picked from the popup.
     public var onSelectionChanged: (Int) -> Void = { _ in }
 
+    /// Called when the field takes focus to be typed into — the field's
+    /// own `onBeginEditing`, passed through so a host can tell an edit in
+    /// progress from a resting value (ActiveUI's `AUIComboBox.isEditing`).
+    public var onBeginEditing: () -> Void = {}
+
+    /// Called with the text when the field gives focus up.
+    public var onEndEditing: (String) -> Void = { _ in }
+
     /// Whether the popup is open.
     public var isOpen: Bool {
         popup != nil
@@ -71,6 +79,14 @@ public final class ComboBox: TUIView {
 
         field.onSubmit = { [weak self] value in
             self?.onSubmit(value)
+        }
+
+        field.onBeginEditing = { [weak self] in
+            self?.onBeginEditing()
+        }
+
+        field.onEndEditing = { [weak self] value in
+            self?.onEndEditing(value)
         }
     }
 
