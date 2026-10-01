@@ -64,3 +64,38 @@ private func click(_ view: TableView, row: Int, _ modifiers: KeyModifiers = []) 
     click(view, row: 6, .control)
     #expect(view.selectedIndexes == [6], "a single-selection table selected \(view.selectedIndexes)")
 }
+
+// Through the run loop: the settled click carries the press's modifiers.
+@Test @MainActor func aShiftClickThroughTheAppReachesTheTable() async throws {
+    let driver = HeadlessDriver(size: Size(width: 20, height: 12))
+    let app = App(driver: driver)
+    app.multiClickIntervalMilliseconds = 0
+    let window = Window()
+    let view = TableView(columns: [TableColumn("Name")], rows: (0..<10).map { ["row \($0)"] })
+    view.allowsMultipleSelection = true
+    view.anchors = .fill()
+    window.addSubview(view)
+
+    let session = Task { try await app.run(window) }
+    while await driver.presentCount == 0 {
+        await Task.yield()
+    }
+    try await Task.sleep(for: .milliseconds(20))
+
+    func click(row: Int, _ modifiers: KeyModifiers = []) async {
+        let point = Point(x: 2, y: row + 1)
+        await driver.send(.mouse(MouseInput(position: point, action: .press, button: .left, modifiers: modifiers)))
+        await driver.send(.mouse(MouseInput(position: point, action: .release, button: .left, modifiers: modifiers)))
+        try? await Task.sleep(for: .milliseconds(30))
+    }
+
+    await click(row: 1)
+    await click(row: 3, .shift)
+    for _ in 0..<200 where view.selectedIndexes != [1, 2, 3] {
+        try await Task.sleep(for: .milliseconds(1))
+    }
+    #expect(view.selectedIndexes == [1, 2, 3], "a Shift-click through the app gave \(view.selectedIndexes)")
+
+    app.stop()
+    try await session.value
+}

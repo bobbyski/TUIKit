@@ -180,7 +180,7 @@ public final class App {
 
     // The click waiting out its guard interval: where it landed, which window
     // owns it, and how many clicks have stacked up (capped at 3).
-    private var pendingClick: (window: Window, screen: Point, count: Int)?
+    private var pendingClick: (window: Window, screen: Point, count: Int, modifiers: KeyModifiers)?
 
     // The one-shot timer that delivers `pendingClick` once the guard elapses.
     private var clickGuardTimer: AppTimer?
@@ -715,7 +715,8 @@ public final class App {
             // Fold this press/release into the multi-click count. Runs after
             // routing, so selection (on press) stays instant; only the debounced
             // `.click` waits out the guard.
-            trackClick(action: mouse.action, button: mouse.button, screen: screen, window: window)
+            trackClick(action: mouse.action, button: mouse.button, screen: screen, window: window,
+                       modifiers: mouse.modifiers)
 
             // Help text tracks the pointer, and anything else takes it away.
             trackHover(mouse: mouse, window: window)
@@ -786,7 +787,8 @@ public final class App {
     // completed click (re)arms the guard timer; when it fires, the click is
     // delivered with its final count. A drag (release far from the press)
     // breaks the sequence.
-    private func trackClick(action: MouseInput.Action, button: MouseInput.Button, screen: Point, window: Window) {
+    private func trackClick(action: MouseInput.Action, button: MouseInput.Button, screen: Point, window: Window,
+                            modifiers: KeyModifiers = []) {
         guard button == .left else {
             return
         }
@@ -871,7 +873,10 @@ public final class App {
             }
 
             clickGuardTimer?.cancel()
-            pendingClick = (window: window, screen: screen, count: count)
+            // The modifiers ride along: a Shift- or Ctrl-click is a different
+            // click (a table extends or toggles its selection), and the
+            // settled `.click` used to arrive without them.
+            pendingClick = (window: window, screen: screen, count: count, modifiers: modifiers)
             clickGuardTimer = schedule(after: multiClickInterval) { [weak self] in
                 self?.deliverPendingClick()
             }
@@ -921,7 +926,8 @@ public final class App {
         }
 
         let local = pending.screen - pending.window.frame.origin
-        let click = MouseInput(position: local, action: .click, button: .left, clickCount: pending.count)
+        let click = MouseInput(position: local, action: .click, button: .left,
+                               modifiers: pending.modifiers, clickCount: pending.count)
         pending.window.route(.mouse(click))
     }
 
