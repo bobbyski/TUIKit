@@ -203,6 +203,78 @@ public final class HexView: TUIView {
     // The first row of bytes on screen.
     private var topRow = 0
 
+    // Whether the next draw should bring the caret on screen. Set when the
+    // caret moves, and only then: following it on every draw undid every
+    // free scroll — a wheel turn snapped straight back to the caret's row.
+    private var needsCaretReveal = true
+
+    /// The first row of bytes on screen (ActiveUI's scroller reads it).
+    public var firstVisibleRow: Int {
+        topRow
+    }
+
+    /// Called when the first visible row changes: the wheel, `scroll(toRow:)`,
+    /// or the view following its caret.
+    public var onScroll: ((Int) -> Void)?
+
+    /// Puts a row at the top, as far as the bytes allow, without moving the
+    /// caret.
+    ///
+    /// - Parameter row: The row to show first.
+    public func scroll(toRow row: Int) {
+        needsCaretReveal = false
+        setTopRow(row)
+    }
+
+    /// Moves the caret from code, bringing it on screen, without reporting it
+    /// through `onCaretMoved` — the caller already knows where it put it.
+    ///
+    /// - Parameters:
+    ///   - offset: The byte to put the caret on.
+    ///   - nibble: The half of it, 0 for the high one.
+    public func setCaret(_ offset: Int, nibble: Int = 0) {
+        caret = Swift.min(Swift.max(offset, 0), Swift.max(0, bytes.count - 1))
+        caretNibble = Swift.min(Swift.max(0, nibble), 1)
+        revealCaret()
+        setNeedsDisplay()
+    }
+
+    // The one place `topRow` changes outside a draw, so `onScroll` hears
+    // every change.
+    private func setTopRow(_ row: Int) {
+        let perRow = bytesThatFit(width: max(1, bounds.size.width))
+        let rows = max(1, (bytes.count + perRow - 1) / perRow)
+        let clamped = Swift.max(0, Swift.min(row, rows - 1))
+
+        guard clamped != topRow else {
+            return
+        }
+
+        topRow = clamped
+        setNeedsDisplay()
+        onScroll?(topRow)
+    }
+
+    // Brings the caret on screen now when the view has a size, or on the
+    // next draw when it does not yet.
+    private func revealCaret() {
+        guard bounds.size.width > 0, gridRows > 0 else {
+            needsCaretReveal = true
+            return
+        }
+
+        let perRow = bytesThatFit(width: bounds.size.width)
+        let row = caret / max(1, perRow)
+
+        if row < topRow {
+            setTopRow(row)
+        } else if row >= topRow + gridRows {
+            setTopRow(row - gridRows + 1)
+        }
+
+        needsCaretReveal = false
+    }
+
     // MARK: - The control bar
 
     /// The row widths the Bytes picker offers. 0 is "Fit".
@@ -372,7 +444,10 @@ public final class HexView: TUIView {
         let hexStart = digits + 2
         let textStart = hexStart + hexWidth(perRow: perRow) + 2
 
-        scrollCaretIntoView(perRow: perRow, rows: gridRows)
+        if needsCaretReveal {
+            scrollCaretIntoView(perRow: perRow, rows: gridRows)
+            needsCaretReveal = false
+        }
 
         for screenRow in 0..<gridRows {
             let start = (topRow + screenRow) * perRow
@@ -622,6 +697,7 @@ public final class HexView: TUIView {
         caretNibble = targetNibble
 
         if moved {
+            revealCaret()
             onCaretMoved?(caret)
         }
 
@@ -640,14 +716,11 @@ public final class HexView: TUIView {
 
         switch mouse.action {
         case .scrollUp:
-            topRow = max(0, topRow - 3)
-            setNeedsDisplay()
+            scroll(toRow: topRow - 3)
             return true
 
         case .scrollDown:
-            let rows = max(1, (bytes.count + perRow - 1) / perRow)
-            topRow = Swift.min(max(0, rows - 1), topRow + 3)
-            setNeedsDisplay()
+            scroll(toRow: topRow + 3)
             return true
 
         case .press:
