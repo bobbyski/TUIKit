@@ -298,14 +298,49 @@ public final class Button: TUIView {
         }
     }
 
-    /// Alt+mnemonic activates the button from anywhere in the window.
+    /// A chord that activates the button from anywhere in its window, as a
+    /// key equivalent does on the Mac (Ctrl+S for Save, Return for a default
+    /// button). Letters match whatever their case. (ActiveUI R9.)
+    ///
+    /// A chord with modifiers is a hot key: it fires whatever has focus. One
+    /// without — Return, Escape — is a cold key: it fires only when the
+    /// focused view does not take the key itself, so Return in a text view
+    /// still starts a new line instead of pressing the default button.
+    public var keyEquivalent: KeyInput?
+
+    /// Alt+mnemonic, or a key equivalent with modifiers, activates the button
+    /// from anywhere in the window.
     public override func handleHotKey(_ key: KeyInput) -> Bool {
-        guard accelerator.matches(key) else {
+        let equivalent = keyEquivalent.map { !$0.modifiers.isEmpty } == true && matchesKeyEquivalent(key)
+        guard accelerator.matches(key) || equivalent else {
             return false
         }
 
         activate()
         return true
+    }
+
+    /// An unmodified key equivalent, once the focused view has declined it.
+    public override func handleColdKey(_ key: KeyInput) -> Bool {
+        guard keyEquivalent?.modifiers.isEmpty == true, matchesKeyEquivalent(key) else {
+            return super.handleColdKey(key)
+        }
+
+        activate()
+        return true
+    }
+
+    private func matchesKeyEquivalent(_ key: KeyInput) -> Bool {
+        guard let keyEquivalent, keyEquivalent.modifiers == key.modifiers else {
+            return false
+        }
+
+        switch (keyEquivalent.key, key.key) {
+        case (.character(let wanted), .character(let pressed)):
+            return wanted.lowercased() == pressed.lowercased()
+        default:
+            return keyEquivalent.key == key.key
+        }
     }
 
     /// Press shows feedback; release inside the button activates.
