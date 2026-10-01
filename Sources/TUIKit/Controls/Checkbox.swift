@@ -26,6 +26,17 @@ public final class Checkbox: TUIView {
     /// Whether the box is checked.
     public private(set) var isChecked: Bool
 
+    /// Whether the box shows the mixed state, `[-]`: "some of the items this
+    /// stands for are on". Set by the application; a click or Space on a
+    /// mixed box checks it, as a mixed checkbox does on the Mac. (ActiveUI R6.)
+    public var isMixed = false {
+        didSet {
+            if isMixed != oldValue {
+                setNeedsDisplay()
+            }
+        }
+    }
+
     /// Called when the checked state changes through interaction or
     /// `setChecked(_:notify:)`.
     public var onChange: (Bool) -> Void = { _ in }
@@ -71,7 +82,12 @@ public final class Checkbox: TUIView {
 
     /// Toggles the state, exactly as user interaction would.
     public func toggle() {
-        isChecked.toggle()
+        if isMixed {
+            isMixed = false
+            isChecked = true
+        } else {
+            isChecked.toggle()
+        }
         setNeedsDisplay()
         onChange(isChecked)
     }
@@ -90,7 +106,7 @@ public final class Checkbox: TUIView {
             }
         }
 
-        let mark = isChecked ? "[x]" : "[ ]"
+        let mark = isMixed ? "[-]" : isChecked ? "[x]" : "[ ]"
 
         painter.write(mark, at: .zero, style: boxStyle)
         painter.write(
