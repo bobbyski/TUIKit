@@ -50,6 +50,12 @@ open class Window: TUIView {
     /// key. `Dialog` is modal by default; plain windows are not.
     public var isModal = false
 
+    /// Makes the window transient, as a popover is: while it is key, a left
+    /// press that lands outside it calls this — usually to dismiss it — and
+    /// the press then goes on to wherever it points, the way a press outside
+    /// an open menu does. `nil` (the default) leaves presses alone.
+    public var onPressOutside: (() -> Void)?
+
     /// The sheet hanging from this window, if any (PLAN 11.2).
     ///
     /// While it is set, presses aimed at this window are routed to the sheet

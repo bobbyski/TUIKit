@@ -615,6 +615,20 @@ public final class App {
                 key.dismissOverlayIfPressOutside(mouse.position - key.frame.origin)
             }
 
+            // A transient window (a popover) goes the same way: told first,
+            // then the press is routed again — to whatever is key now — so
+            // the press that closed it still lands where it points. Only if
+            // it did go, or the same press would ask forever.
+            if mouse.action == .press, mouse.button == .left,
+               let outside = key.onPressOutside,
+               !key.frame.contains(mouse.position) {
+                outside()
+                if keyWindow !== key {
+                    handle(input)
+                }
+                return
+            }
+
             var window = key
 
             // Click-to-activate: in a non-modal stack, pressing a window
