@@ -266,6 +266,10 @@ public final class App {
         window.app = self
         windows.append(window)
         desktop.addSubview(window)
+        // The stack changing is not a view going dirty, so nothing else asks
+        // for a frame: a window presented from a task — an alert awaited
+        // after a button press — would stay invisible until the next key.
+        requestFrame()
     }
 
     /// Removes a window from the stack.
@@ -276,6 +280,7 @@ public final class App {
     public func dismiss(_ window: Window) {
         windows.removeAll { $0 === window }
         window.removeFromSuperview()
+        requestFrame()
     }
 
     /// Presents a sheet on its host window (PLAN 11.2).
@@ -331,6 +336,7 @@ public final class App {
         windows.removeAll { $0 === window }
         windows.append(window)
         desktop.addSubview(window)   // re-adding moves it to the front
+        requestFrame()
     }
 
     // MARK: - Theme
