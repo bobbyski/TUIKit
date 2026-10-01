@@ -78,3 +78,26 @@ import Testing
     table.scrollRowToVisible(10)
     #expect(table.scrollOffset == 10, "scrolling back up should put row 10 at the top; offset \(table.scrollOffset)")
 }
+
+// `SplitView.isFirstCollapsed` (ActiveUI's Toggle Sidebar on a master–detail).
+
+@Test @MainActor func aSplitCollapsesItsFirstPaneAndRestoresTheDivider() {
+    let sidebar = Label("SIDE")
+    let content = Label("MAIN")
+    let split = SplitView(axis: .horizontal, first: sidebar, second: content, dividerPosition: 10)
+    split.frame = Rect(x: 0, y: 0, width: 40, height: 4)
+    split.layoutIfNeeded()
+    #expect(content.frame.minX == 11)
+
+    split.isFirstCollapsed = true
+    split.layoutIfNeeded()
+    let window = Window(frame: split.frame)
+    window.addSubview(split)
+    let lines = SceneRenderer(root: window).render(size: Size(width: 40, height: 4)).textLines()
+    #expect(content.frame == split.bounds, "the content did not take the room: \(content.frame)")
+    #expect(!lines.joined().contains("SIDE") && !lines.joined().contains("│"), "the sidebar or divider still drew")
+
+    split.isFirstCollapsed = false
+    split.layoutIfNeeded()
+    #expect(content.frame.minX == 11 && split.currentDividerPosition == 10, "revealing lost the divider")
+}

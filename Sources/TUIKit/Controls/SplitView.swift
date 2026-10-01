@@ -99,7 +99,22 @@ public final class SplitView: TUIView {
 
     /// Split views take keyboard focus to own the divider keys.
     public override var acceptsFirstResponder: Bool {
-        true
+        !isFirstCollapsed
+    }
+
+    /// Hides the first pane and gives its room to the second — a sidebar
+    /// toggled away (ActiveUI's master–detail "Toggle Sidebar"). The divider
+    /// goes with it, and revealing puts it back where it was.
+    public var isFirstCollapsed = false {
+        didSet {
+            guard isFirstCollapsed != oldValue else {
+                return
+            }
+
+            first.isHidden = isFirstCollapsed
+            setNeedsLayout()
+            setNeedsDisplay()
+        }
     }
 
     /// Moves the divider programmatically, clamped to the minimums.
@@ -124,6 +139,12 @@ public final class SplitView: TUIView {
 
     /// Positions the panes on either side of the divider.
     public override func layoutSubviews() {
+        guard !isFirstCollapsed else {
+            first.frame = Rect(x: 0, y: 0, width: 0, height: 0)
+            second.frame = bounds
+            return
+        }
+
         // First layout with an unset position: split in half.
         if dividerPosition < 0 {
             dividerPosition = (totalLength - 1) / 2
@@ -154,6 +175,10 @@ public final class SplitView: TUIView {
 
     /// Draws the divider line, emphasized while focused or dragging.
     public override func draw(_ painter: Painter) {
+        guard !isFirstCollapsed else {
+            return   // no divider beside a pane that is not there
+        }
+
         let theme = effectiveTheme
         let characters = theme.dividerStyle.characters ?? BorderStyle.single.characters!
         var style = theme.border
@@ -182,7 +207,7 @@ public final class SplitView: TUIView {
 
     /// Arrows move the divider; Home/End snap it against the minimums.
     public override func keyDown(_ key: KeyInput) -> Bool {
-        guard key.modifiers.isEmpty else {
+        guard key.modifiers.isEmpty, !isFirstCollapsed else {
             return false
         }
 
@@ -212,7 +237,7 @@ public final class SplitView: TUIView {
     public override func mouseEvent(_ mouse: MouseInput) -> Bool {
         switch mouse.action {
         case .press where mouse.button == .left:
-            guard pointerLength(of: mouse.position) == dividerPosition else {
+            guard !isFirstCollapsed, pointerLength(of: mouse.position) == dividerPosition else {
                 return false
             }
 
