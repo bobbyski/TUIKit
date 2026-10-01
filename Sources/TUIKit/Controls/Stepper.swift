@@ -32,6 +32,12 @@ public final class Stepper: TUIView {
     /// Amount one increment or decrement moves the value.
     public var step: Int
 
+    /// Whether stepping past one bound lands on the other, as `NSStepper`'s
+    /// `valueWraps` does: up from the top goes to the bottom, down from the
+    /// bottom to the top. Off by default — the value pins at the bounds.
+    /// Home and End still jump to the bounds either way.
+    public var wraps = false
+
     /// Called when the value changes through interaction or
     /// `setValue(_:notify:)`.
     public var onValueChanged: (Int) -> Void = { _ in }
@@ -83,7 +89,15 @@ public final class Stepper: TUIView {
     ///
     /// - Parameter direction: `+1` to increment, `-1` to decrement.
     public func stepValue(_ direction: Int) {
-        let target = clamped(value + (direction >= 0 ? step : -step))
+        let unclamped = value + (direction >= 0 ? step : -step)
+        let target: Int
+        if wraps, unclamped > range.upperBound {
+            target = range.lowerBound
+        } else if wraps, unclamped < range.lowerBound {
+            target = range.upperBound
+        } else {
+            target = clamped(unclamped)
+        }
 
         guard target != value else {
             return
