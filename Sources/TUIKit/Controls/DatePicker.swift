@@ -52,6 +52,19 @@ public final class DatePicker: TUIView {
     /// `setDate(_:notify:)`.
     public var onDateChanged: (Date) -> Void = { _ in }
 
+    /// The earliest date the picker will hold, or nil for none. A step, a
+    /// pick or a `setDate` past it lands on it, as `NSDatePicker`'s
+    /// `minDate` does; setting it moves a value already below it.
+    public var minimumDate: Date? {
+        didSet { applyBounds() }
+    }
+
+    /// The latest date the picker will hold, or nil for none. See
+    /// ``minimumDate``.
+    public var maximumDate: Date? {
+        didSet { applyBounds() }
+    }
+
     // Focused segment (date/time modes).
     private var segmentIndex = 0
 
@@ -295,8 +308,16 @@ public final class DatePicker: TUIView {
 
     // MARK: - Value plumbing
 
-    private func apply(_ newDate: Date, notify: Bool) {
+    private func apply(_ proposed: Date, notify: Bool) {
+        let newDate = bounded(proposed)
+
         guard newDate != date else {
+            // A pick the bounds refused: the grid already shows the day it
+            // was pressed on, so put it back on the value.
+            if proposed != newDate {
+                inlineGrid?.setDate(date)
+                popup?.setDate(date)
+            }
             return
         }
 
@@ -308,6 +329,27 @@ public final class DatePicker: TUIView {
         if notify {
             onDateChanged(newDate)
         }
+    }
+
+    // The date moved inside the bounds, when there are any.
+    private func bounded(_ candidate: Date) -> Date {
+        var result = candidate
+
+        if let minimumDate, result < minimumDate {
+            result = minimumDate
+        }
+
+        if let maximumDate, result > maximumDate {
+            result = maximumDate
+        }
+
+        return result
+    }
+
+    // A bound that moved past the value takes the value with it, silently:
+    // the caller set the bound, so the caller knows.
+    private func applyBounds() {
+        apply(date, notify: false)
     }
 
 }

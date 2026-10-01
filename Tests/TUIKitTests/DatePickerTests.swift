@@ -164,3 +164,43 @@ private func makeDate(
 
     #expect(changed.count == 2)
 }
+
+// MARK: - Bounds (ActiveUI's AUIDatePicker.minimumDate / maximumDate)
+
+@Test @MainActor func datePickerStepsStopAtTheBounds() {
+    let calendar = fixedCalendar()
+    let picker = DatePicker(mode: .date, date: makeDate(calendar, 2026, 7, 3), calendar: calendar)
+    picker.frame = Rect(x: 0, y: 0, width: 14, height: 1)
+    let window = Window(frame: Rect(x: 0, y: 0, width: 14, height: 1))
+    window.addSubview(picker)
+    window.makeFirstResponder(picker)
+    picker.maximumDate = makeDate(calendar, 2026, 8, 15)
+    picker.minimumDate = makeDate(calendar, 2026, 6, 20)
+
+    var changes: [Date] = []
+    picker.onDateChanged = { changes.append($0) }
+
+    window.route(.key(KeyInput(key: .up)))      // month → 08/03
+    window.route(.key(KeyInput(key: .up)))      // 09/03 is past the maximum: lands on it
+    #expect(picker.date == makeDate(calendar, 2026, 8, 15), "a step past the maximum went to \(picker.date)")
+    window.route(.key(KeyInput(key: .up)))      // already there: nothing
+    #expect(changes.count == 2, "a refused step still reported a change")
+
+    window.route(.key(KeyInput(key: .down)))    // 07/15
+    window.route(.key(KeyInput(key: .down)))    // 06/15 is before the minimum: lands on it
+    #expect(picker.date == makeDate(calendar, 2026, 6, 20), "a step past the minimum went to \(picker.date)")
+}
+
+@Test @MainActor func datePickerBoundsMoveAValueOutsideThem() {
+    let calendar = fixedCalendar()
+    let picker = DatePicker(mode: .date, date: makeDate(calendar, 2026, 7, 3), calendar: calendar)
+    var changes = 0
+    picker.onDateChanged = { _ in changes += 1 }
+
+    picker.minimumDate = makeDate(calendar, 2026, 7, 10)
+    #expect(picker.date == makeDate(calendar, 2026, 7, 10), "a new minimum left the value below it")
+    picker.setDate(makeDate(calendar, 2027, 1, 1))
+    picker.maximumDate = makeDate(calendar, 2026, 12, 31)
+    #expect(picker.date == makeDate(calendar, 2026, 12, 31), "a new maximum left the value above it")
+    #expect(changes == 0, "the caller set the bound; moving the value to it is silent")
+}
