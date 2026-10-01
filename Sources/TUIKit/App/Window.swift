@@ -56,6 +56,11 @@ open class Window: TUIView {
     /// an open menu does. `nil` (the default) leaves presses alone.
     public var onPressOutside: (() -> Void)?
 
+    /// Called when this window becomes the key window: presented, raised by
+    /// a click or `activate`, or uncovered when the one above it goes. Once
+    /// per change, after the stack has settled.
+    public var onBecomeKey: (() -> Void)?
+
     /// The sheet hanging from this window, if any (PLAN 11.2).
     ///
     /// While it is set, presses aimed at this window are routed to the sheet

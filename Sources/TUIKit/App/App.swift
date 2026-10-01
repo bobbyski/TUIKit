@@ -255,6 +255,10 @@ public final class App {
     ///
     /// - Parameter window: Window to present.
     public func present(_ window: Window) {
+        announcingKeyChange { presentWithoutAnnouncing(window) }
+    }
+
+    private func presentWithoutAnnouncing(_ window: Window) {
         // Presenting a window that is already up raises it. A second entry
         // would draw it twice and `dismiss` would leave one behind; and a
         // host that presents its main window before `run(_:)` presents it
@@ -287,9 +291,29 @@ public final class App {
     ///
     /// - Parameter window: Window to dismiss.
     public func dismiss(_ window: Window) {
-        windows.removeAll { $0 === window }
-        window.removeFromSuperview()
-        requestFrame()
+        announcingKeyChange {
+            windows.removeAll { $0 === window }
+            window.removeFromSuperview()
+            requestFrame()
+        }
+    }
+
+    // Stack changes nest — presenting a presented window activates it, a
+    // sheet presents then activates — so only the outermost one announces,
+    // and only when the key window really changed.
+    private var keyChangeDepth = 0
+
+    private func announcingKeyChange(_ change: () -> Void) {
+        let before = keyWindow
+        keyChangeDepth += 1
+        change()
+        keyChangeDepth -= 1
+
+        guard keyChangeDepth == 0, let after = keyWindow, after !== before else {
+            return
+        }
+
+        after.onBecomeKey?()
     }
 
     /// Presents a sheet on its host window (PLAN 11.2).
@@ -304,18 +328,20 @@ public final class App {
             return
         }
 
-        // One sheet per window: presenting a second replaces the first.
-        dismissSheet(on: host)
+        announcingKeyChange {
+            // One sheet per window: presenting a second replaces the first.
+            dismissSheet(on: host)
 
-        if sheet.frame.size.width == 0 || sheet.frame.size.height == 0 {
-            let size = sheet.intrinsicContentSize ?? Size(width: 40, height: 8)
-            sheet.frame = Rect(origin: .zero, size: size)
+            if sheet.frame.size.width == 0 || sheet.frame.size.height == 0 {
+                let size = sheet.intrinsicContentSize ?? Size(width: 40, height: 8)
+                sheet.frame = Rect(origin: .zero, size: size)
+            }
+
+            present(sheet)
+            sheet.anchor(in: desktop.bounds)
+            host.attachedSheet = sheet
+            activate(sheet)
         }
-
-        present(sheet)
-        sheet.anchor(in: desktop.bounds)
-        host.attachedSheet = sheet
-        activate(sheet)
     }
 
     /// Takes a window's sheet down, if it has one.
@@ -342,10 +368,12 @@ public final class App {
             return
         }
 
-        windows.removeAll { $0 === window }
-        windows.append(window)
-        desktop.addSubview(window)   // re-adding moves it to the front
-        requestFrame()
+        announcingKeyChange {
+            windows.removeAll { $0 === window }
+            windows.append(window)
+            desktop.addSubview(window)   // re-adding moves it to the front
+            requestFrame()
+        }
     }
 
     // MARK: - Theme
