@@ -100,6 +100,7 @@ open class Dialog: Window {
         super.init(frame: .zero)
 
         isModal = true   // dialogs own all input while key
+        level = .modalPanel   // and are drawn above documents and palettes
         themeContext = .modalWindows   // the theme's dialog look (Turbo: double frame); apps may override
 
         panel.isWindowChrome = true   // wears the vector titlebar on VTG terminals

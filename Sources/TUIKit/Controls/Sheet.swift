@@ -43,6 +43,7 @@ public final class Sheet: Dialog {
         themeContext = .secondaryWindows
         isModal = false
         isMovable = false   // it is attached; dragging it off its window is a lie
+        level = host.level   // drawn with its window, not above every palette
     }
 
     /// Places the sheet under its host's title row, centred on it.

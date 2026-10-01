@@ -2,6 +2,32 @@
 // SPDX-License-Identifier: MIT
 // See the LICENSE file at the repository root for the full text.
 
+/// Where a window is drawn among the others (ActiveUI R19).
+///
+/// Higher levels draw above lower ones whatever has the keys; within a level
+/// the most recently raised window is on top. The numbers are AppKit's, so a
+/// host mapping `NSWindow.Level` keeps its order.
+public struct WindowLevel: RawRepresentable, Comparable, Hashable, Sendable {
+    public var rawValue: Int
+
+    public init(rawValue: Int) {
+        self.rawValue = rawValue
+    }
+
+    /// An ordinary window.
+    public static let normal = WindowLevel(rawValue: 0)
+    /// Palettes and inspectors that stay above the document being worked on.
+    public static let floating = WindowLevel(rawValue: 3)
+    /// A dialog: above documents and palettes alike.
+    public static let modalPanel = WindowLevel(rawValue: 8)
+    /// Bars that belong to the screen rather than to a window.
+    public static let statusBar = WindowLevel(rawValue: 25)
+
+    public static func < (lhs: WindowLevel, rhs: WindowLevel) -> Bool {
+        lhs.rawValue < rhs.rawValue
+    }
+}
+
 /// Top-level view that owns keyboard focus and input routing — a focus scope.
 ///
 /// Windows are the focus scopes of TUIKit: they track the first responder,
@@ -60,6 +86,17 @@ open class Window: TUIView {
     /// a click or `activate`, or uncovered when the one above it goes. Once
     /// per change, after the stack has settled.
     public var onBecomeKey: (() -> Void)?
+
+    /// Where the window is drawn among the others: a `.floating` palette
+    /// stays above a `.normal` document even while the document has the keys.
+    /// Which window is key is a separate question — the most recently raised.
+    public var level = WindowLevel.normal {
+        didSet {
+            if level != oldValue {
+                app?.restack()
+            }
+        }
+    }
 
     /// The sheet hanging from this window, if any (PLAN 11.2).
     ///

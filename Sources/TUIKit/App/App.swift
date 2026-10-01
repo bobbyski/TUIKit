@@ -20,8 +20,8 @@ import Foundation
 /// with the terminal restored; there is no `exit()` anywhere.
 ///
 /// The window stack gives modal behavior for free: input routes only to the
-/// top window, while all windows render in stack order (later windows
-/// overdraw earlier ones).
+/// top window, while windows render by `level` and then in stack order
+/// (later windows overdraw earlier ones on the same level).
 @MainActor
 public final class App {
     private let driver: any TerminalDriver
@@ -125,6 +125,24 @@ public final class App {
     /// The window currently receiving input, when any.
     public var keyWindow: Window? {
         windows.last
+    }
+
+    /// Presented windows in the order they are drawn, bottom to top: by
+    /// `level`, then as `windows` orders them. The same as `windows` until a
+    /// window asks for a level other than `.normal`.
+    public var drawnWindows: [Window] {
+        windows.enumerated()
+            .sorted { ($0.element.level, $0.offset) < ($1.element.level, $1.offset) }
+            .map(\.element)
+    }
+
+    // Puts the desktop's windows in drawn order: re-adding a subview moves
+    // it to the front, so adding them bottom to top leaves them stacked.
+    func restack() {
+        for window in drawnWindows {
+            desktop.addSubview(window)
+        }
+        requestFrame()
     }
 
     /// Creates an application on a driver.
@@ -279,6 +297,7 @@ public final class App {
         window.app = self
         windows.append(window)
         desktop.addSubview(window)
+        restack()
         // The stack changing is not a view going dirty, so nothing else asks
         // for a frame: a window presented from a task — an alert awaited
         // after a button press — would stay invisible until the next key.
@@ -371,7 +390,7 @@ public final class App {
         announcingKeyChange {
             windows.removeAll { $0 === window }
             windows.append(window)
-            desktop.addSubview(window)   // re-adding moves it to the front
+            restack()
             requestFrame()
         }
     }
@@ -670,7 +689,7 @@ public final class App {
             if mouse.action == .press,
                mouse.button == .left,
                !key.isModal,
-               let hitWindow = windows.last(where: { window in
+               let hitWindow = drawnWindows.last(where: { window in
                    window.hitTest(mouse.position - window.frame.origin) != nil
                }) {
                 // A window with a sheet up hands its presses to the sheet
