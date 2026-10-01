@@ -38,6 +38,18 @@ public final class Stepper: TUIView {
     /// Home and End still jump to the bounds either way.
     public var wraps = false
 
+    /// Whether the value is drawn between the buttons. Off, the stepper is
+    /// `[-] [+]` alone — a stepper that reports presses (page, zoom) rather
+    /// than a number worth reading, as an `NSStepper` shows no number.
+    public var showsValue = true {
+        didSet {
+            if showsValue != oldValue {
+                superview?.setNeedsLayout()
+                setNeedsDisplay()
+            }
+        }
+    }
+
     /// Called when the value changes through interaction or
     /// `setValue(_:notify:)`.
     public var onValueChanged: (Int) -> Void = { _ in }
@@ -62,7 +74,7 @@ public final class Stepper: TUIView {
 
     /// One row at `[-] <widest value> [+]` width.
     public override var intrinsicContentSize: Size? {
-        Size(width: 3 + 1 + valueFieldWidth + 1 + 3, height: 1)
+        Size(width: plusX + 3, height: 1)
     }
 
     /// Sets the value programmatically, clamped into the range.
@@ -115,8 +127,12 @@ public final class Stepper: TUIView {
         let padded = String(repeating: " ", count: max(0, valueFieldWidth - DisplayWidth.of(field))) + field
 
         painter.write("[-]", at: .zero, style: buttonStyle)
-        painter.write(padded, at: Point(x: 4, y: 0))
-        painter.write("[+]", at: Point(x: 4 + valueFieldWidth + 1, y: 0), style: buttonStyle)
+
+        if showsValue {
+            painter.write(padded, at: Point(x: 4, y: 0))
+        }
+
+        painter.write("[+]", at: Point(x: plusX, y: 0), style: buttonStyle)
     }
 
     /// Up/`+` increments, Down/`-` decrements, Home/End jump to the bounds.
@@ -158,12 +174,18 @@ public final class Stepper: TUIView {
             return true
         }
 
-        if mouse.position.x >= 4 + valueFieldWidth + 1 {
+        if mouse.position.x >= plusX {
             stepValue(1)
             return true
         }
 
         return false
+    }
+
+    // Where the increment button starts: after the value, or straight after
+    // the decrement button and a space when there is no value to show.
+    private var plusX: Int {
+        showsValue ? 4 + valueFieldWidth + 1 : 4
     }
 
     // Width of the widest value the range can produce.
