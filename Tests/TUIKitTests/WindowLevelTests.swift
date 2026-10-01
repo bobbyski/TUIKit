@@ -64,3 +64,17 @@ import Testing
     app.activate(palette)
     #expect(app.drawnWindows.last === dialog, "a dialog should be drawn above a palette")
 }
+
+// `scrollRowToVisible` (ActiveUI's AUITable.revealRow): shows a row without
+// choosing it.
+
+@Test @MainActor func revealingARowScrollsWithoutSelecting() {
+    let table = TableView(columns: [TableColumn("Name")], rows: (0..<50).map { ["row \($0)"] })
+    table.frame = Rect(x: 0, y: 0, width: 20, height: 6)   // a header and five rows
+    table.select(2)
+    table.scrollRowToVisible(30)
+    #expect(table.selectedIndex == 2, "revealing a row selected it")
+    #expect(table.scrollOffset == 26, "row 30 should be the last of five visible; offset \(table.scrollOffset)")
+    table.scrollRowToVisible(10)
+    #expect(table.scrollOffset == 10, "scrolling back up should put row 10 at the top; offset \(table.scrollOffset)")
+}

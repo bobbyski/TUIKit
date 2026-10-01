@@ -192,6 +192,27 @@ public final class TableView: TUIView {
         }
     }
 
+    /// Scrolls so a row is on screen, leaving the selection where it is —
+    /// AppKit's `scrollRowToVisible`. Selecting the row was the only way to
+    /// bring it into view, and revealing a row is not choosing it.
+    ///
+    /// - Parameter index: The row to show.
+    public func scrollRowToVisible(_ index: Int) {
+        let height = rowViewportHeight
+
+        guard height > 0, (0..<rowCount).contains(index) else {
+            return
+        }
+
+        if index < navigation.scrollOffset {
+            navigation.scroll(by: index - navigation.scrollOffset, height: height)
+        } else if index > navigation.scrollOffset + height - 1 {
+            navigation.scroll(by: index - (navigation.scrollOffset + height - 1), height: height)
+        }
+
+        setNeedsDisplay()
+    }
+
     /// Draws the header and the visible slice of rows.
     public override func draw(_ painter: Painter) {
         let width = bounds.size.width
