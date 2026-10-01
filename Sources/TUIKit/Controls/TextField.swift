@@ -20,6 +20,50 @@ public final class TextField: TUIView {
     /// Current text.
     public private(set) var text: String = ""
 
+    /// Whether the field hides what is typed, as a password field does: each
+    /// character draws as a bullet, and copy and cut take nothing out.
+    public var isSecure = false {
+        didSet {
+            if isSecure != oldValue {
+                setNeedsDisplay()
+            }
+        }
+    }
+
+    /// Where text shorter than the field sits in it. Text that fills the
+    /// field scrolls from the leading edge whatever this says.
+    public var alignment: TextAlignment = .leading {
+        didSet {
+            if alignment != oldValue {
+                setNeedsDisplay()
+            }
+        }
+    }
+
+    /// The characters as drawn: the text, or a bullet for each of its
+    /// characters when the field is secure. Drawing, scrolling and hit
+    /// testing all measure this, so a caret sits after its bullet.
+    private var displayed: [Character] {
+        isSecure ? Array(repeating: "•", count: text.count) : Array(text)
+    }
+
+    /// Columns to the left of the text: zero unless the text fits with room
+    /// for the caret and the field is not leading-aligned.
+    private func alignmentInset(width: Int, in characters: [Character]) -> Int {
+        guard alignment != .leading, scrollOffset == 0 else {
+            return 0
+        }
+
+        let used = characters.reduce(0) { $0 + DisplayWidth.of($1) }
+        let room = width - 1 - used
+
+        guard room > 0 else {
+            return 0
+        }
+
+        return alignment == .trailing ? room : room / 2
+    }
+
     /// Dimmed text shown while empty.
     public var placeholder: String {
         didSet {
@@ -160,12 +204,13 @@ public final class TextField: TUIView {
 
         adjustScroll(width: width)
 
-        let characters = Array(text)
+        let characters = displayed
+        let inset = alignmentInset(width: width, in: characters)
         let visibleEnd = lastIndex(fitting: width, from: scrollOffset, in: characters)
 
         if scrollOffset < visibleEnd {
             let visible = String(characters[scrollOffset..<visibleEnd])
-            painter.write(visible, at: .zero, style: field)
+            painter.write(visible, at: Point(x: inset, y: 0), style: field)
         }
 
         if let selected = selectedRange {
@@ -188,7 +233,7 @@ public final class TextField: TUIView {
             if start < end {
                 painter.write(
                     String(characters[start..<end]),
-                    at: Point(x: column(of: start, in: characters), y: 0),
+                    at: Point(x: inset + column(of: start, in: characters), y: 0),
                     style: style
                 )
             }
@@ -207,7 +252,7 @@ public final class TextField: TUIView {
             cursorStyle.flags.insert(.inverse)
             painter.write(
                 underCursor,
-                at: Point(x: column(of: cursorIndex, in: characters), y: 0),
+                at: Point(x: inset + column(of: cursorIndex, in: characters), y: 0),
                 style: cursorStyle
             )
         }
@@ -251,6 +296,11 @@ public final class TextField: TUIView {
         }
 
         return index
+    }
+
+    // A click's column within the text, past any alignment inset.
+    private func clickColumn(_ x: Int) -> Int {
+        max(0, x - alignmentInset(width: bounds.size.width, in: displayed))
     }
 
     // The index a column lands on, for a click.
@@ -382,7 +432,8 @@ public final class TextField: TUIView {
     public func copyAll() {
         let copied = selectedText ?? text
 
-        guard !copied.isEmpty else {
+        // A secure field never gives its text away, as AppKit's does not.
+        guard !isSecure, !copied.isEmpty else {
             return
         }
 
@@ -401,11 +452,11 @@ public final class TextField: TUIView {
             // lands first, and the ladder has to know which rung it was on.
             selectionBeforeClick = selectedRange
             clearSelection()
-            moveCursor(to: index(atColumn: mouse.position.x, in: Array(text)))
+            moveCursor(to: index(atColumn: clickColumn(mouse.position.x), in: displayed))
             return true
 
         case .click where mouse.clickCount >= 2:
-            escalateSelection(at: index(atColumn: mouse.position.x, in: Array(text)))
+            escalateSelection(at: index(atColumn: clickColumn(mouse.position.x), in: displayed))
             return true
 
         default:
@@ -549,7 +600,7 @@ public final class TextField: TUIView {
 
     // Keeps the cursor inside the visible window.
     private func adjustScroll(width: Int) {
-        let characters = Array(text)
+        let characters = displayed
 
         if cursorIndex < scrollOffset {
             scrollOffset = cursorIndex
@@ -573,6 +624,11 @@ extension TextField: ClipboardEditing {
     public func clipboardCopy() { copyAll() }
 
     public func clipboardCut() {
+        // Nothing leaves a secure field, so nothing is cut from it either.
+        guard !isSecure else {
+            return
+        }
+
         copyAll()
 
         // The selection when there is one, the whole field when there is not
