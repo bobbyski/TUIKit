@@ -152,9 +152,71 @@ public final class TableView: TUIView {
         navigation.count = rowCount
     }
 
-    /// Index of the selected row, when any.
+    /// Index of the selected row, when any. With multiple selection, the
+    /// cursor: the row the keys move from, selected or not.
     public var selectedIndex: Int? {
         navigation.selectedIndex
+    }
+
+    /// Whether more than one row can be selected (ActiveUI's
+    /// `AUITable.allowsMultipleSelection`). Shift extends from the anchor —
+    /// arrows, Page keys, Home/End, a click; Ctrl- or Alt-click and Space add
+    /// or remove one row. That is NSTableView's Shift and ⌘, with Ctrl and
+    /// Alt standing in for the ⌘ a terminal never sees.
+    public var allowsMultipleSelection = false {
+        didSet {
+            guard !allowsMultipleSelection else {
+                return
+            }
+
+            selection = []
+            setNeedsDisplay()
+        }
+    }
+
+    /// The selected rows, in order: the cursor row alone, or none, unless
+    /// `allowsMultipleSelection`.
+    public var selectedIndexes: [Int] {
+        guard allowsMultipleSelection else {
+            return navigation.selectedIndex.map { [$0] } ?? []
+        }
+
+        return selection.filter { $0 < rowCount }.sorted()
+    }
+
+    /// Selects these rows from code; the last becomes the cursor. A table
+    /// without multiple selection takes the first.
+    ///
+    /// - Parameters:
+    ///   - rows: The rows to select.
+    ///   - notify: Whether `onSelectionChanged` fires. Defaults to silent.
+    public func selectRows(_ rows: [Int], notify: Bool = false) {
+        guard allowsMultipleSelection else {
+            select(rows.first, notify: notify)
+            return
+        }
+
+        let valid = rows.filter { (0..<rowCount).contains($0) }
+        navigation.select(valid.last)
+        selection = Set(valid)
+        anchor = valid.first
+        navigation.ensureSelectionVisible(height: rowViewportHeight)
+        setNeedsDisplay()
+
+        if notify {
+            onSelectionChanged(navigation.selectedIndex)
+        }
+    }
+
+    // The selected rows with multiple selection on; unused otherwise, where
+    // the cursor row is the selection.
+    private var selection: Set<Int> = []
+
+    // Where a Shift-extension starts.
+    private var anchor: Int?
+
+    private func isSelected(_ index: Int) -> Bool {
+        allowsMultipleSelection ? selection.contains(index) : index == navigation.selectedIndex
     }
 
     /// First visible row.
@@ -180,7 +242,12 @@ public final class TableView: TUIView {
     ///   - index: Row to select, or `nil` to clear.
     ///   - notify: Whether `onSelectionChanged` fires. Defaults to silent.
     public func select(_ index: Int?, notify: Bool = false) {
-        guard navigation.select(index) else {
+        let moved = navigation.select(index)
+        let before = selection
+        selection = navigation.selectedIndex.map { [$0] } ?? []
+        anchor = navigation.selectedIndex
+
+        guard moved || (allowsMultipleSelection && selection != before) else {
             return
         }
 
@@ -243,12 +310,16 @@ public final class TableView: TUIView {
 
             var style = CellStyle()
 
-            if index == navigation.selectedIndex {
+            if isSelected(index) {
                 style = theme.selection
 
-                if isFirstResponder {
+                if isFirstResponder, index == navigation.selectedIndex {
                     style.flags.insert(.bold)
                 }
+            } else if allowsMultipleSelection, isFirstResponder, index == navigation.selectedIndex {
+                // The cursor on a row it left unselected: still shown, so the
+                // keys have somewhere visible to start from.
+                style.flags.insert(.underline)
             }
 
             painter.write(
@@ -285,36 +356,45 @@ public final class TableView: TUIView {
 
     /// Navigation and activation keys (identical model to `ListView`).
     public override func keyDown(_ key: KeyInput) -> Bool {
-        guard key.modifiers.isEmpty else {
+        let extending = allowsMultipleSelection && key.modifiers == .shift
+
+        guard key.modifiers.isEmpty || extending else {
             return false
         }
 
         switch key.key {
         case .up:
-            moveSelection(by: -1)
+            moveSelection(by: -1, extending: extending)
             return true
 
         case .down:
-            moveSelection(by: 1)
+            moveSelection(by: 1, extending: extending)
             return true
 
         case .pageUp:
-            moveSelection(by: -max(1, rowViewportHeight - 1))
+            moveSelection(by: -max(1, rowViewportHeight - 1), extending: extending)
             return true
 
         case .pageDown:
-            moveSelection(by: max(1, rowViewportHeight - 1))
+            moveSelection(by: max(1, rowViewportHeight - 1), extending: extending)
             return true
 
         case .home:
-            moveSelection(to: 0)
+            moveSelection(to: 0, extending: extending)
             return true
 
         case .end:
-            moveSelection(to: rowCount - 1)
+            moveSelection(to: rowCount - 1, extending: extending)
             return true
 
-        case .enter:
+        case .character(" ") where allowsMultipleSelection && !extending:
+            if let cursor = navigation.selectedIndex {
+                toggleRow(cursor)
+            }
+
+            return true
+
+        case .enter where !extending:
             if let selected = navigation.selectedIndex {
                 onActivate(selected)
             }
@@ -356,6 +436,10 @@ public final class TableView: TUIView {
                 // the activation.
                 select(index)
                 onActivate(index)
+            } else if allowsMultipleSelection, mouse.modifiers.contains(.shift) {
+                moveSelection(to: index, extending: true)
+            } else if allowsMultipleSelection, !mouse.modifiers.isDisjoint(with: [.control, .alt]) {
+                toggleRow(index)
             } else {
                 moveSelection(to: index)
 
@@ -478,19 +562,61 @@ public final class TableView: TUIView {
         return nil
     }
 
-    private func moveSelection(by offset: Int) {
-        guard navigation.move(by: offset) else {
-            return
-        }
-
-        selectionDidChange()
+    private func moveSelection(by offset: Int, extending: Bool = false) {
+        settleSelection(moved: navigation.move(by: offset), extending: extending)
     }
 
-    private func moveSelection(to index: Int) {
-        guard navigation.select(index) else {
+    private func moveSelection(to index: Int, extending: Bool = false) {
+        settleSelection(moved: navigation.select(index), extending: extending)
+    }
+
+    // After the cursor moves: the selection is that one row, or — extending —
+    // the run from the anchor to it. A plain move onto the cursor's own row
+    // still collapses a multiple selection, so it can change without moving.
+    private func settleSelection(moved: Bool, extending: Bool) {
+        guard allowsMultipleSelection else {
+            if moved {
+                selectionDidChange()
+            }
+
             return
         }
 
+        let before = selection
+
+        if let cursor = navigation.selectedIndex {
+            if extending, let anchor {
+                selection = Set(Swift.min(anchor, cursor)...Swift.max(anchor, cursor))
+            } else {
+                selection = [cursor]
+                anchor = cursor
+            }
+        } else {
+            selection = []
+            anchor = nil
+        }
+
+        if moved || selection != before {
+            selectionDidChange()
+        }
+    }
+
+    // Adds a row to the selection or takes it out; the cursor goes there and
+    // the next Shift-extension starts from it.
+    private func toggleRow(_ index: Int) {
+        guard allowsMultipleSelection, (0..<rowCount).contains(index) else {
+            return
+        }
+
+        navigation.select(index)
+
+        if selection.contains(index) {
+            selection.remove(index)
+        } else {
+            selection.insert(index)
+        }
+
+        anchor = index
         selectionDidChange()
     }
 
