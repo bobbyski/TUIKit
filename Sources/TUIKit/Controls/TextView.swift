@@ -587,9 +587,65 @@ public final class TextView: TUIView {
     }
 
     private func contentsChanged() {
+        guard !isBatchingEdits else {
+            return
+        }
+
         ensureCursorVisible()
         setNeedsDisplay()
         onChanged(text)
+    }
+
+    // Set while one call makes several edits, so `onChanged` fires once.
+    private var isBatchingEdits = false
+
+    // MARK: - The caret and the selection, from code (ActiveUI R7)
+
+    /// Selects from `anchor` to `head`, each clamped into the text, and puts
+    /// the caret at `head`. Equal points leave a bare caret there.
+    ///
+    /// Points are logical: `y` a line, `x` a character within it.
+    public func select(from anchor: Point, to head: Point) {
+        let start = clamped(anchor)
+        let end = clamped(head)
+        cursor = end
+        selection = start == end ? nil : Selection(anchor: start, head: end)
+        ensureCursorVisible()
+        setNeedsDisplay()
+    }
+
+    /// Puts the caret at a point, clamped into the text, selecting nothing.
+    public func placeCursor(at point: Point) {
+        select(from: point, to: point)
+    }
+
+    /// Inserts text at the caret, replacing the selection, as typing it would:
+    /// newlines split lines, and `onChanged` fires once. Works on a read-only
+    /// view too — it is the host editing, not the user.
+    public func insertAtCursor(_ string: String) {
+        guard !string.isEmpty else {
+            return
+        }
+
+        isBatchingEdits = true
+        deleteSelection()
+        for (index, part) in string.replacingOccurrences(of: "\r\n", with: "\n")
+            .components(separatedBy: "\n").enumerated() {
+            if index > 0 {
+                splitLine()
+            }
+            if !part.isEmpty {
+                insert(part)
+            }
+        }
+        isBatchingEdits = false
+        contentsChanged()
+    }
+
+    // A point inside the text: a real line, and a column on it.
+    private func clamped(_ point: Point) -> Point {
+        let line = min(max(0, point.y), lines.count - 1)
+        return Point(x: min(max(0, point.x), lines[line].count), y: line)
     }
 
     // MARK: - Cursor & viewport
