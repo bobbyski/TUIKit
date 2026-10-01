@@ -80,3 +80,34 @@ private func row(_ window: Window, width: Int) -> String {
     _ = field.mouseEvent(MouseInput(position: Point(x: 9, y: 0), action: .press, button: .left))
     #expect(field.cursorPosition == 1)
 }
+
+// One report per edit (ActiveUI's AUITextField.onChange): typing over a
+// selection and pasting were two and many.
+
+@Test @MainActor func typingOverASelectionReportsOnce() {
+    let field = TextField(text: "hello")
+    let window = Window(frame: Rect(x: 0, y: 0, width: 20, height: 1))
+    field.frame = Rect(x: 0, y: 0, width: 20, height: 1)
+    window.addSubview(field)
+    window.makeFirstResponder(field)
+    var reports: [String] = []
+    field.onChanged = { reports.append($0) }
+
+    field.selectAll()
+    window.route(.key(KeyInput(key: .character("x"))))
+    #expect(field.text == "x")
+    #expect(reports == ["x"], "typing over a selection reported \(reports)")
+}
+
+@Test @MainActor func aPasteReportsOnce() {
+    let field = TextField(text: "")
+    let board = Pasteboard()
+    field.pasteboard = board
+    board.copy("abc")
+    var reports: [String] = []
+    field.onChanged = { reports.append($0) }
+
+    field.paste()
+    #expect(field.text == "abc")
+    #expect(reports == ["abc"], "a paste reported \(reports)")
+}

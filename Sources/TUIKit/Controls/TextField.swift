@@ -419,9 +419,12 @@ public final class TextField: TUIView {
             .replacingOccurrences(of: "\n", with: " ")
             .replacingOccurrences(of: "\r", with: " ")
 
+        // One change for the paste, not one per character.
         for character in flattened {
-            insert(character)
+            insert(character, notify: false)
         }
+
+        changed()
     }
 
     /// Copies the selection, or the whole field when there is none.
@@ -523,13 +526,20 @@ public final class TextField: TUIView {
 
     // MARK: - Editing
 
-    private func insert(_ character: Character) {
-        deleteSelection()
+    // Typing over a selection is one edit: the selection goes without a
+    // report of its own, and the keystroke reports once.
+    private func insert(_ character: Character, notify: Bool = true) {
+        deleteSelection(notify: false)
         var characters = Array(text)
         characters.insert(character, at: cursorIndex)
         text = String(characters)
         cursorIndex += 1
-        changed()
+
+        if notify {
+            changed()
+        } else {
+            setNeedsDisplay()
+        }
     }
 
     private func deleteBackward() {
@@ -553,7 +563,7 @@ public final class TextField: TUIView {
     ///
     /// - Returns: Whether anything was removed.
     @discardableResult
-    private func deleteSelection() -> Bool {
+    private func deleteSelection(notify: Bool = true) -> Bool {
         guard let selected = selectedRange, !selected.isEmpty else {
             clearSelection()
             return false
@@ -564,7 +574,13 @@ public final class TextField: TUIView {
         text = String(characters)
         cursorIndex = selected.lowerBound
         clearSelection()
-        changed()
+
+        if notify {
+            changed()
+        } else {
+            setNeedsDisplay()
+        }
+
         return true
     }
 
