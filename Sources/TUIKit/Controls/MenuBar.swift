@@ -26,6 +26,15 @@ public final class MenuItem {
     /// called, because opening the child IS what activating it does.
     public var submenu: Menu?
 
+    /// A check mark beside the title (ActiveUI's `AUIMenuItem.state`).
+    public enum State: Sendable {
+        case off, on, mixed
+    }
+
+    /// Whether the item is checked. A dropdown makes room for the mark only
+    /// when one of its items uses it.
+    public var state = State.off
+
     /// Creates an item.
     ///
     /// - Parameters:
@@ -126,6 +135,12 @@ public final class Menu {
     public func addSeparator() {
         items.append(.separator())
     }
+
+    /// Called just before a dropdown reads this menu — opened from the bar,
+    /// as a context menu, or as a submenu. The place to rebuild a menu whose
+    /// enabled states, check marks or items follow live state, as AppKit's
+    /// `menuWillOpen` is.
+    public var onWillOpen: (() -> Void)?
 
     /// Removes every item.
     ///
@@ -560,6 +575,9 @@ final class MenuDropdown: TUIView {
     private var highlightedIndex: Int
 
     init(menu: Menu) {
+        // Every way a menu opens builds one of these first, so this is the
+        // one place the menu hears it is about to be read.
+        menu.onWillOpen?()
         self.menu = menu
         self.highlightedIndex = menu.items.firstIndex { $0.isEnabled && !$0.isSeparator } ?? 0
         super.init(frame: .zero)
@@ -606,7 +624,13 @@ final class MenuDropdown: TUIView {
             DisplayWidth.of(Accelerator($0.title).display) + DisplayWidth.of(Self.hint(for: $0.keyEquivalent))
                 + ($0.submenu == nil ? 0 : 2) + 2
         }.max() ?? 4
-        return Size(width: widest + 4, height: menu.items.count + 2)
+        return Size(width: widest + markWidth + 4, height: menu.items.count + 2)
+    }
+
+    // Two cells for "✓ " when any item is checked, so the titles line up;
+    // none when no item is.
+    private var markWidth: Int {
+        menu.items.contains { $0.state != .off } ? 2 : 0
     }
 
     override func draw(_ painter: Painter) {
@@ -615,7 +639,7 @@ final class MenuDropdown: TUIView {
         painter.fill(bounds, with: .blank)
         painter.drawBox(bounds, style: theme.border, border: theme.borderStyle)
 
-        let innerWidth = max(0, bounds.size.width - 4)
+        let innerWidth = max(0, bounds.size.width - 4 - markWidth)
 
         for (index, item) in menu.items.enumerated() {
             let y = index + 1
@@ -647,7 +671,13 @@ final class MenuDropdown: TUIView {
             let hint = item.submenu == nil ? Self.hint(for: item.keyEquivalent) : "▸"
             let title = Label.truncated(accelerator.display, width: max(0, innerWidth - DisplayWidth.of(hint)))
             let padding = max(0, innerWidth - DisplayWidth.of(title) - DisplayWidth.of(hint))
-            let line = " " + title + String(repeating: " ", count: padding) + hint + " "
+            let mark: String
+            switch item.state {
+            case .on: mark = "✓ "
+            case .mixed: mark = "– "
+            case .off: mark = markWidth > 0 ? "  " : ""
+            }
+            let line = " " + mark + title + String(repeating: " ", count: padding) + hint + " "
 
             painter.write(line, at: Point(x: 1, y: y), style: style)
 
@@ -657,7 +687,7 @@ final class MenuDropdown: TUIView {
             if item.isEnabled, let mnemonic = accelerator.index, mnemonic < title.count {
                 painter.set(
                     TerminalCell(character: Array(title)[mnemonic], style: theme.accelerator(over: style)),
-                    at: Point(x: 2 + mnemonic, y: y)
+                    at: Point(x: 2 + markWidth + mnemonic, y: y)
                 )
             }
         }
