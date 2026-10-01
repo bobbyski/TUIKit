@@ -83,6 +83,80 @@ public final class SyntaxTextView: TUIView {
     /// Spaces inserted by the Tab key.
     public var tabWidth = 4
 
+    // MARK: - Gutter decorations
+
+    /// A mark in the gutter beside one line: a breakpoint, a diagnostic, the
+    /// line a debugger stopped on. One per line; the host decides which wins.
+    public struct GutterMark: Equatable, Sendable {
+        /// The character drawn, such as `●` or `▶`.
+        public var symbol: Character
+        /// Its colours.
+        public var style: CellStyle
+
+        public init(_ symbol: Character, style: CellStyle = CellStyle()) {
+            self.symbol = symbol
+            self.style = style
+        }
+    }
+
+    /// Marks by 0-based line. Any mark adds a one-cell column before the line
+    /// numbers.
+    public var gutterMarks: [Int: GutterMark] = [:] {
+        didSet {
+            if gutterMarks != oldValue {
+                setNeedsDisplay()
+            }
+        }
+    }
+
+    /// Whether the mark column shows with no marks, so the text does not shift
+    /// sideways as marks come and go. Off by default.
+    public var reservesMarkColumn = false {
+        didSet {
+            if reservesMarkColumn != oldValue {
+                setNeedsDisplay()
+            }
+        }
+    }
+
+    /// The gutter rule's style by 0-based line: a changed line's colour, as an
+    /// editor's change bar. Lines without one draw the rule dim.
+    public var gutterRuleStyles: [Int: CellStyle] = [:] {
+        didSet {
+            if gutterRuleStyles != oldValue {
+                setNeedsDisplay()
+            }
+        }
+    }
+
+    /// A background behind whole lines by 0-based line, such as the line a
+    /// debugger stopped on. Selection and find matches draw over it.
+    public var lineBackgrounds: [Int: TerminalColor] = [:] {
+        didSet {
+            if lineBackgrounds != oldValue {
+                setNeedsDisplay()
+            }
+        }
+    }
+
+    /// Underlined columns by 0-based line, in characters: a diagnostic's range.
+    public var underlinedColumns: [Int: [Range<Int>]] = [:] {
+        didSet {
+            if underlinedColumns != oldValue {
+                setNeedsDisplay()
+            }
+        }
+    }
+
+    /// Called with the 0-based line when the gutter is clicked, such as to
+    /// toggle a breakpoint. Unset, a gutter click moves the caret as before.
+    public var onGutterClick: ((Int) -> Void)?
+
+    /// Whether the mark column is drawn.
+    private var showsMarkColumn: Bool {
+        reservesMarkColumn || !gutterMarks.isEmpty
+    }
+
     /// Whether keystrokes edit the text. A read-only editor still takes focus,
     /// scrolls, selects, and copies — good for a source viewer — but shows no
     /// cursor and ignores edits (Tab bubbles for focus movement).
@@ -487,10 +561,23 @@ public final class SyntaxTextView: TUIView {
             }
 
             if gutter > 0 {
-                let number = String(lineIndex + 1)
-                let padded = String(repeating: " ", count: max(0, gutter - 2 - number.count)) + number + " │"
-                painter.write(padded, at: Point(x: 0, y: viewportRow), style: CellStyle(flags: .dim))
+                drawGutter(painter, line: lineIndex, row: viewportRow, width: gutter)
             }
+
+            // A line background fills the whole row, so a short line still
+            // reads as the highlighted one.
+            let lineBackground = lineBackgrounds[lineIndex]
+
+            if let lineBackground {
+                for column in 0..<contentWidth {
+                    painter.set(
+                        TerminalCell(character: " ", style: CellStyle(background: lineBackground)),
+                        at: Point(x: gutter + column, y: viewportRow)
+                    )
+                }
+            }
+
+            let underlines = underlinedColumns[lineIndex] ?? []
 
             let selection = buffer.selection(onLine: lineIndex)
             let matchRanges = findMatchesByLine[lineIndex] ?? []
@@ -505,6 +592,14 @@ public final class SyntaxTextView: TUIView {
 
                     if viewportColumn >= 0, viewportColumn < contentWidth {
                         var style = run.style
+
+                        if let lineBackground, style.background == .standard {
+                            style.background = lineBackground
+                        }
+
+                        if underlines.contains(where: { $0.contains(documentColumn) }) {
+                            style.flags.insert(.underline)
+                        }
 
                         if matchRanges.contains(where: { $0.contains(documentColumn) }) {
                             let isCurrent = currentMatch?.line == lineIndex
@@ -786,6 +881,15 @@ public final class SyntaxTextView: TUIView {
                 return true
             }
 
+            if let onGutterClick, mouse.position.x < layout.gutter, mouse.position.y < layout.contentHeight {
+                let line = offset.y + mouse.position.y
+
+                if line < lines.count {
+                    onGutterClick(line)
+                    return true
+                }
+            }
+
             isDragSelecting = true
             move(to: documentPosition(of: mouse.position), extending: mouse.modifiers.contains(.shift))
             return true
@@ -932,9 +1036,33 @@ public final class SyntaxTextView: TUIView {
 
     // MARK: - Highlighting
 
-    // Gutter width: line numbers, one space, and the │ rule.
+    // Gutter width: the mark column when shown, then line numbers, one space,
+    // and the │ rule.
     private var gutterWidth: Int {
-        showsLineNumbers ? String(lines.count).count + 2 : 0
+        (showsMarkColumn ? 1 : 0) + (showsLineNumbers ? String(lines.count).count + 2 : 0)
+    }
+
+    // One row of the gutter: the line's mark, its number, and the rule.
+    private func drawGutter(_ painter: Painter, line lineIndex: Int, row: Int, width: Int) {
+        var x = 0
+
+        if showsMarkColumn {
+            let mark = gutterMarks[lineIndex]
+            painter.set(
+                TerminalCell(character: mark?.symbol ?? " ", style: mark?.style ?? CellStyle()),
+                at: Point(x: 0, y: row)
+            )
+            x = 1
+        }
+
+        guard showsLineNumbers else {
+            return
+        }
+
+        let number = String(lineIndex + 1)
+        let padded = String(repeating: " ", count: max(0, width - x - 2 - number.count)) + number + " "
+        painter.write(padded, at: Point(x: x, y: row), style: CellStyle(flags: .dim))
+        painter.write("│", at: Point(x: width - 1, y: row), style: gutterRuleStyles[lineIndex] ?? CellStyle(flags: .dim))
     }
 
     // Cached per-line highlighting: a stateful provider (custom, or built in
