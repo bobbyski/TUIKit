@@ -46,3 +46,18 @@ private func waitForScreen(_ driver: HeadlessDriver, _ condition: ([String]) -> 
     app.stop()
     try await session.value
 }
+
+@Test @MainActor func presentingAPresentedWindowRaisesItInsteadOfAddingIt() {
+    let app = App(driver: HeadlessDriver(size: Size(width: 20, height: 6)))
+    let first = Window(frame: Rect(x: 0, y: 0, width: 10, height: 3))
+    let second = Window(frame: Rect(x: 2, y: 1, width: 10, height: 3))
+
+    app.present(first)
+    app.present(second)
+    app.present(first)
+    #expect(app.windows.count == 2, "a window presented twice was stacked twice")
+    #expect(app.keyWindow === first, "presenting it again did not raise it")
+
+    app.dismiss(first)
+    #expect(app.windows.count == 1 && app.keyWindow === second, "dismissing left the window behind")
+}

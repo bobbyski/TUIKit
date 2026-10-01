@@ -255,6 +255,15 @@ public final class App {
     ///
     /// - Parameter window: Window to present.
     public func present(_ window: Window) {
+        // Presenting a window that is already up raises it. A second entry
+        // would draw it twice and `dismiss` would leave one behind; and a
+        // host that presents its main window before `run(_:)` presents it
+        // again must not end up with two.
+        if windows.contains(where: { $0 === window }) {
+            activate(window)
+            return
+        }
+
         if window.frame == .zero {
             window.fillsScreen = true
         }
