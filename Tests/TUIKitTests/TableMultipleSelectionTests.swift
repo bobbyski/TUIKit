@@ -99,3 +99,50 @@ private func click(_ view: TableView, row: Int, _ modifiers: KeyModifiers = []) 
     app.stop()
     try await session.value
 }
+
+// Moving rows (ActiveUI's AUITable.allowsReordering).
+
+@MainActor
+private func reorderableTable() -> (TableView, Window, () -> [String], [(Int, Int)]) {
+    var model = (0..<6).map { "row \($0)" }
+    var moves: [(Int, Int)] = []
+    let view = TableView(columns: [TableColumn("Name")], rows: model.map { [$0] })
+    view.allowsReordering = true
+    view.onMoveRow = { from, to in
+        moves.append((from, to))
+        let item = model.remove(at: from)
+        model.insert(item, at: to)
+        view.rows = model.map { [$0] }
+    }
+    let window = Window(frame: Rect(x: 0, y: 0, width: 20, height: 10))
+    view.frame = window.bounds
+    window.addSubview(view)
+    window.makeFirstResponder(view)
+    return (view, window, { model }, moves)
+}
+
+@Test @MainActor func altArrowsMoveTheCursorRow() {
+    let (view, window, model, _) = reorderableTable()
+    view.select(1)
+    window.route(.key(KeyInput(key: .down, modifiers: .alt)))
+    window.route(.key(KeyInput(key: .down, modifiers: .alt)))
+    #expect(model()[3] == "row 1", "Alt-Down twice left \(model())")
+    #expect(view.selectedIndex == 3, "the cursor did not follow the row")
+    window.route(.key(KeyInput(key: .up, modifiers: .alt)))
+    #expect(model()[2] == "row 1")
+}
+
+@Test @MainActor func aDraggedRowLandsWhereItIsDropped() {
+    let (view, _, model, _) = reorderableTable()
+    _ = view.mouseEvent(MouseInput(position: Point(x: 2, y: 1), action: .press, button: .left))   // row 0
+    _ = view.mouseEvent(MouseInput(position: Point(x: 2, y: 3), action: .drag, button: .left))
+    _ = view.mouseEvent(MouseInput(position: Point(x: 2, y: 5), action: .drag, button: .left))    // row 4
+    _ = view.mouseEvent(MouseInput(position: Point(x: 2, y: 5), action: .release, button: .left))
+    #expect(model() == ["row 1", "row 2", "row 3", "row 4", "row 0", "row 5"], "the drag gave \(model())")
+    #expect(view.selectedIndex == 4)
+
+    // A press and release on one row moves nothing.
+    _ = view.mouseEvent(MouseInput(position: Point(x: 2, y: 2), action: .press, button: .left))
+    _ = view.mouseEvent(MouseInput(position: Point(x: 2, y: 2), action: .release, button: .left))
+    #expect(model()[1] == "row 2", "a click moved a row")
+}

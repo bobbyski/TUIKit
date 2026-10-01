@@ -137,6 +137,20 @@ public final class TableView: TUIView {
     /// reassigns `rows`.
     public var onSortRequested: (Int) -> Void = { _ in }
 
+    /// Whether rows can be moved: Alt-Up and Alt-Down move the cursor row,
+    /// and a row can be dragged to another (ActiveUI's
+    /// `AUITable.allowsReordering`). The table reports; the host moves the
+    /// row in its model and reloads.
+    public var allowsReordering = false
+
+    /// Called with (from, to) when a row is moved; `to` is the row's index
+    /// after the move. The cursor follows the row.
+    public var onMoveRow: (Int, Int) -> Void = { _, _ in }
+
+    // The row a drag picked up, and the row it would land on now.
+    private var dragSource: Int?
+    private var dragTarget: Int?
+
     // Shared navigation core (same one ListView uses).
     private var navigation = RowNavigationState()
 
@@ -316,6 +330,10 @@ public final class TableView: TUIView {
                 if isFirstResponder, index == navigation.selectedIndex {
                     style.flags.insert(.bold)
                 }
+            } else if index == dragTarget {
+                // Where a dragged row would land.
+                style.flags.insert(.underline)
+                style.flags.insert(.bold)
             } else if allowsMultipleSelection, isFirstResponder, index == navigation.selectedIndex {
                 // The cursor on a row it left unselected: still shown, so the
                 // keys have somewhere visible to start from.
@@ -356,6 +374,24 @@ public final class TableView: TUIView {
 
     /// Navigation and activation keys (identical model to `ListView`).
     public override func keyDown(_ key: KeyInput) -> Bool {
+        if allowsReordering, key.modifiers == .alt, let cursor = navigation.selectedIndex {
+            switch key.key {
+            case .up where cursor > 0:
+                moveRow(cursor, to: cursor - 1)
+                return true
+
+            case .down where cursor < rowCount - 1:
+                moveRow(cursor, to: cursor + 1)
+                return true
+
+            case .up, .down:
+                return true   // at the end already: still the move keys
+
+            default:
+                break
+            }
+        }
+
         let extending = allowsMultipleSelection && key.modifiers == .shift
 
         guard key.modifiers.isEmpty || extending else {
@@ -412,7 +448,31 @@ public final class TableView: TUIView {
     public override func mouseEvent(_ mouse: MouseInput) -> Bool {
         switch mouse.action {
         case .press where mouse.button == .left:
+            // A press on a data row may become a drag that moves it.
+            if allowsReordering, mouse.position.y > 0 {
+                let index = navigation.scrollOffset + mouse.position.y - 1
+                dragSource = index < rowCount ? index : nil
+                dragTarget = nil
+            }
+
             return true   // consume; the settled click does the work
+
+        case .drag where dragSource != nil:
+            let row = navigation.scrollOffset + mouse.position.y - 1
+            let target = Swift.max(0, Swift.min(rowCount - 1, row))
+            dragTarget = target == dragSource ? nil : target
+            setNeedsDisplay()
+            return true
+
+        case .release where dragSource != nil:
+            if let source = dragSource, let target = dragTarget {
+                moveRow(source, to: target)
+            }
+
+            dragSource = nil
+            dragTarget = nil
+            setNeedsDisplay()
+            return true
 
         case .click:
             if mouse.position.y == 0 {
@@ -599,6 +659,14 @@ public final class TableView: TUIView {
         if moved || selection != before {
             selectionDidChange()
         }
+    }
+
+    // Reports a move and puts the cursor (and the selection) on the row in
+    // its new place, which is where the host's reload will draw it.
+    private func moveRow(_ source: Int, to target: Int) {
+        onMoveRow(source, target)
+        navigation.count = rowCount
+        select(target, notify: true)
     }
 
     // Adds a row to the selection or takes it out; the cursor goes there and
