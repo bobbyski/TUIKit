@@ -670,3 +670,15 @@ private func chromeRendered(_ view: TUIView, width: Int, height: Int, theme: The
         #expect(DisplayWidth.of(marker) == 1, "marker \(marker) must be single-width")
     }
 }
+
+@Test @MainActor func tickLabelsAreTrimmedNotPrintedInFull() {
+    // 0.2 × 3 in floating point: a tick step's accumulated error must not
+    // reach the axis.
+    #expect(ChartFidelity.trimmed(0.2 * 3) == "0.6")
+    #expect(ChartFidelity.trimmed(8) == "8")
+    #expect(ChartFidelity.trimmed(2.25) == "2.25")
+    #expect(ChartFidelity.trimmed(-1.5) == "-1.5")
+    #expect(BarChart().yFormatter(0.6000000000000001) == "0.6")
+    #expect(LineChart().yFormatter(0.6000000000000001) == "0.6")
+    #expect(LineChart().xFormatter(2.0000000001) == "2")
+}

@@ -91,7 +91,7 @@ public final class LineChart: TUIView {
     /// Formats a y-axis tick. Defaults to a bare trimmed number; a memory
     /// chart sets `{ "\(Int($0 / 1_048_576))MB" }`.
     public var yFormatter: (Double) -> String = { value in
-        value == value.rounded() ? String(Int(value)) : String(value)
+        ChartFidelity.trimmed(value)
     } {
         didSet {
             setNeedsDisplay()
@@ -100,7 +100,7 @@ public final class LineChart: TUIView {
 
     /// Formats an x-axis tick. Same default as ``yFormatter``.
     public var xFormatter: (Double) -> String = { value in
-        value == value.rounded() ? String(Int(value)) : String(value)
+        ChartFidelity.trimmed(value)
     } {
         didSet {
             setNeedsDisplay()

@@ -77,7 +77,7 @@ public final class BarChart: TUIView {
 
     /// Formats a value-axis tick. Defaults to a bare trimmed number.
     public var yFormatter: (Double) -> String = { value in
-        value == value.rounded() ? String(Int(value)) : String(value)
+        ChartFidelity.trimmed(value)
     } {
         didSet {
             setNeedsDisplay()

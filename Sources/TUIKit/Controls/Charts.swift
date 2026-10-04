@@ -27,6 +27,20 @@ public enum ChartFidelity: Hashable, Sendable {
     case braille
 }
 
+extension ChartFidelity {
+    /// A tick value as a person writes it: "8", "0.6", "2.25" — whole
+    /// numbers bare, others to at most two places with trailing zeros
+    /// trimmed. Tick steps accumulate floating-point error (0.2 × 3 is
+    /// 0.6000000000000001), which `String(value)` would print in full.
+    public static func trimmed(_ value: Double) -> String {
+        let rounded = (value * 100).rounded() / 100
+        if rounded == rounded.rounded(), abs(rounded) < Double(Int.max) { return String(Int(rounded)) }
+        var text = String(format: "%.2f", rounded)
+        while text.hasSuffix("0") { text.removeLast() }
+        return text
+    }
+}
+
 /// A series in one row: shape and direction at a glance, no axes, no labels.
 ///
 /// ```text
