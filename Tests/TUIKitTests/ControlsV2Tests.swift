@@ -289,3 +289,30 @@ private func makePopUp(buttonY: Int, windowHeight: Int = 10) -> (PopUpButton, Wi
     group.clearSelection(notify: true)
     #expect(reported == [0, -1])
 }
+
+@Test @MainActor func aHiddenStatusBarSegmentGivesUpItsWidthAndSeparator() {
+    let bar = StatusBar()
+    let hint = Label("H")
+    let count = Label("● 3 new")
+    let place = Label("P")
+    bar.addSegment(hint, minimumWidth: 4, percentage: 100)
+    let countSegment = bar.addSegment(count)
+    bar.addSegment(place, minimumWidth: 4)
+
+    countSegment.isVisible = false
+    bar.frame = Rect(x: 0, y: 0, width: 20, height: 1)
+    bar.setNeedsLayout()
+    bar.layoutIfNeeded()
+
+    // Two segments, one separator: 19 cells shared, the hint takes the rest.
+    #expect(count.isHidden)
+    #expect(hint.frame == Rect(x: 0, y: 0, width: 15, height: 1))
+    #expect(place.frame == Rect(x: 16, y: 0, width: 4, height: 1))
+    #expect(bar.intrinsicContentSize?.width == 4 + 1 + 4)
+
+    countSegment.isVisible = true
+    bar.setNeedsLayout()
+    bar.layoutIfNeeded()
+    #expect(!count.isHidden)
+    #expect(count.frame.size.width == 7)
+}

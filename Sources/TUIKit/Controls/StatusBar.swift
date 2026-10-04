@@ -23,6 +23,12 @@ public final class StatusBarSegment {
     /// width first (ties: trailing segments first). Default 0.
     public var priority: Int
 
+    /// Whether the segment takes its place. A hidden one gives up its width
+    /// and its separator, so a segment with nothing to say (a count of
+    /// zero) leaves no empty box between two dividers. Mark the bar's
+    /// layout dirty after changing it.
+    public var isVisible = true
+
     init(content: TUIView, minimumWidth: Int?, maximumWidth: Int?, percentage: Int, priority: Int) {
         self.content = content
         self.minimumWidth = minimumWidth
@@ -185,8 +191,9 @@ public final class StatusBar: TUIView {
 
     /// One row at the sum of the minimum widths.
     public override var intrinsicContentSize: Size? {
-        let widths = segments.reduce(0) { $0 + resolvedMinimum(of: $1) }
-        let separators = showsSeparators ? max(0, segments.count - 1) : 0
+        let shown = segments.filter(\.isVisible)
+        let widths = shown.reduce(0) { $0 + resolvedMinimum(of: $1) }
+        let separators = showsSeparators ? max(0, shown.count - 1) : 0
         return Size(width: widths + separators, height: 1)
     }
 
@@ -196,7 +203,7 @@ public final class StatusBar: TUIView {
         let flashing = flashText != nil
 
         for segment in segments {
-            segment.content.isHidden = flashing
+            segment.content.isHidden = flashing || !segment.isVisible
         }
 
         if flashing {
@@ -207,7 +214,14 @@ public final class StatusBar: TUIView {
             return
         }
 
+        // Hidden segments step out of the row entirely.
+        let segments = self.segments.filter(\.isVisible)
+
         guard !segments.isEmpty else {
+            for divider in separators {
+                divider.isHidden = true
+            }
+
             return
         }
 
