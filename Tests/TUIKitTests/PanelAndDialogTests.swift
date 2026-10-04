@@ -118,3 +118,24 @@ import Testing
     dialog.route(.key(KeyInput(key: .tab)))
     #expect(dialog.firstResponder === ok)
 }
+
+@Test @MainActor func returnInAFieldReachesTheDefaultButtonUnlessTheFieldSubmits() {
+    // A prompt: a field in the body, focused. The field has no onSubmit, so
+    // Return is the dialog's — its default button answers in the cold-key
+    // pass, as the Dialog documentation promises.
+    let dialog = Dialog(title: "Story points")
+    var log: [String] = []
+    let field = TextField(text: "5")
+    dialog.body.addSubview(field)
+    dialog.addButton("Cancel", isCancel: true)
+    dialog.addButton("OK", isDefault: true) { log.append("ok \(field.text)") }
+    dialog.makeFirstResponder(field)
+
+    dialog.route(.key(KeyInput(key: .enter)))
+    #expect(log == ["ok 5"])
+
+    // A field that submits keeps Return for itself.
+    field.onSubmit = { log.append("submit \($0)") }
+    dialog.route(.key(KeyInput(key: .enter)))
+    #expect(log == ["ok 5", "submit 5"])
+}

@@ -77,7 +77,16 @@ public final class TextField: TUIView {
     public var onChanged: (String) -> Void = { _ in }
 
     /// Called when Return is pressed.
-    public var onSubmit: (String) -> Void = { _ in }
+    ///
+    /// A field nobody set this on leaves Return alone, so it reaches the
+    /// window: a dialog's default button answers it (its cold-key pass),
+    /// as `Dialog` promises for a field with focus.
+    public var onSubmit: (String) -> Void = { _ in } {
+        didSet { handlesSubmit = true }
+    }
+
+    // Whether `onSubmit` was ever set: Return is the field's only then.
+    private var handlesSubmit = false
 
     /// Called when Backspace is pressed with the caret at the start and
     /// nothing selected — the one keystroke a field cannot use itself, and
@@ -358,6 +367,10 @@ public final class TextField: TUIView {
 
         switch key.key {
         case .enter:
+            guard handlesSubmit else {
+                return false
+            }
+
             onSubmit(text)
             return true
 
