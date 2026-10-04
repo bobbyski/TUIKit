@@ -563,3 +563,18 @@ private let egaPalette: Set<[Int]> = [
     _ = renderer.render(size: Size(width: 60, height: 20))
     #expect(titleBarOwners().count == 2, "both are clear now")
 }
+
+@Test func turboDeEmphasisOnTheDocumentIsReadable() {
+    // Cyan on the blue, the classic look — but plain. The base palette's
+    // `.dim` used to leak into the document and halve the contrast, so a
+    // board card's second line could not be read.
+    for theme in [Theme.turbo, .modernTurbo, .turboAmbiance] {
+        let content = theme.resolved(for: .contentWindow)
+        #expect(content.placeholder.foreground == .rgb(red: 0, green: 170, blue: 170), "\(theme.name)")
+        #expect(content.placeholder.background == .rgb(red: 0, green: 0, blue: 170), "\(theme.name)")
+        #expect(!content.placeholderAttributes.contains(.dim), "\(theme.name)")
+    }
+
+    // The gray surfaces keep their dim de-emphasis.
+    #expect(Theme.turbo.resolved().placeholderAttributes.contains(.dim))
+}

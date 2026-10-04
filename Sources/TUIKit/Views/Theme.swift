@@ -406,6 +406,11 @@ extension Theme {
         // gray sets `Toolbar.disabledStyle` (OmegaCLIDE does).
         content.placeholderForeground = .rgb(red: 0, green: 170, blue: 170)
         content.placeholderBackground = .rgb(red: 0, green: 0, blue: 170)
+        // Plain cyan, not the base's dim: dimmed, cyan on the blue falls to
+        // about 2.5:1 and a board card's second line could not be read
+        // (JIRAKit's TUIKIT_REQUESTS R-T7). Undimmed it is 4.6:1, and the
+        // cyan itself already says "secondary".
+        content.placeholderAttributes = []
 
         var desktop = ThemePalette()
         desktop.background = .rgb(red: 85, green: 85, blue: 255)     // light blue backdrop
